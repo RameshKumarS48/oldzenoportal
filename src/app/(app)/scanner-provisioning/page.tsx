@@ -5,6 +5,7 @@ import { Download, Plus } from "lucide-react";
 import {
   useScannerProvisioningStore,
   ACTION_LABELS,
+  SYNC_LABELS,
   type ScannerAction,
 } from "@/store/scanner-provisioning";
 import { Button } from "@/components/ui/button";
@@ -20,9 +21,10 @@ async function exportToXLSX(actions: ScannerAction[]) {
   const sheet = workbook.addWorksheet("Scanner Provisioning");
 
   const headers = [
-    "Timestamp", "Action", "VIN", "Customer Name", "Customer Phone", "RFID Tag",
+    "Timestamp", "Action", "VIN", "Chassis", "VCU IMEI", "VCU ICCID", "EVCC", "Motor",
+    "Registration", "Customer Name", "Customer Phone", "Driving License", "RFID Tag",
     "Store Code", "Tenant", "Bike State", "Performed By", "Credential", "OTP Verified",
-    "Source", "Linked VIN", "Notes",
+    "Signature", "Sync Status", "Source", "Linked VIN", "Notes",
   ];
 
   const headerRow = sheet.addRow(headers);
@@ -32,8 +34,10 @@ async function exportToXLSX(actions: ScannerAction[]) {
 
   actions.forEach((a) => {
     sheet.addRow([
-      a.timestamp, ACTION_LABELS[a.actionType], a.vin, a.customerName, a.customerPhone, a.rfidTag,
+      a.timestamp, ACTION_LABELS[a.actionType], a.vin, a.chassisId, a.vcuImei, a.vcuIccid, a.evccId, a.motorId,
+      a.registrationNo, a.customerName, a.customerPhone, a.drivingLicense, a.rfidTag,
       a.storeCode, a.tenant, a.bikeState, a.performedBy, a.credentialType, a.otpVerified ? "Yes" : "No",
+      a.signatureCaptured ? "Captured" : "", SYNC_LABELS[a.syncStatus],
       a.source === "portal" ? "Portal" : "Scanner App", a.linkedVin, a.notes,
     ]);
   });

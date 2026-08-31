@@ -26,6 +26,17 @@ export const ACTION_TYPES = Object.keys(ACTION_LABELS) as ScannerActionType[];
 
 export type BikeState = "new" | "active" | "used" | "test";
 
+// Per-entry sync state, mirroring the Field Scanner app (Empty / Synced / Not sent).
+export type SyncStatus = "empty" | "synced" | "not_sent";
+
+export const SYNC_LABELS: Record<SyncStatus, string> = {
+  empty: "Empty",
+  synced: "Synced",
+  not_sent: "Not Sent",
+};
+
+export const SYNC_STATUSES = Object.keys(SYNC_LABELS) as SyncStatus[];
+
 export type ScannerAction = {
   id: string;
   timestamp: string; // "01 Sep 2026 13:06"
@@ -43,6 +54,16 @@ export type ScannerAction = {
   source: "scanner_app" | "portal";
   linkedVin: string; // derived: VIN this row's customer is linked to (or own vin)
   notes: string;
+  // Field Scanner "tap to scan each field" components (bring-up 5-component scan + VCU dual UID).
+  chassisId: string; // Chassis
+  vcuImei: string; // VCU · IMEI
+  vcuIccid: string; // VCU · ICCID
+  evccId: string; // EVCC
+  motorId: string; // Motor
+  registrationNo: string; // Registration
+  drivingLicense: string; // Customer Onboarding · Driving License
+  signatureCaptured: boolean; // Signature
+  syncStatus: SyncStatus; // Empty / Synced / Not sent
 };
 
 export type ScannerFilterState = {
@@ -53,21 +74,33 @@ export type ScannerFilterState = {
   credentialType: string;
   bikeState: string;
   source: string;
+  syncStatus: string;
   dateFrom: string;
   dateTo: string;
 };
 
-const DEFAULT_FILTERS: ScannerFilterState = {
-  search: "",
-  actionType: "All",
-  storeCode: "All",
-  tenant: "All",
-  credentialType: "All",
-  bikeState: "All",
-  source: "All",
-  dateFrom: "",
-  dateTo: "",
-};
+// "yyyy-mm-dd" for a <input type="date">, offset by `daysAgo` from today (0 = today).
+function isoDate(daysAgo = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return d.toISOString().slice(0, 10);
+}
+
+// Default the date window to the last 7 days (inclusive of today).
+function defaultFilters(): ScannerFilterState {
+  return {
+    search: "",
+    actionType: "All",
+    storeCode: "All",
+    tenant: "All",
+    credentialType: "All",
+    bikeState: "All",
+    source: "All",
+    syncStatus: "All",
+    dateFrom: isoDate(7),
+    dateTo: isoDate(0),
+  };
+}
 
 // Seeded event log. Several VINs match existing MOCK_VEHICLES in asset-tracking
 // to demonstrate cross-store linkage; two customer-only rows link to bikes later.
@@ -78,6 +111,9 @@ const MOCK_ACTIONS: ScannerAction[] = [
     storeCode: "ke-nbo-zhq", tenant: "", bikeState: "new",
     performedBy: "James Kariuki", credentialType: "Zeno", otpVerified: false,
     source: "scanner_app", linkedVin: "ME92ZPSBB1J000760", notes: "5-component scan completed",
+    chassisId: "ME92ZPSBB1J000760", vcuImei: "356938035643809", vcuIccid: "8991101200003204510",
+    evccId: "EVCC-KE-000760", motorId: "MTR-8891-000760", registrationNo: "KDA 760A",
+    drivingLicense: "", signatureCaptured: false, syncStatus: "synced",
   },
   {
     id: "a2", timestamp: "07 May 2026 09:40", actionType: "tenant_assign",
@@ -85,6 +121,9 @@ const MOCK_ACTIONS: ScannerAction[] = [
     storeCode: "ke-nbo-zhq", tenant: "fleet/greenwheels", bikeState: "new",
     performedBy: "James Kariuki", credentialType: "Zeno", otpVerified: false,
     source: "scanner_app", linkedVin: "ME92ZPSBB1J000760", notes: "",
+    chassisId: "ME92ZPSBB1J000760", vcuImei: "356938035643809", vcuIccid: "8991101200003204510",
+    evccId: "EVCC-KE-000760", motorId: "MTR-8891-000760", registrationNo: "KDA 760A",
+    drivingLicense: "", signatureCaptured: false, syncStatus: "synced",
   },
   {
     id: "a3", timestamp: "08 May 2026 14:05", actionType: "dispatch",
@@ -92,6 +131,9 @@ const MOCK_ACTIONS: ScannerAction[] = [
     storeCode: "ke-nbo-grw-hq", tenant: "fleet/greenwheels", bikeState: "new",
     performedBy: "Logistics Team", credentialType: "Zeno", otpVerified: false,
     source: "scanner_app", linkedVin: "ME92ZPSBB1J000760", notes: "Dispatched to Greenwheels HQ",
+    chassisId: "ME92ZPSBB1J000760", vcuImei: "356938035643809", vcuIccid: "8991101200003204510",
+    evccId: "EVCC-KE-000760", motorId: "MTR-8891-000760", registrationNo: "KDA 760A",
+    drivingLicense: "", signatureCaptured: false, syncStatus: "synced",
   },
   {
     id: "a4", timestamp: "09 May 2026 10:22", actionType: "bike_assign",
@@ -99,6 +141,9 @@ const MOCK_ACTIONS: ScannerAction[] = [
     storeCode: "ke-nbo-grw-hq", tenant: "fleet/greenwheels", bikeState: "active",
     performedBy: "Grace Wambui", credentialType: "Partner", otpVerified: true,
     source: "scanner_app", linkedVin: "ME92ZPSBB1J000760", notes: "OTP verified",
+    chassisId: "ME92ZPSBB1J000760", vcuImei: "356938035643809", vcuIccid: "8991101200003204510",
+    evccId: "EVCC-KE-000760", motorId: "MTR-8891-000760", registrationNo: "KDA 760A",
+    drivingLicense: "DL-14-2019-0034521", signatureCaptured: false, syncStatus: "synced",
   },
   {
     id: "a5", timestamp: "09 May 2026 10:35", actionType: "rfid_assign",
@@ -106,6 +151,9 @@ const MOCK_ACTIONS: ScannerAction[] = [
     storeCode: "ke-nbo-grw-hq", tenant: "fleet/greenwheels", bikeState: "active",
     performedBy: "Grace Wambui", credentialType: "Partner", otpVerified: true,
     source: "scanner_app", linkedVin: "ME92ZPSBB1J000760", notes: "One RFID per VIN",
+    chassisId: "ME92ZPSBB1J000760", vcuImei: "356938035643809", vcuIccid: "8991101200003204510",
+    evccId: "EVCC-KE-000760", motorId: "MTR-8891-000760", registrationNo: "KDA 760A",
+    drivingLicense: "DL-14-2019-0034521", signatureCaptured: false, syncStatus: "synced",
   },
   {
     id: "a6", timestamp: "09 May 2026 10:48", actionType: "handover",
@@ -113,6 +161,9 @@ const MOCK_ACTIONS: ScannerAction[] = [
     storeCode: "ke-nbo-grw-hq", tenant: "fleet/greenwheels", bikeState: "active",
     performedBy: "Grace Wambui", credentialType: "Partner", otpVerified: false,
     source: "scanner_app", linkedVin: "ME92ZPSBB1J000760", notes: "Customer signature captured",
+    chassisId: "ME92ZPSBB1J000760", vcuImei: "356938035643809", vcuIccid: "8991101200003204510",
+    evccId: "EVCC-KE-000760", motorId: "MTR-8891-000760", registrationNo: "KDA 760A",
+    drivingLicense: "DL-14-2019-0034521", signatureCaptured: true, syncStatus: "synced",
   },
   {
     id: "a7", timestamp: "03 Jun 2026 11:15", actionType: "bike_assign",
@@ -120,6 +171,9 @@ const MOCK_ACTIONS: ScannerAction[] = [
     storeCode: "ke-nbo-zhq", tenant: "retail/cash", bikeState: "active",
     performedBy: "Nikhil I", credentialType: "Zeno", otpVerified: true,
     source: "scanner_app", linkedVin: "ME92ZPSDB1J001111", notes: "",
+    chassisId: "ME92ZPSDB1J001111", vcuImei: "356938035671122", vcuIccid: "8991101200003211137",
+    evccId: "EVCC-KE-001111", motorId: "MTR-8891-001111", registrationNo: "KDB 111C",
+    drivingLicense: "DL-14-2021-0098234", signatureCaptured: false, syncStatus: "synced",
   },
   {
     id: "a8", timestamp: "03 Jun 2026 11:28", actionType: "rfid_assign",
@@ -127,6 +181,9 @@ const MOCK_ACTIONS: ScannerAction[] = [
     storeCode: "ke-nbo-zhq", tenant: "retail/cash", bikeState: "active",
     performedBy: "Nikhil I", credentialType: "Zeno", otpVerified: true,
     source: "scanner_app", linkedVin: "ME92ZPSDB1J001111", notes: "",
+    chassisId: "ME92ZPSDB1J001111", vcuImei: "356938035671122", vcuIccid: "8991101200003211137",
+    evccId: "EVCC-KE-001111", motorId: "MTR-8891-001111", registrationNo: "KDB 111C",
+    drivingLicense: "DL-14-2021-0098234", signatureCaptured: false, syncStatus: "synced",
   },
   // Customer-only row: onboarded before a bike exists. Links to VIN below once assigned.
   {
@@ -135,6 +192,8 @@ const MOCK_ACTIONS: ScannerAction[] = [
     storeCode: "ke-nbo-zhq", tenant: "retail/watu", bikeState: "new",
     performedBy: "Watu Agent", credentialType: "Partner", otpVerified: true,
     source: "scanner_app", linkedVin: "ME92ZPSFB1J002180", notes: "M-Pesa coin drop verified",
+    chassisId: "", vcuImei: "", vcuIccid: "", evccId: "", motorId: "", registrationNo: "",
+    drivingLicense: "DL-14-2020-0067890", signatureCaptured: false, syncStatus: "synced",
   },
   {
     id: "a10", timestamp: "14 Aug 2026 09:30", actionType: "bike_assign",
@@ -142,6 +201,9 @@ const MOCK_ACTIONS: ScannerAction[] = [
     storeCode: "ke-nbo-zhq", tenant: "retail/watu", bikeState: "active",
     performedBy: "Watu Agent", credentialType: "Partner", otpVerified: true,
     source: "scanner_app", linkedVin: "ME92ZPSFB1J002180", notes: "Linked to pre-onboarded customer",
+    chassisId: "ME92ZPSFB1J002180", vcuImei: "356938035688901", vcuIccid: "8991101200003228806",
+    evccId: "EVCC-KE-002180", motorId: "MTR-8891-002180", registrationNo: "KDC 218D",
+    drivingLicense: "DL-14-2020-0067890", signatureCaptured: false, syncStatus: "synced",
   },
   {
     id: "a11", timestamp: "14 Aug 2026 09:44", actionType: "rfid_assign",
@@ -149,6 +211,9 @@ const MOCK_ACTIONS: ScannerAction[] = [
     storeCode: "ke-nbo-zhq", tenant: "retail/watu", bikeState: "active",
     performedBy: "Watu Agent", credentialType: "Partner", otpVerified: true,
     source: "scanner_app", linkedVin: "ME92ZPSFB1J002180", notes: "",
+    chassisId: "ME92ZPSFB1J002180", vcuImei: "356938035688901", vcuIccid: "8991101200003228806",
+    evccId: "EVCC-KE-002180", motorId: "MTR-8891-002180", registrationNo: "KDC 218D",
+    drivingLicense: "DL-14-2020-0067890", signatureCaptured: false, syncStatus: "not_sent",
   },
   // Bike-only bring-up with no customer yet.
   {
@@ -157,6 +222,9 @@ const MOCK_ACTIONS: ScannerAction[] = [
     storeCode: "ke-nbo-zhq", tenant: "", bikeState: "new",
     performedBy: "George Joseph", credentialType: "Zeno", otpVerified: false,
     source: "scanner_app", linkedVin: "ME92ZPSFG1J002688", notes: "Awaiting customer assignment",
+    chassisId: "ME92ZPSFG1J002688", vcuImei: "356938035699012", vcuIccid: "8991101200003239915",
+    evccId: "EVCC-KE-002688", motorId: "MTR-8891-002688", registrationNo: "",
+    drivingLicense: "", signatureCaptured: false, syncStatus: "not_sent",
   },
   // Deactivation example.
   {
@@ -165,6 +233,9 @@ const MOCK_ACTIONS: ScannerAction[] = [
     storeCode: "ke-nbo-zhq", tenant: "zeno-internal/demo_bikes", bikeState: "used",
     performedBy: "Ramesh Kumar", credentialType: "Zeno", otpVerified: false,
     source: "scanner_app", linkedVin: "ME92ZPSAG1J001078", notes: "Billing + RFID + account deactivated",
+    chassisId: "ME92ZPSAG1J001078", vcuImei: "356938035610788", vcuIccid: "8991101200003130788",
+    evccId: "EVCC-KE-001078", motorId: "MTR-8891-001078", registrationNo: "KDA 078Z",
+    drivingLicense: "DL-14-2018-0011200", signatureCaptured: false, syncStatus: "synced",
   },
 ];
 
@@ -204,7 +275,7 @@ function parseTs(ts: string): number {
 
 export const useScannerProvisioningStore = create<ScannerProvisioningStore>((set, get) => ({
   actions: MOCK_ACTIONS,
-  filters: { ...DEFAULT_FILTERS },
+  filters: defaultFilters(),
   sort: null,
   page: 1,
   perPage: 20,
@@ -219,7 +290,7 @@ export const useScannerProvisioningStore = create<ScannerProvisioningStore>((set
     })),
   setPage: (page) => set({ page }),
   setPerPage: (perPage) => set({ perPage, page: 1 }),
-  resetFilters: () => set({ filters: { ...DEFAULT_FILTERS }, page: 1 }),
+  resetFilters: () => set({ filters: defaultFilters(), page: 1 }),
 
   customerForVin: (vin) => {
     if (!vin) return null;
@@ -335,7 +406,14 @@ export const useScannerProvisioningStore = create<ScannerProvisioningStore>((set
           a.customerName.toLowerCase().includes(q) ||
           a.customerPhone.toLowerCase().includes(q) ||
           a.rfidTag.toLowerCase().includes(q) ||
-          a.performedBy.toLowerCase().includes(q)
+          a.performedBy.toLowerCase().includes(q) ||
+          a.chassisId.toLowerCase().includes(q) ||
+          a.vcuImei.toLowerCase().includes(q) ||
+          a.vcuIccid.toLowerCase().includes(q) ||
+          a.evccId.toLowerCase().includes(q) ||
+          a.motorId.toLowerCase().includes(q) ||
+          a.registrationNo.toLowerCase().includes(q) ||
+          a.drivingLicense.toLowerCase().includes(q)
       );
     }
     if (filters.actionType !== "All") result = result.filter((a) => a.actionType === filters.actionType);
@@ -346,6 +424,7 @@ export const useScannerProvisioningStore = create<ScannerProvisioningStore>((set
     if (filters.credentialType !== "All") result = result.filter((a) => a.credentialType === filters.credentialType);
     if (filters.bikeState !== "All") result = result.filter((a) => a.bikeState === filters.bikeState);
     if (filters.source !== "All") result = result.filter((a) => a.source === filters.source);
+    if (filters.syncStatus !== "All") result = result.filter((a) => a.syncStatus === filters.syncStatus);
     if (filters.dateFrom) {
       const from = parseTs(filters.dateFrom);
       result = result.filter((a) => parseTs(a.timestamp) >= from);

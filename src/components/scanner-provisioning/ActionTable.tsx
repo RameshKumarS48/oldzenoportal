@@ -4,8 +4,10 @@ import { ArrowUpDown, ArrowUp, ArrowDown, Pencil, Trash2, Link2 } from "lucide-r
 import {
   useScannerProvisioningStore,
   ACTION_LABELS,
+  SYNC_LABELS,
   type ScannerAction,
   type ScannerActionType,
+  type SyncStatus,
 } from "@/store/scanner-provisioning";
 import { Pagination } from "@/components/ui/Pagination";
 
@@ -46,14 +48,44 @@ function BikeStateBadge({ value }: { value: ScannerAction["bikeState"] }) {
   );
 }
 
+const SYNC_COLORS: Record<SyncStatus, string> = {
+  synced: "bg-green-50 text-green-700",
+  not_sent: "bg-amber-50 text-amber-700",
+  empty: "bg-slate-100 text-slate-500",
+};
+
+function SyncBadge({ value }: { value: SyncStatus }) {
+  return (
+    <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${SYNC_COLORS[value]}`}>
+      {SYNC_LABELS[value]}
+    </span>
+  );
+}
+
+// Compact monospace cell for scanned component IDs, with an em-dash when empty.
+function MonoCell({ value }: { value: string }) {
+  return value ? (
+    <span className="text-slate-600 font-mono text-xs">{value}</span>
+  ) : (
+    <span className="text-slate-300">—</span>
+  );
+}
+
 type ColKey = keyof ScannerAction;
 
 const COLUMNS: { key: ColKey; label: string; width?: string }[] = [
   { key: "timestamp", label: "Timestamp", width: "min-w-[150px]" },
   { key: "actionType", label: "Action", width: "min-w-[130px]" },
   { key: "vin", label: "VIN", width: "min-w-[150px]" },
+  { key: "chassisId", label: "Chassis", width: "min-w-[150px]" },
+  { key: "vcuImei", label: "VCU · IMEI", width: "min-w-[140px]" },
+  { key: "vcuIccid", label: "VCU · ICCID", width: "min-w-[170px]" },
+  { key: "evccId", label: "EVCC", width: "min-w-[130px]" },
+  { key: "motorId", label: "Motor", width: "min-w-[130px]" },
+  { key: "registrationNo", label: "Registration", width: "min-w-[120px]" },
   { key: "customerName", label: "Customer", width: "min-w-[140px]" },
   { key: "customerPhone", label: "Phone", width: "min-w-[130px]" },
+  { key: "drivingLicense", label: "Driving License", width: "min-w-[150px]" },
   { key: "rfidTag", label: "RFID Tag", width: "min-w-[120px]" },
   { key: "storeCode", label: "Store Code", width: "min-w-[130px]" },
   { key: "tenant", label: "Tenant", width: "min-w-[150px]" },
@@ -61,6 +93,8 @@ const COLUMNS: { key: ColKey; label: string; width?: string }[] = [
   { key: "performedBy", label: "Performed By", width: "min-w-[130px]" },
   { key: "credentialType", label: "Credential", width: "min-w-[100px]" },
   { key: "otpVerified", label: "OTP", width: "min-w-[70px]" },
+  { key: "signatureCaptured", label: "Signature", width: "min-w-[90px]" },
+  { key: "syncStatus", label: "Sync", width: "min-w-[90px]" },
   { key: "source", label: "Source", width: "min-w-[110px]" },
 ];
 
@@ -132,12 +166,19 @@ export function ActionTable({
                   <td className="px-3 py-2.5 text-slate-700 font-mono text-xs whitespace-nowrap">
                     {a.vin || <span className="text-slate-300">—</span>}
                   </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap"><MonoCell value={a.chassisId} /></td>
+                  <td className="px-3 py-2.5 whitespace-nowrap"><MonoCell value={a.vcuImei} /></td>
+                  <td className="px-3 py-2.5 whitespace-nowrap"><MonoCell value={a.vcuIccid} /></td>
+                  <td className="px-3 py-2.5 whitespace-nowrap"><MonoCell value={a.evccId} /></td>
+                  <td className="px-3 py-2.5 whitespace-nowrap"><MonoCell value={a.motorId} /></td>
+                  <td className="px-3 py-2.5 whitespace-nowrap"><MonoCell value={a.registrationNo} /></td>
                   <td className="px-3 py-2.5 text-slate-700 whitespace-nowrap">
                     {a.customerName || <span className="text-slate-300">—</span>}
                   </td>
                   <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">
                     {a.customerPhone || <span className="text-slate-300">—</span>}
                   </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap"><MonoCell value={a.drivingLicense} /></td>
                   <td className="px-3 py-2.5 text-slate-600 font-mono text-xs whitespace-nowrap">
                     {a.rfidTag || <span className="text-slate-300">—</span>}
                   </td>
@@ -163,6 +204,14 @@ export function ActionTable({
                       <span className="text-slate-400 text-xs">No</span>
                     )}
                   </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">
+                    {a.signatureCaptured ? (
+                      <span className="text-green-600 text-xs font-medium">Captured</span>
+                    ) : (
+                      <span className="text-slate-400 text-xs">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap"><SyncBadge value={a.syncStatus} /></td>
                   <td className="px-3 py-2.5 whitespace-nowrap">
                     <span className="flex items-center gap-1 text-xs text-slate-500">
                       {a.source === "portal" ? "Portal" : "Scanner App"}

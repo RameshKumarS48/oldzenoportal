@@ -7,9 +7,12 @@ import {
   useScannerProvisioningStore,
   ACTION_TYPES,
   ACTION_LABELS,
+  SYNC_STATUSES,
+  SYNC_LABELS,
   type ScannerAction,
   type ScannerActionType,
   type BikeState,
+  type SyncStatus,
 } from "@/store/scanner-provisioning";
 
 const STORE_CODES = [
@@ -28,6 +31,10 @@ const BIKE_STATES: BikeState[] = ["new", "active", "used", "test"];
 const NEEDS_CUSTOMER: ScannerActionType[] = ["customer_onboard", "bike_assign", "rfid_assign", "handover", "deactivate"];
 const NEEDS_RFID: ScannerActionType[] = ["rfid_assign"];
 const CUSTOMER_ONLY: ScannerActionType[] = ["customer_onboard"];
+// Which action types capture the bike component scan (Field Scanner: Chassis, VCU, EVCC, Motor, Registration).
+const NEEDS_COMPONENTS: ScannerActionType[] = ["bring_up"];
+// Signature is captured on handover (customer sign-off).
+const NEEDS_SIGNATURE: ScannerActionType[] = ["handover"];
 
 type FormState = Omit<ScannerAction, "id" | "linkedVin" | "source">;
 
@@ -60,6 +67,15 @@ function emptyForm(): FormState {
     credentialType: "Zeno",
     otpVerified: false,
     notes: "",
+    chassisId: "",
+    vcuImei: "",
+    vcuIccid: "",
+    evccId: "",
+    motorId: "",
+    registrationNo: "",
+    drivingLicense: "",
+    signatureCaptured: false,
+    syncStatus: "synced",
   };
 }
 
@@ -91,6 +107,8 @@ export function ActionFormModal({
   const needsCustomer = NEEDS_CUSTOMER.includes(form.actionType);
   const needsRfid = NEEDS_RFID.includes(form.actionType);
   const customerOnly = CUSTOMER_ONLY.includes(form.actionType);
+  const needsComponents = NEEDS_COMPONENTS.includes(form.actionType);
+  const needsSignature = NEEDS_SIGNATURE.includes(form.actionType);
 
   // Prefill customer from a known VIN when it changes.
   function handleVinBlur() {
@@ -212,30 +230,116 @@ export function ActionFormModal({
           </div>
         </div>
 
-        {needsCustomer && (
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelCls}>Customer Name</label>
-              <input
-                type="text"
-                placeholder="Full name"
-                value={form.customerName}
-                onChange={(e) => set("customerName", e.target.value)}
-                className={inputCls}
-              />
+        {needsComponents && (
+          <div className="rounded-lg border border-slate-200 p-3 space-y-3">
+            <p className="text-xs font-semibold text-slate-500">
+              Field Scanner — component scan
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Chassis</label>
+                <input
+                  type="text"
+                  placeholder="Chassis / frame no."
+                  value={form.chassisId}
+                  onChange={(e) => set("chassisId", e.target.value)}
+                  className={`${inputCls} font-mono`}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Registration</label>
+                <input
+                  type="text"
+                  placeholder="KDA 000A"
+                  value={form.registrationNo}
+                  onChange={(e) => set("registrationNo", e.target.value)}
+                  className={`${inputCls} font-mono`}
+                />
+              </div>
             </div>
-            <div>
-              <label className={labelCls}>Customer Phone</label>
-              <input
-                type="text"
-                placeholder="254-7..."
-                value={form.customerPhone}
-                onChange={(e) => set("customerPhone", e.target.value)}
-                onBlur={handlePhoneBlur}
-                className={inputCls}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>VCU · IMEI</label>
+                <input
+                  type="text"
+                  placeholder="15-digit IMEI"
+                  value={form.vcuImei}
+                  onChange={(e) => set("vcuImei", e.target.value)}
+                  className={`${inputCls} font-mono`}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>VCU · ICCID</label>
+                <input
+                  type="text"
+                  placeholder="SIM ICCID"
+                  value={form.vcuIccid}
+                  onChange={(e) => set("vcuIccid", e.target.value)}
+                  className={`${inputCls} font-mono`}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>EVCC</label>
+                <input
+                  type="text"
+                  placeholder="EVCC UID"
+                  value={form.evccId}
+                  onChange={(e) => set("evccId", e.target.value)}
+                  className={`${inputCls} font-mono`}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Motor</label>
+                <input
+                  type="text"
+                  placeholder="Motor UID"
+                  value={form.motorId}
+                  onChange={(e) => set("motorId", e.target.value)}
+                  className={`${inputCls} font-mono`}
+                />
+              </div>
             </div>
           </div>
+        )}
+
+        {needsCustomer && (
+          <>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Customer Name</label>
+                <input
+                  type="text"
+                  placeholder="Full name"
+                  value={form.customerName}
+                  onChange={(e) => set("customerName", e.target.value)}
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Customer Phone</label>
+                <input
+                  type="text"
+                  placeholder="254-7..."
+                  value={form.customerPhone}
+                  onChange={(e) => set("customerPhone", e.target.value)}
+                  onBlur={handlePhoneBlur}
+                  className={inputCls}
+                />
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Driving License</label>
+              <input
+                type="text"
+                placeholder="DL number"
+                value={form.drivingLicense}
+                onChange={(e) => set("drivingLicense", e.target.value)}
+                className={`${inputCls} font-mono`}
+              />
+            </div>
+          </>
         )}
 
         {needsRfid && (
@@ -305,17 +409,47 @@ export function ActionFormModal({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <input
-            id="otp-verified"
-            type="checkbox"
-            checked={form.otpVerified}
-            onChange={(e) => set("otpVerified", e.target.checked)}
-            className="w-4 h-4 rounded border-slate-300 text-zeno-red focus:ring-zeno-teal/30"
-          />
-          <label htmlFor="otp-verified" className="text-sm text-slate-600">
-            OTP verified
-          </label>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-2 justify-center">
+            <div className="flex items-center gap-2">
+              <input
+                id="otp-verified"
+                type="checkbox"
+                checked={form.otpVerified}
+                onChange={(e) => set("otpVerified", e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 text-zeno-red focus:ring-zeno-teal/30"
+              />
+              <label htmlFor="otp-verified" className="text-sm text-slate-600">
+                OTP verified
+              </label>
+            </div>
+            {needsSignature && (
+              <div className="flex items-center gap-2">
+                <input
+                  id="signature-captured"
+                  type="checkbox"
+                  checked={form.signatureCaptured}
+                  onChange={(e) => set("signatureCaptured", e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 text-zeno-red focus:ring-zeno-teal/30"
+                />
+                <label htmlFor="signature-captured" className="text-sm text-slate-600">
+                  Signature captured
+                </label>
+              </div>
+            )}
+          </div>
+          <div>
+            <label className={labelCls}>Sync Status</label>
+            <select
+              value={form.syncStatus}
+              onChange={(e) => set("syncStatus", e.target.value as SyncStatus)}
+              className={inputCls}
+            >
+              {SYNC_STATUSES.map((s) => (
+                <option key={s} value={s}>{SYNC_LABELS[s]}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div>

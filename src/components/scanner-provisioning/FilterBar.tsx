@@ -6,6 +6,8 @@ import {
   useScannerProvisioningStore,
   ACTION_TYPES,
   ACTION_LABELS,
+  SYNC_STATUSES,
+  SYNC_LABELS,
 } from "@/store/scanner-provisioning";
 
 const STORE_CODE_OPTIONS = [
@@ -80,6 +82,22 @@ export function FilterBar() {
           options={SOURCE_OPTIONS}
           onChange={(v) => setFilter("source", v)}
         />
+        {/* Sync Status — custom labels, so an inline select wrapped in Field */}
+        <Field label="Sync Status">
+          <div className="relative">
+            <select
+              value={filters.syncStatus}
+              onChange={(e) => setFilter("syncStatus", e.target.value)}
+              className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 pr-8 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-zeno-teal/20 focus:border-zeno-teal/40 cursor-pointer"
+            >
+              <option value="All">All</option>
+              {SYNC_STATUSES.map((s) => (
+                <option key={s} value={s}>{SYNC_LABELS[s]}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+          </div>
+        </Field>
         <Field label="From Date">
           <input
             type="date"
