@@ -1,26 +1,113 @@
 @import "tailwindcss";
 
+@theme {
+  /* ── Zeno brand ─────────────────────────────────────────────
+     One source of truth for every brand colour. Consume as
+     utilities: bg-zeno-teal, text-zeno-red, ring-zeno-teal, … */
+  --color-zeno-red: #FF3B06;        /* signature vermilion — logo, export, critical actions */
+  --color-zeno-red-hover: #E03500;
+  --color-zeno-orange: #FF3B06;     /* alias kept for existing usages */
+  --color-zeno-teal: #003B49;       /* primary surfaces + actions (sidebar, primary buttons) */
+  --color-zeno-teal-hover: #00505F;
+  --color-zeno-dark: #192E35;
+  --color-zeno-ink: #192E35;
+  --color-zeno-stone: #E8E9E9;
+  --color-zeno-bg: #F6F7F8;
+
+  /* ── Operational status ─────────────────────────────────────
+     In a fleet-ops tool the dot's colour *is* the information.
+     Centralised so every badge/pill/map pin reads the same hue. */
+  --color-status-online: #22C55E;   /* Online · Immobilization Off (healthy) */
+  --color-status-offline: #EF4444;  /* Offline · Immobilized (alert) */
+  --color-status-gps: #FB923C;      /* GPS offline */
+  --color-status-cloud: #FACC15;    /* Cloud offline */
+  --color-status-idle: #94A3B8;     /* unknown / no signal */
+}
+
+@variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --sidebar-bg: #003B49;
+  --sidebar-text: #8fadb5;
+  --sidebar-text-active: #ffffff;
+  --accent: #FF3B06;
+  --accent-dim: #e03500;
+  --card-bg: #ffffff;
+  --border: #e2e8f0;
+  --muted: #f1f5f9;
+  --muted-text: #64748b;
+  --font-display: var(--font-work-sans, 'Work Sans', 'Inter', sans-serif);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --background: #0d1117;
+  --foreground: #e2e8f0;
+  --card-bg: #161b22;
+  --border: #30363d;
+  --muted: #21262d;
+  --muted-text: #8b949e;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans, 'Inter', Arial, sans-serif);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Dark mode scoped to main content only (sidebar/topbar already dark) */
+.dark main .bg-white { background-color: var(--card-bg) !important; }
+.dark main .bg-slate-50 { background-color: var(--muted) !important; }
+.dark main .bg-\[#F6F7F8\] { background-color: var(--muted) !important; }
+.dark main .border-slate-200 { border-color: var(--border) !important; }
+.dark main .border-slate-100 { border-color: var(--border) !important; }
+.dark main .text-slate-800 { color: var(--foreground) !important; }
+.dark main .text-slate-700 { color: var(--foreground) !important; }
+.dark main .text-slate-600 { color: #cbd5e1 !important; }
+.dark main .text-slate-500 { color: var(--muted-text) !important; }
+.dark main .text-slate-400 { color: var(--muted-text) !important; }
+.dark main .divide-slate-100 > * { border-color: var(--border) !important; }
+.dark main .divide-slate-50 > * { border-color: #21262d !important; }
+.dark main thead.border-b { border-color: var(--border) !important; }
+.dark main .hover\:bg-slate-50:hover { background-color: #1c2128 !important; }
+
+/* react-grid-layout */
+.react-grid-item.react-grid-placeholder {
+  background: #FF3B0620;
+  border: 2px dashed #FF3B06;
+  border-radius: 8px;
+}
+
+.react-resizable-handle {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.react-grid-item:hover .react-resizable-handle {
+  opacity: 1;
+}
+
+/* MapLibre — on-brand popup + controls */
+.maplibregl-popup-content {
+  border-radius: 10px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 28px rgba(2, 6, 23, 0.16);
+}
+.maplibregl-popup-close-button {
+  display: none;
+}
+.maplibregl-ctrl-group {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(2, 6, 23, 0.14);
+  border: 1px solid #e2e8f0;
+}
+.maplibregl-ctrl-attrib.maplibregl-compact {
+  border-radius: 8px;
 }
