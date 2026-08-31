@@ -6,6 +6,7 @@ import {
   useScannerProvisioningStore,
   ACTION_LABELS,
   SYNC_LABELS,
+  RFID_LABELS,
   type ScannerAction,
 } from "@/store/scanner-provisioning";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,7 @@ async function exportToXLSX(actions: ScannerAction[]) {
 
   const headers = [
     "Timestamp", "Action", "VIN", "Chassis", "VCU IMEI", "VCU ICCID", "EVCC", "Motor",
-    "Registration", "Customer Name", "Customer Phone", "Driving License", "RFID Tag",
+    "Registration", "Customer Name", "Customer Phone", "Driving License", "RFID", "RFID Tag",
     "Store Code", "Tenant", "Bike State", "Performed By", "Credential", "OTP Verified",
     "Signature", "Sync Status", "Source", "Linked VIN", "Notes",
   ];
@@ -35,7 +36,8 @@ async function exportToXLSX(actions: ScannerAction[]) {
   actions.forEach((a) => {
     sheet.addRow([
       a.timestamp, ACTION_LABELS[a.actionType], a.vin, a.chassisId, a.vcuImei, a.vcuIccid, a.evccId, a.motorId,
-      a.registrationNo, a.customerName, a.customerPhone, a.drivingLicense, a.rfidTag,
+      a.registrationNo, a.customerName, a.customerPhone, a.drivingLicense,
+      a.rfidStatus === "unassigned" ? "" : RFID_LABELS[a.rfidStatus], a.rfidTag,
       a.storeCode, a.tenant, a.bikeState, a.performedBy, a.credentialType, a.otpVerified ? "Yes" : "No",
       a.signatureCaptured ? "Captured" : "", SYNC_LABELS[a.syncStatus],
       a.source === "portal" ? "Portal" : "Scanner App", a.linkedVin, a.notes,

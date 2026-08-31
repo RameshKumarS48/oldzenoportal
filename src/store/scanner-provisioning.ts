@@ -37,6 +37,18 @@ export const SYNC_LABELS: Record<SyncStatus, string> = {
 
 export const SYNC_STATUSES = Object.keys(SYNC_LABELS) as SyncStatus[];
 
+// RFID assignment is tracked as a status (not a free-text tag) in the flow:
+// unassigned (—), pending (awaiting confirmation, retryable), assigned (green).
+export type RfidStatus = "unassigned" | "pending" | "assigned";
+
+export const RFID_LABELS: Record<RfidStatus, string> = {
+  unassigned: "—",
+  pending: "Pending",
+  assigned: "Assigned",
+};
+
+export const RFID_STATUSES = Object.keys(RFID_LABELS) as RfidStatus[];
+
 export type ScannerAction = {
   id: string;
   timestamp: string; // "01 Sep 2026 13:06"
@@ -45,6 +57,7 @@ export type ScannerAction = {
   customerName: string;
   customerPhone: string; // "" when bike-only
   rfidTag: string; // UID; set on rfid_assign, else ""
+  rfidStatus: RfidStatus; // unassigned / pending / assigned
   storeCode: string;
   tenant: string;
   bikeState: BikeState; // resulting state
@@ -104,7 +117,7 @@ function defaultFilters(): ScannerFilterState {
 
 // Seeded event log. Several VINs match existing MOCK_VEHICLES in asset-tracking
 // to demonstrate cross-store linkage; two customer-only rows link to bikes later.
-const MOCK_ACTIONS: ScannerAction[] = [
+const RAW_ACTIONS: Omit<ScannerAction, "rfidStatus">[] = [
   {
     id: "a1", timestamp: "07 May 2026 09:12", actionType: "bring_up",
     vin: "ME92ZPSBB1J000760", customerName: "", customerPhone: "", rfidTag: "",
@@ -239,6 +252,15 @@ const MOCK_ACTIONS: ScannerAction[] = [
   },
 ];
 
+// Derive the seeded RFID status: a tag that has synced is assigned; one that
+// hasn't synced yet is still pending (and therefore retryable); no tag = unassigned.
+function seedRfidStatus(a: Omit<ScannerAction, "rfidStatus">): RfidStatus {
+  if (!a.rfidTag) return "unassigned";
+  return a.syncStatus === "not_sent" ? "pending" : "assigned";
+}
+
+const MOCK_ACTIONS: ScannerAction[] = RAW_ACTIONS.map((a) => ({ ...a, rfidStatus: seedRfidStatus(a) }));
+
 type SortConfig = { column: keyof ScannerAction; direction: "asc" | "desc" } | null;
 
 export type AddActionInput = Omit<ScannerAction, "id" | "linkedVin" | "source"> & {
@@ -259,6 +281,7 @@ type ScannerProvisioningStore = {
   addAction: (input: AddActionInput) => { ok: boolean; error?: string };
   updateAction: (id: string, patch: Partial<ScannerAction>) => { ok: boolean; error?: string };
   deleteAction: (id: string) => void;
+  retryRfid: (id: string) => void; // move a pending RFID assignment to assigned
   filteredActions: () => ScannerAction[];
   // Selectors used by the form modal for prefill.
   customerForVin: (vin: string) => { customerName: string; customerPhone: string } | null;
@@ -326,6 +349,13 @@ export const useScannerProvisioningStore = create<ScannerProvisioningStore>((set
   addAction: (input) => {
     const state = get();
 
+    // Bike assignment requires a customer name, phone, and OTP verification (per the
+    // Onboarding Partner App spec: VIN + phone + OTP-confirmed handover).
+    if (input.actionType === "bike_assign") {
+      const missing = bikeAssignError(input);
+      if (missing) return { ok: false, error: missing };
+    }
+
     // One-RFID-per-VIN: block a second active RFID unless notes flag an override.
     if (input.actionType === "rfid_assign" && input.vin) {
       const existing = state.activeRfidForVin(input.vin);
@@ -372,6 +402,11 @@ export const useScannerProvisioningStore = create<ScannerProvisioningStore>((set
     if (!prev) return { ok: false, error: "Entry not found." };
     const next: ScannerAction = { ...prev, ...patch };
 
+    if (next.actionType === "bike_assign") {
+      const missing = bikeAssignError(next);
+      if (missing) return { ok: false, error: missing };
+    }
+
     if (next.actionType === "rfid_assign" && next.vin) {
       const override = /override/i.test(next.notes ?? "");
       // Determine an active RFID from other rows (exclude this one).
@@ -393,6 +428,18 @@ export const useScannerProvisioningStore = create<ScannerProvisioningStore>((set
   },
 
   deleteAction: (id) => set((s) => ({ actions: s.actions.filter((a) => a.id !== id) })),
+
+  retryRfid: (id) => {
+    const row = get().actions.find((a) => a.id === id);
+    if (!row || row.rfidStatus !== "pending") return;
+    set((s) => ({
+      actions: s.actions.map((a) =>
+        a.id === id ? { ...a, rfidStatus: "assigned", syncStatus: "synced" } : a
+      ),
+    }));
+    // Reflect the now-confirmed RFID onto the linked vehicle.
+    if (row.vin && row.rfidTag) useAssetTrackingStore.getState().setRfid(row.vin, row.rfidTag);
+  },
 
   filteredActions: () => {
     const { actions, filters, sort } = get();
@@ -457,6 +504,15 @@ export const useScannerProvisioningStore = create<ScannerProvisioningStore>((set
     return result;
   },
 }));
+
+// Bike assignment must carry a customer name, phone, and verified OTP. Returns an
+// error message when any is missing, or null when the assignment is valid.
+function bikeAssignError(a: { customerName: string; customerPhone: string; otpVerified: boolean }): string | null {
+  if (!a.customerName.trim()) return "Customer name is required for bike assignment.";
+  if (!a.customerPhone.trim()) return "Customer phone is required for bike assignment.";
+  if (!a.otpVerified) return "OTP verification is required for bike assignment.";
+  return null;
+}
 
 // Compute the active RFID for a VIN from an arbitrary action list (used in update validation).
 function computeActiveRfid(actions: ScannerAction[], vin: string): string | null {

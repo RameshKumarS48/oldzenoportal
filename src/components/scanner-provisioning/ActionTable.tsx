@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpDown, ArrowUp, ArrowDown, Pencil, Trash2, Link2 } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Pencil, Trash2, Link2, RotateCw } from "lucide-react";
 import {
   useScannerProvisioningStore,
   ACTION_LABELS,
@@ -8,6 +8,7 @@ import {
   type ScannerAction,
   type ScannerActionType,
   type SyncStatus,
+  type RfidStatus,
 } from "@/store/scanner-provisioning";
 import { Pagination } from "@/components/ui/Pagination";
 
@@ -62,6 +63,35 @@ function SyncBadge({ value }: { value: SyncStatus }) {
   );
 }
 
+// RFID assignment shown as a status: dash (unassigned), amber Pending (retryable), green Assigned.
+function RfidCell({ id, status }: { id: string; status: RfidStatus }) {
+  const retryRfid = useScannerProvisioningStore((s) => s.retryRfid);
+  if (status === "unassigned") return <span className="text-slate-300">—</span>;
+  if (status === "assigned") {
+    return (
+      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 whitespace-nowrap">
+        Assigned
+      </span>
+    );
+  }
+  // pending
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 whitespace-nowrap">
+        Pending
+      </span>
+      <button
+        onClick={() => retryRfid(id)}
+        className="flex items-center gap-1 text-xs text-zeno-teal hover:text-zeno-teal-hover font-medium"
+        title="Retry RFID assignment"
+      >
+        <RotateCw className="w-3 h-3" />
+        Retry
+      </button>
+    </span>
+  );
+}
+
 // Compact monospace cell for scanned component IDs, with an em-dash when empty.
 function MonoCell({ value }: { value: string }) {
   return value ? (
@@ -86,7 +116,7 @@ const COLUMNS: { key: ColKey; label: string; width?: string }[] = [
   { key: "customerName", label: "Customer", width: "min-w-[140px]" },
   { key: "customerPhone", label: "Phone", width: "min-w-[130px]" },
   { key: "drivingLicense", label: "Driving License", width: "min-w-[150px]" },
-  { key: "rfidTag", label: "RFID Tag", width: "min-w-[120px]" },
+  { key: "rfidStatus", label: "RFID", width: "min-w-[140px]" },
   { key: "storeCode", label: "Store Code", width: "min-w-[130px]" },
   { key: "tenant", label: "Tenant", width: "min-w-[150px]" },
   { key: "bikeState", label: "Bike State", width: "min-w-[100px]" },
@@ -179,9 +209,7 @@ export function ActionTable({
                     {a.customerPhone || <span className="text-slate-300">—</span>}
                   </td>
                   <td className="px-3 py-2.5 whitespace-nowrap"><MonoCell value={a.drivingLicense} /></td>
-                  <td className="px-3 py-2.5 text-slate-600 font-mono text-xs whitespace-nowrap">
-                    {a.rfidTag || <span className="text-slate-300">—</span>}
-                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap"><RfidCell id={a.id} status={a.rfidStatus} /></td>
                   <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{a.storeCode}</td>
                   <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">
                     {a.tenant || <span className="text-slate-300">—</span>}
