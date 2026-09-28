@@ -23,7 +23,7 @@ const TRIGGER_LABELS: Record<string, string> = {
 };
 
 function fmtDate(d?: string) {
-  if (!d) return "—";
+  if (!d) return "–";
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
@@ -133,12 +133,12 @@ export default function ReferralsPage() {
                           ? <span className="text-amber-600 font-medium">{r.pendingPoints.toLocaleString()} ⏳</span>
                           : r.status === "active"
                           ? <span className="text-emerald-600 font-medium">{r.pointsToReferrer.toLocaleString()} ✓</span>
-                          : <span className="text-slate-300">—</span>}
+                          : <span className="text-slate-300">–</span>}
                       </td>
                       <td className="px-3 py-2.5">
                         {r.pointsToReferee > 0 && r.status !== "expired"
                           ? <span className="text-indigo-600 font-medium">{r.pointsToReferee.toLocaleString()}</span>
-                          : <span className="text-slate-300">—</span>}
+                          : <span className="text-slate-300">–</span>}
                       </td>
                       <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{fmtDate(r.activationDate)}</td>
                     </tr>

@@ -19,7 +19,7 @@ export function DateRangePicker() {
   const [localFrom, setLocalFrom] = useState(dateFrom);
   const [localTo, setLocalTo] = useState(dateTo);
 
-  const label = `${format(new Date(dateFrom), "d MMM")} — ${format(new Date(dateTo), "d MMM yyyy")}`;
+  const label = `${format(new Date(dateFrom), "d MMM")}: ${format(new Date(dateTo), "d MMM yyyy")}`;
 
   const applyCustom = () => {
     setDateRange(localFrom, localTo);

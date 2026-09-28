@@ -33,9 +33,9 @@ export const PREORDER_WEEKS = Array.from({ length: 18 }, (_, i) => {
 let cumDownloads = 0;
 
 // Funnel narrative:
-// Wks 1-2: Stealth / waitlist mode — minimal downloads
+// Wks 1-2: Stealth / waitlist mode, minimal downloads
 // Wks 3-4: Soft launch to early adopters
-// Wks 5-8: Public launch — downloads spike, referral programme kicks in
+// Wks 5-8: Public launch, downloads spike, referral programme kicks in
 // Wks 9-14: Steady growth, referral becomes major channel
 // Wks 15-18: Partner channel opens, growth accelerates
 
@@ -44,11 +44,11 @@ const RAW = [
   { dl:120,  reg:78,  pre:22,  act:18, org:110, ref:6,   paid:4,   orgPre:20, refPre:2,  t2Pre:2.1, t2Act:8.4,  dropReg:42,  dropPre:56,  dep:220000,  avgDep:10000, cancel:1,  canRate:4.5  },
   // wk2
   { dl:145,  reg:95,  pre:28,  act:22, org:130, ref:9,   paid:6,   orgPre:25, refPre:3,  t2Pre:2.0, t2Act:8.1,  dropReg:50,  dropPre:67,  dep:268000,  avgDep:9571,  cancel:1,  canRate:3.6  },
-  // wk3 — soft launch
+  // wk3, soft launch
   { dl:280,  reg:185, pre:52,  act:38, org:210, ref:45,  paid:25,  orgPre:42, refPre:10, t2Pre:1.9, t2Act:7.8,  dropReg:95,  dropPre:133, dep:504000,  avgDep:9692,  cancel:2,  canRate:3.8  },
   // wk4
   { dl:360,  reg:242, pre:70,  act:54, org:260, ref:65,  paid:35,  orgPre:55, refPre:15, t2Pre:1.8, t2Act:7.5,  dropReg:118, dropPre:172, dep:680000,  avgDep:9714,  cancel:3,  canRate:4.3  },
-  // wk5 — public launch
+  // wk5, public launch
   { dl:680,  reg:462, pre:138, act:98, org:420, ref:170, paid:90,  orgPre:95, refPre:43, t2Pre:1.7, t2Act:7.2,  dropReg:218, dropPre:324, dep:1332000, avgDep:9652,  cancel:5,  canRate:3.6  },
   // wk6
   { dl:820,  reg:558, pre:170, act:124,org:490, ref:215, paid:115, orgPre:112,refPre:58, t2Pre:1.6, t2Act:6.9,  dropReg:262, dropPre:388, dep:1640000, avgDep:9647,  cancel:6,  canRate:3.5  },
@@ -66,7 +66,7 @@ const RAW = [
   { dl:1160, reg:789, pre:270, act:210,org:624, ref:372, paid:164, orgPre:160,refPre:110,t2Pre:1.2, t2Act:5.7,  dropReg:371, dropPre:519, dep:2610000, avgDep:9667,  cancel:9,  canRate:3.3  },
   // wk13
   { dl:1180, reg:802, pre:280, act:220,org:630, ref:384, paid:166, orgPre:164,refPre:116,t2Pre:1.2, t2Act:5.5,  dropReg:378, dropPre:522, dep:2706000, avgDep:9664,  cancel:10, canRate:3.6  },
-  // wk14 — partner channel opens
+  // wk14, partner channel opens
   { dl:1280, reg:870, pre:308, act:240,org:650, ref:420, paid:210, orgPre:172,refPre:136,t2Pre:1.1, t2Act:5.3,  dropReg:410, dropPre:562, dep:2982000, avgDep:9682,  cancel:10, canRate:3.2  },
   // wk15
   { dl:1380, reg:938, pre:336, act:262,org:670, ref:460, paid:250, orgPre:180,refPre:156,t2Pre:1.1, t2Act:5.1,  dropReg:442, dropPre:602, dep:3258000, avgDep:9696,  cancel:11, canRate:3.3  },

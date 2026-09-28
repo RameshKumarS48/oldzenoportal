@@ -104,7 +104,7 @@ export function PermissionMatrix({ permissions, onChange, readonly = false }: Pe
                     idx !== group.modules.length - 1 && "border-b border-slate-100"
                   )}
                 >
-                  {/* Toggle — ON = orange-red accent, OFF = slate-200 */}
+                  {/* Toggle: ON = orange-red accent, OFF = slate-200 */}
                   <button
                     type="button"
                     onClick={() => handleToggleModule(mod, !fullyEnabled)}

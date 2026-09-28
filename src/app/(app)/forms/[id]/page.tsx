@@ -96,7 +96,7 @@ function FormDetail() {
           );
         })}
         <p className="ml-auto text-[11px] text-slate-400 hidden md:block">
-          Same data, three views — <span className="text-slate-500">Build</span> the structure, <span className="text-slate-500">Fill</span> it in, or edit it as a <span className="text-slate-500">Sheet</span>.
+          Same data, three views. <span className="text-slate-500">Build</span> the structure, <span className="text-slate-500">Fill</span> it in, or edit it as a <span className="text-slate-500">Sheet</span>.
         </p>
       </div>
 

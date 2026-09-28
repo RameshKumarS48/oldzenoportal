@@ -252,7 +252,7 @@ export default function ReportsPage() {
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-slate-500 text-xs">
-                      {format(new Date(r.periodStart), "d MMM")} — {format(new Date(r.periodEnd), "d MMM yyyy")}
+                      {format(new Date(r.periodStart), "d MMM")}: {format(new Date(r.periodEnd), "d MMM yyyy")}
                     </td>
                     <td className="px-5 py-3.5 text-slate-600">{r.partner}</td>
                     <td className="px-5 py-3.5">
@@ -288,7 +288,7 @@ export default function ReportsPage() {
             onChange={(e) => setNewSchedule((f) => ({ ...f, name: e.target.value }))}
             autoFocus
           />
-          {/* Report Type — 3-way source selector */}
+          {/* Report Type: 3-way source selector */}
           <div>
             <p className="text-sm font-medium text-slate-700 mb-2">Report Type</p>
             <div className="grid grid-cols-3 gap-2 mb-3">

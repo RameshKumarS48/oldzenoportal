@@ -41,7 +41,7 @@ const TYPE_BADGE: Record<CustomerType, string> = {
 };
 
 function fmtDate(d?: string) {
-  if (!d) return "—";
+  if (!d) return "–";
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
@@ -221,7 +221,7 @@ export default function CustomersPage() {
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-slate-500 text-[11px]">
-                      {c.partner ? (partnerMap[c.partner] ?? c.partner) : <span className="text-slate-300">—</span>}
+                      {c.partner ? (partnerMap[c.partner] ?? c.partner) : <span className="text-slate-300">–</span>}
                     </td>
                     <td className="px-3 py-2.5">
                       <span className={cn("px-2 py-0.5 rounded text-[11px] font-semibold", STATUS_META[c.status]?.badge ?? "bg-slate-100 text-slate-500")}>
@@ -232,13 +232,13 @@ export default function CustomersPage() {
                       {SOURCE_LABELS[c.onboardingSource] ?? c.onboardingSource}
                     </td>
                     <td className="px-3 py-2.5 font-mono text-[11px] text-slate-400">
-                      {c.vehicleId ? c.vehicleId.slice(-8) : "—"}
+                      {c.vehicleId ? c.vehicleId.slice(-8) : "–"}
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="text-[11px]">
                         {c.promoPointsAllocated > 0 && <span className="text-indigo-600 font-medium">{c.promoPointsAllocated.toLocaleString()}p</span>}
                         {c.referralPointsBalance > 0 && <span className="text-emerald-600 font-medium ml-1">+{c.referralPointsBalance.toLocaleString()}r</span>}
-                        {c.promoPointsAllocated === 0 && c.referralPointsBalance === 0 && <span className="text-slate-300">—</span>}
+                        {c.promoPointsAllocated === 0 && c.referralPointsBalance === 0 && <span className="text-slate-300">–</span>}
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap text-[11px]">{fmtDate(c.activationDate)}</td>

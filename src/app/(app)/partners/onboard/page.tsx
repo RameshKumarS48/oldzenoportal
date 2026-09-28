@@ -27,7 +27,7 @@ const STEPS = [
 ];
 
 const PARTNER_TYPE_INFO: Record<PartnerType, { label: string; desc: string }> = {
-  credit:      { label: "Credit",      desc: "Provides financing — customers pay over time (e.g. M-KOPA, Watu)" },
+  credit:      { label: "Credit",      desc: "Provides financing. Customers pay over time (e.g. M-KOPA, Watu)" },
   corporate:   { label: "Corporate",   desc: "Fleet for a corporate employer (e.g. Greenwheels)" },
   captive:     { label: "Captive",     desc: "Zeno-operated internal fleet" },
   distributor: { label: "Distributor", desc: "Distributes bikes to sub-dealers or agents" },
@@ -55,18 +55,18 @@ export default function PartnerOnboardPage() {
   const [saving, setSaving] = useState(false);
   const [inviteError, setInviteError] = useState("");
 
-  // Step 1 — Organisation
+  // Step 1: Organisation
   const [org, setOrg] = useState({
     name: "", partnerType: "credit" as PartnerType,
     primaryEmail: "", emailDomain: "", status: "pending" as PartnerStatus,
   });
 
-  // Step 2 — Fleet
+  // Step 2: Fleet
   const [selectedVINs, setSelectedVINs] = useState<string[]>([]);
   const [vSearch, setVSearch] = useState("");
   const [vRegion, setVRegion] = useState("");
 
-  // Step 3 — Admin user
+  // Step 3: Admin user
   const [adminEmail, setAdminEmail] = useState("");
   const [adminName, setAdminName] = useState("");
   const [sendInvite, setSendInvite] = useState(true);
@@ -448,7 +448,7 @@ export default function PartnerOnboardPage() {
                                       </span>
                                     </td>
                                     <td className="px-3 py-3 text-slate-400 font-mono text-[11px]">
-                                      {v.partner || "—"}
+                                      {v.partner || "–"}
                                     </td>
                                   </tr>
                                 );
@@ -514,7 +514,7 @@ export default function PartnerOnboardPage() {
                             <div className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-lg p-3.5">
                               <Mail className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                               <p className="text-xs text-slate-500 leading-relaxed">
-                                They'll be assigned <strong>Partner Super Admin</strong> — full access to their
+                                They'll be assigned <strong>Partner Super Admin</strong>, with full access to their
                                 partner's customers, vehicles, and user management. Adjust their role any time
                                 from Users & Permissions.
                               </p>
@@ -528,7 +528,7 @@ export default function PartnerOnboardPage() {
                           </div>
                         ) : (
                           <p className="pl-8 text-sm text-slate-400">
-                            No problem — you can invite partner users later from Users & Permissions.
+                            No problem. You can invite partner users later from Users & Permissions.
                           </p>
                         )}
                       </div>
@@ -556,7 +556,7 @@ export default function PartnerOnboardPage() {
                               ["Type",    PARTNER_TYPE_INFO[org.partnerType].label],
                               ["Status",  org.status],
                               ["Email",   org.primaryEmail],
-                              ["Domain",  org.emailDomain || "—"],
+                              ["Domain",  org.emailDomain || "–"],
                             ].map(([k, v]) => (
                               <div key={k}>
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{k}</div>

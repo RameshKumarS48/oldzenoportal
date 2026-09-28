@@ -28,7 +28,7 @@ interface BatteryTelemetry {
 }
 
 const BATTERIES: BatteryTelemetry[] = [
-  // On vehicles — discharging
+  // On vehicles, discharging
   { id:"bt-01", serial:"ZB-0001", soc:72, temperature:28, cycles:142, health:96, voltage:54.2, current:-18, status:"discharging", assignment:"vehicle", assignmentId:"ME92ZPSFB1J001988", lastUpdated:"2026-07-30T07:41:00Z", alerts:[], region:"nbo" },
   { id:"bt-02", serial:"ZB-0002", soc:55, temperature:31, cycles:278, health:91, voltage:52.8, current:-22, status:"discharging", assignment:"vehicle", assignmentId:"ME92ZPSEB1J001526", lastUpdated:"2026-07-30T07:39:00Z", alerts:[], region:"nbo" },
   { id:"bt-03", serial:"ZB-0003", soc:84, temperature:26, cycles:67,  health:98, voltage:55.6, current:-15, status:"discharging", assignment:"vehicle", assignmentId:"ME92ZPSEB1J001547", lastUpdated:"2026-07-30T07:42:00Z", alerts:[], region:"nbo" },
@@ -59,7 +59,7 @@ const BATTERIES: BatteryTelemetry[] = [
   { id:"bt-28", serial:"ZB-0028", soc:80, temperature:26, cycles:122, health:96, voltage:55.2, current:-15, status:"discharging", assignment:"vehicle", assignmentId:"ME92ZPSEB1J000977", lastUpdated:"2026-07-30T07:53:00Z", alerts:[], region:"naromoru" },
   { id:"bt-29", serial:"ZB-0029", soc:57, temperature:30, cycles:288, health:91, voltage:53.0, current:-20, status:"discharging", assignment:"vehicle", assignmentId:"ME92ZPSFB1J000944", lastUpdated:"2026-07-30T07:26:00Z", alerts:[], region:"nyeri" },
   { id:"bt-30", serial:"ZB-0030", soc:22, temperature:28, cycles:534, health:82, voltage:50.2, current:-25, status:"discharging", assignment:"vehicle", assignmentId:"ME92ZPSEB1J000911", lastUpdated:"2026-07-30T07:54:00Z", alerts:[], region:"nyeri" },
-  // At swap stations — charging
+  // At swap stations, charging
   { id:"bt-31", serial:"ZB-0031", soc:48, temperature:35, cycles:210, health:93, voltage:52.3, current:28, status:"charging", assignment:"swap_station", assignmentId:"SS-NBO-01", lastUpdated:"2026-07-30T07:55:00Z", alerts:[], region:"nbo" },
   { id:"bt-32", serial:"ZB-0032", soc:91, temperature:34, cycles:167, health:95, voltage:57.1, current:12, status:"charging", assignment:"swap_station", assignmentId:"SS-NBO-01", lastUpdated:"2026-07-30T07:55:00Z", alerts:[], region:"nbo" },
   { id:"bt-33", serial:"ZB-0033", soc:63, temperature:33, cycles:301, health:90, voltage:53.6, current:26, status:"charging", assignment:"swap_station", assignmentId:"SS-NBO-02", lastUpdated:"2026-07-30T07:55:00Z", alerts:[], region:"nbo" },
@@ -70,7 +70,7 @@ const BATTERIES: BatteryTelemetry[] = [
   { id:"bt-38", serial:"ZB-0038", soc:42, temperature:35, cycles:389, health:87, voltage:51.6, current:29, status:"charging", assignment:"swap_station", assignmentId:"SS-NAR-01", lastUpdated:"2026-07-30T07:55:00Z", alerts:[], region:"naromoru" },
   { id:"bt-39", serial:"ZB-0039", soc:70, temperature:36, cycles:199, health:94, voltage:54.2, current:21, status:"charging", assignment:"swap_station", assignmentId:"SS-NYR-01", lastUpdated:"2026-07-30T07:55:00Z", alerts:[], region:"nyeri" },
   { id:"bt-40", serial:"ZB-0040", soc:95, temperature:33, cycles:76,  health:98, voltage:57.5, current:8,  status:"charging", assignment:"swap_station", assignmentId:"SS-NYR-01", lastUpdated:"2026-07-30T07:55:00Z", alerts:[], region:"nyeri" },
-  // Unassigned — idle
+  // Unassigned, idle
   { id:"bt-41", serial:"ZB-0041", soc:100, temperature:22, cycles:0,   health:100, voltage:58.0, current:0, status:"idle", assignment:"unassigned", assignmentId:"", lastUpdated:"2026-07-30T06:00:00Z", alerts:[], region:"nbo" },
   { id:"bt-42", serial:"ZB-0042", soc:100, temperature:23, cycles:0,   health:100, voltage:57.9, current:0, status:"idle", assignment:"unassigned", assignmentId:"", lastUpdated:"2026-07-30T06:00:00Z", alerts:[], region:"nbo" },
   { id:"bt-43", serial:"ZB-0043", soc:85,  temperature:21, cycles:611, health:79,  voltage:55.7, current:0, status:"idle", assignment:"unassigned", assignmentId:"", lastUpdated:"2026-07-29T18:00:00Z", alerts:[], region:"nbo" },
@@ -283,7 +283,7 @@ export default function BatteryTelemetryPage() {
                               <div className="font-mono text-[10px] text-slate-600 truncate max-w-[120px]">{b.assignmentId}</div>
                               <div className="text-[10px] text-slate-400 capitalize">{b.assignment.replace("_"," ")}</div>
                             </div>
-                          : <span className="text-slate-300">—</span>
+                          : <span className="text-slate-300">–</span>
                         }
                       </td>
                       <td className="px-3 py-2.5 text-slate-500">{REGION_LABELS[b.region]}</td>
@@ -297,7 +297,7 @@ export default function BatteryTelemetryPage() {
                                 </span>
                               ))}
                             </div>
-                          : <span className="text-slate-300">—</span>
+                          : <span className="text-slate-300">–</span>
                         }
                       </td>
                     </tr>

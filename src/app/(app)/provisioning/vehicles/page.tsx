@@ -62,7 +62,7 @@ const STATUS_META: Record<VehicleProvRecord["status"], { label: string; badge: s
 const REGION_LABELS: Record<string, string> = { nbo: "NBO", nanyuki: "Nanyuki", naromoru: "Naro Moru", nyeri: "Nyeri" };
 
 function fmtDate(d?: string) {
-  if (!d) return "—";
+  if (!d) return "–";
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" });
 }
 
@@ -113,7 +113,7 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="py-2 border-b border-slate-100 flex gap-4">
       <span className="text-xs text-slate-400 w-36 shrink-0">{label}</span>
-      <span className="text-sm text-slate-700 font-medium">{value || "—"}</span>
+      <span className="text-sm text-slate-700 font-medium">{value || "–"}</span>
     </div>
   );
 }
@@ -326,9 +326,9 @@ export default function ProvisionVehiclePage() {
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Live Operations</p>
           <div className="grid grid-cols-3 gap-6">
             {[
-              { label: "Batch Onboarding #47 — 5 vehicles", progress: 72, done: false },
+              { label: "Batch Onboarding #47, 5 vehicles", progress: 72, done: false },
               { label: "Firmware Push v2.3.1", progress: 45, done: false },
-              { label: "QC Inspection Run — Nairobi", progress: 100, done: true },
+              { label: "QC Inspection Run, Nairobi", progress: 100, done: true },
             ].map(op => (
               <div key={op.label} className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
@@ -403,7 +403,7 @@ export default function ProvisionVehiclePage() {
                       </span>
                       {r.notes && <div className="text-[10px] text-slate-400 mt-0.5">{r.notes}</div>}
                     </td>
-                    <td className="px-3 py-2.5 text-slate-500">{r.technician ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-slate-500">{r.technician ?? "–"}</td>
                   </tr>
                 ))}
               </tbody>

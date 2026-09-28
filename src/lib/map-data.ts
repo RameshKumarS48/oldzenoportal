@@ -3,7 +3,7 @@
 /**
  * Fleet-map data layer.
  *
- * The app has no real lat/lng for any asset — everything is anchored by a
+ * The app has no real lat/lng for any asset, everything is anchored by a
  * region key. Here we map each region to a real Kenyan city centroid and
  * deterministically scatter individual assets in a disc around it (seeded by
  * the asset id), so the map clusters at low zoom and breaks into stable
@@ -39,7 +39,7 @@ export const REGION_LABELS: Record<RegionKey, string> = {
   naromoru: CENTROIDS.naromoru.label,
 };
 
-// ---- deterministic scatter (no Math.random — pins must be stable) ----------
+// ---- deterministic scatter (no Math.random, pins must be stable) ----------
 
 function hashStr(s: string): number {
   let h = 2166136261 >>> 0;
@@ -58,6 +58,18 @@ function rand01(seed: number): number {
 }
 
 /** Stable [lng, lat] for an asset, scattered in a disc around its region. */
+/** Nearest town to a real coordinate, for labelling assets that carry GPS. */
+export function regionForCoords(lng: number, lat: number): RegionKey {
+  let best: RegionKey = "nbo";
+  let bestD = Infinity;
+  for (const key of Object.keys(CENTROIDS) as RegionKey[]) {
+    const c = CENTROIDS[key];
+    const d = (c.lng - lng) ** 2 + (c.lat - lat) ** 2;
+    if (d < bestD) { bestD = d; best = key; }
+  }
+  return best;
+}
+
 export function coordsFor(region: RegionKey, seed: string): [number, number] {
   const c = CENTROIDS[region] ?? CENTROIDS.nbo;
   const angle = rand01(hashStr(seed + ":a")) * Math.PI * 2;
@@ -101,7 +113,7 @@ export interface MapAsset {
 
 /** Fast-charger stations, derived from the real fast-charger session data. */
 export const FAST_CHARGERS: { id: string; name: string; region: RegionKey; units: number }[] = [
-  { id: "FC-NBO-01", name: "Zeno Hub — Westlands",     region: "nbo",     units: 3 },
+  { id: "FC-NBO-01", name: "Zeno Hub, Westlands",     region: "nbo",     units: 3 },
   { id: "FC-NBO-02", name: "Upperhill Medical Ctr",    region: "nbo",     units: 2 },
   { id: "FC-NBO-03", name: "Parklands Retail Park",    region: "nbo",     units: 4 },
   { id: "FC-NBO-04", name: "Karen Country Club",       region: "nbo",     units: 2 },
@@ -118,7 +130,7 @@ export const FAST_CHARGERS: { id: string; name: string; region: RegionKey; units
   { id: "FC-NYR-03", name: "Dedan Kimathi University", region: "nyeri",   units: 2 },
 ];
 
-/** Residential home chargers — synthesized (no source data exists). */
+/** Residential home chargers, synthesized (no source data exists). */
 export const HOME_CHARGERS: {
   id: string;
   owner: string;
@@ -154,14 +166,14 @@ function ratingLabel(r: "L" | "M" | "H"): string {
 }
 
 function esc(v: unknown): string {
-  return String(v ?? "—").replace(/[&<>"]/g, (c) =>
+  return String(v ?? "–").replace(/[&<>"]/g, (c) =>
     c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&quot;"
   );
 }
 
 type Row = [string, string | number | undefined | null];
 
-function popupHtml(kind: AssetKind, title: string, rows: Row[]): string {
+export function popupHtml(kind: AssetKind, title: string, rows: Row[]): string {
   const meta = ASSET_META[kind];
   const body = rows
     .filter(([, v]) => v !== undefined && v !== null && v !== "")
@@ -239,7 +251,7 @@ export function useMapAssets(): MapAsset[] {
           ["Phone", c.phone],
           ["Status", humanize(c.status)],
           ["Type", humanize(c.customerType)],
-          ["Partner", c.partner || "—"],
+          ["Partner", c.partner || "–"],
           ["Region", REGION_LABELS[region]],
         ]),
       });

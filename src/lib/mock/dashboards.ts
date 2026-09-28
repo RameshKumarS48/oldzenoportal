@@ -53,7 +53,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
   {
     id: "preset-partner-metrics",
     title: "Partner Metrics",
-    description: "All 30 partner KPIs — customers, sales, loan book, uptime and offroad cases",
+    description: "All 30 partner KPIs: customers, sales, loan book, uptime and offroad cases",
     type: "preset",
     category: "all-metrics",
     presetGroup: "partner",
@@ -66,7 +66,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
   {
     id: "preset-infra-metrics",
     title: "Infrastructure Metrics",
-    description: "All 43 infrastructure KPIs — stations, batteries, energy, revenue and network ratios",
+    description: "All 43 infrastructure KPIs: stations, batteries, energy, revenue and network ratios",
     type: "preset",
     category: "all-metrics",
     presetGroup: "infra",
@@ -81,7 +81,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
   {
     id: "preset-fleet-health",
     title: "Fleet Health",
-    description: "Uptime trends and offroad breakdown — spot at a glance which bikes are earning vs sitting idle",
+    description: "Uptime trends and offroad breakdown. Spot at a glance which bikes are earning vs sitting idle",
     type: "preset",
     category: "asset",
     presetGroup: "partner",
@@ -129,7 +129,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "fh-5", title: "Repo Rate (Financial Stress)", chartType: "line",
-        description: "Weekly repossessions across original and resale portfolios. A leading credit health indicator — sustained increases require immediate collections intervention.",
+        description: "Weekly repossessions across original and resale portfolios. A leading credit health indicator. Sustained increases require immediate collections intervention.",
         dataSource: "partner", x: 8, y: 6, w: 4, h: 6,
         series: [
           { metricKey: "offroadRepoOverall", seriesType: "actual", color: "#FF3B06", label: "Repos" },
@@ -160,7 +160,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "dp-2", title: "Delivered to Partner", chartType: "bar",
-        description: "Bikes physically delivered from Zeno to the partner's warehouse. First leg of the delivery chain — should closely follow bikes sold.",
+        description: "Bikes physically delivered from Zeno to the partner's warehouse. First leg of the delivery chain. Should closely follow bikes sold.",
         dataSource: "partner", x: 4, y: 0, w: 4, h: 6,
         series: [
           { metricKey: "bikesDeliveredToPartner", seriesType: "actual", color: "#003B49", label: "To Partner" },
@@ -197,7 +197,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
   {
     id: "preset-customer-growth",
     title: "Customer Growth",
-    description: "Net new customers, week-over-week adds, redeployments — is the base growing healthily?",
+    description: "Net new customers, week-over-week adds, redeployments. Is the base growing healthily?",
     type: "preset",
     category: "asset",
     presetGroup: "partner",
@@ -224,7 +224,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "cg-3", title: "Bikes Delivered to Customers", chartType: "bar",
-        description: "New bikes delivered to customers per week — the primary driver of fleet growth. Each delivery opens a new revenue seat and loan repayment stream.",
+        description: "New bikes delivered to customers per week, the primary driver of fleet growth. Each delivery opens a new revenue seat and loan repayment stream.",
         dataSource: "partner", x: 0, y: 6, w: 4, h: 6,
         series: [
           { metricKey: "bikesDeliveredToCustomer", seriesType: "actual", color: "#10b981", label: "New Customers" },
@@ -232,7 +232,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "cg-4", title: "Redeployments", chartType: "bar",
-        description: "Replacement bikes issued to existing customers after offroad events. A retention safety valve — high redeployments indicate active churn prevention.",
+        description: "Replacement bikes issued to existing customers after offroad events. A retention safety valve. High redeployments indicate active churn prevention.",
         dataSource: "partner", x: 4, y: 6, w: 4, h: 6,
         series: [
           { metricKey: "redeployedCustomers", seriesType: "actual", color: "#6366f1", label: "Redeployed" },
@@ -251,7 +251,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
   {
     id: "preset-retention-risk",
     title: "Retention Risk",
-    description: "Paused, repos, and offroad bikes signal customers under financial stress — catch it before churn",
+    description: "Paused, repos, and offroad bikes signal customers under financial stress. Catch it before churn",
     type: "preset",
     category: "asset",
     presetGroup: "partner",
@@ -261,7 +261,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
     widgets: [
       {
         id: "rr-1", title: "Stress Signals", chartType: "stacked-bar",
-        description: "Stacked view of paused, repo, and other offroad bikes per week. Rising stacks precede churn — watch for inflection points requiring early intervention.",
+        description: "Stacked view of paused, repo, and other offroad bikes per week. Rising stacks precede churn. Watch for inflection points requiring early intervention.",
         dataSource: "partner", x: 0, y: 0, w: 8, h: 6,
         series: [
           { metricKey: "pausedOverall", seriesType: "actual", color: "#f59e0b", label: "Paused" },
@@ -289,7 +289,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "rr-4", title: "Repo vs Accident Offroad", chartType: "bar",
-        description: "Financial (repo) vs non-financial (accident) reasons for bikes going offroad. Divergence indicates which intervention — collections vs field safety — is most needed.",
+        description: "Financial (repo) vs non-financial (accident) reasons for bikes going offroad. Divergence indicates which intervention (collections vs field safety) is most needed.",
         dataSource: "partner", x: 6, y: 6, w: 6, h: 6,
         series: [
           { metricKey: "offroadRepoOverall", seriesType: "actual", color: "#FF3B06", label: "Repo" },
@@ -303,7 +303,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
   {
     id: "preset-revenue-trends",
     title: "Revenue Trends",
-    description: "ARPU trajectory and customer monetization — is revenue per rider growing as the fleet scales?",
+    description: "ARPU trajectory and customer monetization. Is revenue per rider growing as the fleet scales?",
     type: "preset",
     category: "finance",
     presetGroup: "partner",
@@ -313,7 +313,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
     widgets: [
       {
         id: "rt-1", title: "ARPU Trend", chartType: "area",
-        description: "Average revenue per user per week (KES). The core monetization KPI — should trend upward as swap penetration improves and pricing evolves.",
+        description: "Average revenue per user per week (KES). The core monetization KPI, which should trend upward as swap penetration improves and pricing evolves.",
         dataSource: "partner", x: 0, y: 0, w: 8, h: 6,
         series: [
           { metricKey: "arpu", seriesType: "actual", color: "#FF3B06", label: "ARPU (KES)" },
@@ -329,7 +329,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "rt-3", title: "Customer Base Growth", chartType: "area",
-        description: "Start vs end customer count over time. The widening gap between the two lines shows net weekly growth — a key indicator of scale velocity.",
+        description: "Start vs end customer count over time. The widening gap between the two lines shows net weekly growth, a key indicator of scale velocity.",
         dataSource: "partner", x: 0, y: 6, w: 6, h: 6,
         series: [
           { metricKey: "startingCustomers", seriesType: "actual", color: "#003B49", label: "Start" },
@@ -349,7 +349,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
   {
     id: "preset-loan-book",
     title: "Loan Book Health",
-    description: "Gross vs net repayment rates for original and resale portfolios — where is credit risk concentrating?",
+    description: "Gross vs net repayment rates for original and resale portfolios. Where is credit risk concentrating?",
     type: "preset",
     category: "finance",
     presetGroup: "partner",
@@ -367,7 +367,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
         ],
       },
       {
-        id: "lb-2", title: "Original vs Resale — Gross", chartType: "bar",
+        id: "lb-2", title: "Original vs Resale (Gross)", chartType: "bar",
         description: "Gross repayment rates compared between original and resale bike portfolios. Persistent divergence may indicate different credit risk profiles requiring separate underwriting.",
         dataSource: "partner", x: 6, y: 0, w: 6, h: 6,
         series: [
@@ -400,7 +400,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
   {
     id: "preset-swap-efficiency",
     title: "Swap Station Efficiency",
-    description: "Revenue per kWh, wait times, and availability — is the swap network performing at capacity?",
+    description: "Revenue per kWh, wait times, and availability. Is the swap network performing at capacity?",
     type: "preset",
     category: "infra",
     presetGroup: "infra",
@@ -410,7 +410,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
     widgets: [
       {
         id: "se-1", title: "SS vs FC Revenue", chartType: "area",
-        description: "Weekly revenue from swap stations vs fast chargers. Shows relative channel contribution — use to guide capital allocation between station types.",
+        description: "Weekly revenue from swap stations vs fast chargers. Shows relative channel contribution. Use to guide capital allocation between station types.",
         dataSource: "infra", x: 0, y: 0, w: 6, h: 6,
         series: [
           { metricKey: "ssRevenue", seriesType: "actual", color: "#FF3B06", label: "SS Revenue (KES)" },
@@ -419,7 +419,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "se-2", title: "Energy Throughput (kWh)", chartType: "bar",
-        description: "Total kWh dispensed per week by swap stations and fast chargers. Volume metric that drives revenue — should grow with fleet and station count.",
+        description: "Total kWh dispensed per week by swap stations and fast chargers. Volume metric that drives revenue. Should grow with fleet and station count.",
         dataSource: "infra", x: 6, y: 0, w: 6, h: 6,
         series: [
           { metricKey: "ssKwhSold", seriesType: "actual", color: "#FF3B06", label: "SS kWh" },
@@ -428,7 +428,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "se-3", title: "Swaps Waiting >10 Mins", chartType: "line",
-        description: "Count of swap sessions where customers waited more than 10 minutes. A quality-of-service indicator — high numbers signal station under-capacity or battery shortfalls.",
+        description: "Count of swap sessions where customers waited more than 10 minutes. A quality-of-service indicator. High numbers signal station under-capacity or battery shortfalls.",
         dataSource: "infra", x: 0, y: 6, w: 4, h: 6,
         series: [
           { metricKey: "swapsWaitOver10Mins", seriesType: "actual", color: "#f59e0b", label: "Long-wait Swaps" },
@@ -446,7 +446,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "se-5", title: "Price vs Electric Rate", chartType: "line",
-        description: "Swap station pricing per kWh vs electricity cost. The spread between these two lines is the gross margin per kWh — monitor for margin compression.",
+        description: "Swap station pricing per kWh vs electricity cost. The spread between these two lines is the gross margin per kWh. Monitor for margin compression.",
         dataSource: "infra", x: 8, y: 6, w: 4, h: 6,
         series: [
           { metricKey: "ssPricing", seriesType: "actual", color: "#FF3B06", label: "SS Price" },
@@ -458,7 +458,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
   {
     id: "preset-infrastructure-buildout",
     title: "Infrastructure Build-out",
-    description: "Cumulative station and battery deployment vs inventory — are we building ahead of demand?",
+    description: "Cumulative station and battery deployment vs inventory. Are we building ahead of demand?",
     type: "preset",
     category: "infra",
     presetGroup: "infra",
@@ -496,7 +496,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "ib-4", title: "Sites Pipeline", chartType: "bar",
-        description: "Upper-funnel site candidates, active negotiations, and signed leases per week. A leading indicator for future network expansion — slow pipeline = future deployment risk.",
+        description: "Upper-funnel site candidates, active negotiations, and signed leases per week. A leading indicator for future network expansion. Slow pipeline = future deployment risk.",
         dataSource: "infra", x: 6, y: 6, w: 6, h: 6,
         series: [
           { metricKey: "ssUpperFunnelSites", seriesType: "actual", color: "#FF3B06", label: "SS Pipeline" },
@@ -509,7 +509,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
   {
     id: "preset-energy-margin",
     title: "Energy Margin Analysis",
-    description: "Price per kWh vs. electricity cost — track the spread that determines infrastructure profitability",
+    description: "Price per kWh vs. electricity cost. Track the spread that determines infrastructure profitability",
     type: "preset",
     category: "infra",
     presetGroup: "infra",
@@ -519,7 +519,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
     widgets: [
       {
         id: "em-1", title: "SS: Price vs Cost per kWh", chartType: "line",
-        description: "Swap station price charged to customers vs electricity cost per kWh. The spread is the gross margin per kWh — narrowing spread means margin compression.",
+        description: "Swap station price charged to customers vs electricity cost per kWh. The spread is the gross margin per kWh. Narrowing spread means margin compression.",
         dataSource: "infra", x: 0, y: 0, w: 6, h: 6,
         series: [
           { metricKey: "ssPricing", seriesType: "actual", color: "#FF3B06", label: "SS Price/kWh" },
@@ -546,7 +546,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "em-4", title: "Blended Pricing Trend", chartType: "area",
-        description: "Network-wide blended price vs blended electricity cost per kWh. The most important infrastructure profitability indicator — tracks margin across all station types.",
+        description: "Network-wide blended price vs blended electricity cost per kWh. The most important infrastructure profitability indicator. Tracks margin across all station types.",
         dataSource: "infra", x: 6, y: 6, w: 6, h: 6,
         series: [
           { metricKey: "overallBlendedPricing", seriesType: "actual", color: "#FF3B06", label: "Blended Price" },
@@ -558,7 +558,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
   {
     id: "preset-network-reliability",
     title: "Network Reliability",
-    description: "Uptime, availability, and wait-time SLAs — is the charging network reliable enough to keep riders on the road?",
+    description: "Uptime, availability, and wait-time SLAs. Is the charging network reliable enough to keep riders on the road?",
     type: "preset",
     category: "infra",
     presetGroup: "infra",
@@ -568,7 +568,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
     widgets: [
       {
         id: "nr-1", title: "Network Uptime vs Availability", chartType: "area",
-        description: "Network uptime (system online) vs availability (ready for customer use). A gap between them means stations are online but not serving customers — investigate blocking issues.",
+        description: "Network uptime (system online) vs availability (ready for customer use). A gap between them means stations are online but not serving customers. Investigate blocking issues.",
         dataSource: "infra", x: 0, y: 0, w: 8, h: 6,
         series: [
           { metricKey: "networkUptime", seriesType: "actual", color: "#10b981", label: "Uptime" },
@@ -577,7 +577,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "nr-2", title: "Long Wait Swaps", chartType: "stat",
-        description: "Latest week's count of swap sessions where customers waited more than 10 minutes. A direct customer satisfaction metric — elevated counts require battery restocking or station expansion.",
+        description: "Latest week's count of swap sessions where customers waited more than 10 minutes. A direct customer satisfaction metric. Elevated counts require battery restocking or station expansion.",
         dataSource: "infra", x: 8, y: 0, w: 4, h: 6,
         series: [
           { metricKey: "swapsWaitOver10Mins", seriesType: "actual", color: "#f59e0b", label: ">10 min Swaps" },
@@ -606,7 +606,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
   {
     id: "preset-battery-coverage",
     title: "Battery Coverage",
-    description: "Battery-to-bike and battery-per-station ratios — is infrastructure keeping pace with the fleet?",
+    description: "Battery-to-bike and battery-per-station ratios. Is infrastructure keeping pace with the fleet?",
     type: "preset",
     category: "infra",
     presetGroup: "infra",
@@ -616,7 +616,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
     widgets: [
       {
         id: "bc-1", title: "Battery Pair per Bike", chartType: "line",
-        description: "Number of battery pairs available per active bike. Target ratio (≥2) ensures swap stations always have charged batteries ready — drops below target create wait time.",
+        description: "Number of battery pairs available per active bike. Target ratio (≥2) ensures swap stations always have charged batteries ready. Drops below target create wait time.",
         dataSource: "infra", x: 0, y: 0, w: 6, h: 6,
         series: [
           { metricKey: "batteryPairPerBike", seriesType: "actual", color: "#FF3B06", label: "Pairs/Bike" },
@@ -624,7 +624,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "bc-2", title: "Bike-to-Station Ratio", chartType: "line",
-        description: "Active bikes per swap station and per fast charger. Rising ratios mean infrastructure isn't keeping pace with fleet growth — plan station deployments accordingly.",
+        description: "Active bikes per swap station and per fast charger. Rising ratios mean infrastructure isn't keeping pace with fleet growth. Plan station deployments accordingly.",
         dataSource: "infra", x: 6, y: 0, w: 6, h: 6,
         series: [
           { metricKey: "bikeSsRatio", seriesType: "actual", color: "#003B49", label: "Bikes per SS" },
@@ -633,7 +633,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "bc-3", title: "Battery Inventory Buffer", chartType: "area",
-        description: "Batteries in field vs in warehouse inventory. Buffer stock enables rapid station replenishment — a shrinking buffer risks stockouts and customer wait times.",
+        description: "Batteries in field vs in warehouse inventory. Buffer stock enables rapid station replenishment. A shrinking buffer risks stockouts and customer wait times.",
         dataSource: "infra", x: 0, y: 6, w: 6, h: 6,
         series: [
           { metricKey: "totalBatteriesDeployed", seriesType: "actual", color: "#FF3B06", label: "Deployed" },
@@ -656,7 +656,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
   {
     id: "preset-referral-data",
     title: "Referral Data",
-    description: "Weekly referral funnel — entries, awards, attach rate, pending backlog, and days-to-award",
+    description: "Weekly referral funnel: entries, awards, attach rate, pending backlog, and days-to-award",
     type: "preset",
     category: "referral",
     presetGroup: "partner",
@@ -675,7 +675,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "rd-2", title: "Pending Referrals", chartType: "stat",
-        description: "Current count of referral codes awaiting validation and award. A growing number risks damaging referrer trust — target a near-zero pending backlog.",
+        description: "Current count of referral codes awaiting validation and award. A growing number risks damaging referrer trust. Target a near-zero pending backlog.",
         dataSource: "referral", x: 8, y: 0, w: 4, h: 6,
         series: [
           { metricKey: "pendingReferrals", seriesType: "actual", color: "#f59e0b", label: "Pending" },
@@ -683,7 +683,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "rd-3", title: "Referral Attach Rate (%)", chartType: "area",
-        description: "Percentage of weekly bike sales that carried a valid referral code. Measures how effectively the referral programme drives acquisitions — target >40%.",
+        description: "Percentage of weekly bike sales that carried a valid referral code. Measures how effectively the referral programme drives acquisitions. Target >40%.",
         dataSource: "referral", x: 0, y: 6, w: 6, h: 6,
         series: [
           { metricKey: "referralAttachRate", seriesType: "actual", color: "#FF3B06", label: "Attach Rate %" },
@@ -699,7 +699,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "rd-5", title: "Avg Days: Entry → Award", chartType: "line",
-        description: "Average calendar days from a referral code being entered to the award being issued. Should decrease as processes mature — above 7 days risks referrer dissatisfaction.",
+        description: "Average calendar days from a referral code being entered to the award being issued. Should decrease as processes mature. Above 7 days risks referrer dissatisfaction.",
         dataSource: "referral", x: 0, y: 12, w: 6, h: 6,
         series: [
           { metricKey: "avgDaysToAward", seriesType: "actual", color: "#6366f1", label: "Avg Days" },
@@ -707,7 +707,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "rd-6", title: "Pending Backlog Trend", chartType: "area",
-        description: "Running accumulation of unprocessed referral codes over time. Should remain flat or decline — a rising trend means award processing can't keep up with entries.",
+        description: "Running accumulation of unprocessed referral codes over time. Should remain flat or decline. A rising trend means award processing can't keep up with entries.",
         dataSource: "referral", x: 6, y: 12, w: 6, h: 6,
         series: [
           { metricKey: "pendingReferrals", seriesType: "actual", color: "#f59e0b", label: "Pending" },
@@ -730,7 +730,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
   {
     id: "preset-wallet-overview",
     title: "Wallet Overview",
-    description: "Points issued vs redeemed, wallet liability, avg balance, recharge by method — full customer financials picture",
+    description: "Points issued vs redeemed, wallet liability, avg balance, recharge by method: full customer financials picture",
     type: "preset",
     category: "finance",
     presetGroup: "partner",
@@ -749,7 +749,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "wo-2", title: "Wallet Liability (KES)", chartType: "stat",
-        description: "Total monetary value of unredeemed loyalty points across all customers (1 pt = 1 KES). A balance sheet obligation — large liability requires cash reserve planning.",
+        description: "Total monetary value of unredeemed loyalty points across all customers (1 pt = 1 KES). A balance sheet obligation. Large liability requires cash reserve planning.",
         dataSource: "wallet", x: 8, y: 0, w: 4, h: 6,
         series: [
           { metricKey: "walletLiabilityKES", seriesType: "actual", color: "#FF3B06", label: "Liability (KES)" },
@@ -757,7 +757,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "wo-3", title: "Wallet Liability Trend", chartType: "area",
-        description: "Running cumulative wallet liability over time. A rising trend means points are accumulating faster than redemption — review expiry policy and redemption incentives.",
+        description: "Running cumulative wallet liability over time. A rising trend means points are accumulating faster than redemption. Review expiry policy and redemption incentives.",
         dataSource: "wallet", x: 0, y: 6, w: 6, h: 6,
         series: [
           { metricKey: "walletLiabilityKES", seriesType: "actual", color: "#f59e0b", label: "Running Liability (KES)" },
@@ -773,7 +773,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "wo-5", title: "Customers at Zero Balance", chartType: "bar",
-        description: "Count and percentage of customers with zero wallet balance. Zero-balance customers have no loyalty lock-in and are at higher churn risk — alert threshold is >15%.",
+        description: "Count and percentage of customers with zero wallet balance. Zero-balance customers have no loyalty lock-in and are at higher churn risk. Alert threshold is >15%.",
         dataSource: "wallet", x: 0, y: 12, w: 6, h: 6,
         series: [
           { metricKey: "customersZeroBalance", seriesType: "actual", color: "#FF3B06", label: "Zero Balance #" },
@@ -805,7 +805,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
     widgets: [
       {
         id: "ra-1", title: "Total Recharge Value (KES)", chartType: "area",
-        description: "Total KES recharged into customer wallets per week across all payment methods. Measures the flow of cash into the loyalty system — growth indicates increasing customer trust.",
+        description: "Total KES recharged into customer wallets per week across all payment methods. Measures the flow of cash into the loyalty system. Growth indicates increasing customer trust.",
         dataSource: "wallet", x: 0, y: 0, w: 8, h: 6,
         series: [
           { metricKey: "rechargeValueKES", seriesType: "actual", color: "#FF3B06", label: "Total Recharged (KES)" },
@@ -813,7 +813,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "ra-2", title: "Avg Recharge Value", chartType: "stat",
-        description: "Average KES per recharge transaction. Higher averages indicate customers top up in larger amounts — a sign of confidence in the wallet system.",
+        description: "Average KES per recharge transaction. Higher averages indicate customers top up in larger amounts, a sign of confidence in the wallet system.",
         dataSource: "wallet", x: 8, y: 0, w: 4, h: 6,
         series: [
           { metricKey: "avgRechargeValueKES", seriesType: "actual", color: "#10b981", label: "Avg (KES)" },
@@ -849,7 +849,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "ra-6", title: "Referral Conversion Rate", chartType: "area",
-        description: "Percentage of referred contacts who completed a bike purchase. Below 40% may indicate friction in the referral journey — review the onboarding experience.",
+        description: "Percentage of referred contacts who completed a bike purchase. Below 40% may indicate friction in the referral journey. Review the onboarding experience.",
         dataSource: "wallet", x: 6, y: 12, w: 6, h: 6,
         series: [
           { metricKey: "referralConversionRate", seriesType: "actual", color: "#ec4899", label: "Conversion Rate %" },
@@ -872,7 +872,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
     widgets: [
       {
         id: "ed-1", title: "kWh by Session Type", chartType: "stacked-bar",
-        description: "Total energy dispensed per week broken down by swap, fast charge, and home charge sessions. Shows channel mix — swap should dominate as the primary service model.",
+        description: "Total energy dispensed per week broken down by swap, fast charge, and home charge sessions. Shows channel mix. Swap should dominate as the primary service model.",
         dataSource: "energy", x: 0, y: 0, w: 8, h: 6,
         series: [
           { metricKey: "swapKwh",       seriesType: "actual", color: "#FF3B06", label: "Swap" },
@@ -882,7 +882,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "ed-2", title: "Cumulative kWh", chartType: "stat",
-        description: "Running total of all energy delivered since network launch. Key ESG and sustainability reporting metric — tracks the scale of clean energy delivered to riders.",
+        description: "Running total of all energy delivered since network launch. Key ESG and sustainability reporting metric. Tracks the scale of clean energy delivered to riders.",
         dataSource: "energy", x: 8, y: 0, w: 4, h: 6,
         series: [
           { metricKey: "cumulativeKwh", seriesType: "actual", color: "#FF3B06", label: "Total kWh" },
@@ -890,7 +890,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "ed-3", title: "Cumulative Energy Delivered", chartType: "area",
-        description: "Growth trajectory of cumulative kWh over time. Should accelerate as the fleet and station count grows — a slowing slope indicates delivery capacity issues.",
+        description: "Growth trajectory of cumulative kWh over time. Should accelerate as the fleet and station count grows. A slowing slope indicates delivery capacity issues.",
         dataSource: "energy", x: 0, y: 6, w: 6, h: 6,
         series: [
           { metricKey: "cumulativeKwh", seriesType: "actual", color: "#FF3B06", label: "Cumulative kWh" },
@@ -936,7 +936,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
     widgets: [
       {
         id: "sa-1", title: "Sessions by Type", chartType: "stacked-bar",
-        description: "Total charging sessions per week by service type (swap, fast charge, home charge). Volume indicator for each channel — swap count growth tracks with fleet scale.",
+        description: "Total charging sessions per week by service type (swap, fast charge, home charge). Volume indicator for each channel. Swap count growth tracks with fleet scale.",
         dataSource: "energy", x: 0, y: 0, w: 8, h: 6,
         series: [
           { metricKey: "swapSessionsCount",      seriesType: "actual", color: "#FF3B06", label: "Swap" },
@@ -962,7 +962,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "sa-4", title: "Peak vs Off-Peak Sessions", chartType: "bar",
-        description: "Session count during peak vs off-peak hours. High peak concentration strains grid capacity and may trigger demand charges — incentivise off-peak charging if skewed.",
+        description: "Session count during peak vs off-peak hours. High peak concentration strains grid capacity and may trigger demand charges. Incentivise off-peak charging if skewed.",
         dataSource: "energy", x: 6, y: 6, w: 6, h: 6,
         series: [
           { metricKey: "peakHourSessions", seriesType: "actual", color: "#FF3B06", label: "Peak" },
@@ -971,7 +971,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "sa-5", title: "Energy Revenue vs Cost/kWh", chartType: "area",
-        description: "Weekly energy revenue from all charging sessions (KES). Growth should track closely with kWh delivered — declining revenue per kWh indicates pricing pressure.",
+        description: "Weekly energy revenue from all charging sessions (KES). Growth should track closely with kWh delivered. Declining revenue per kWh indicates pricing pressure.",
         dataSource: "energy", x: 0, y: 12, w: 6, h: 6,
         series: [
           { metricKey: "energyRevenueKES", seriesType: "actual", color: "#FF3B06", label: "Revenue (KES)" },
@@ -1013,7 +1013,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "pf-2", title: "Cumulative Downloads", chartType: "stat",
-        description: "Running total of app downloads since launch. Baseline audience size for all funnel conversion calculations — growing this number is top of the growth agenda.",
+        description: "Running total of app downloads since launch. Baseline audience size for all funnel conversion calculations. Growing this number is top of the growth agenda.",
         dataSource: "preorder", x: 6, y: 0, w: 3, h: 6,
         series: [
           { metricKey: "cumulativeDownloads", seriesType: "actual", color: "#FF3B06", label: "Total Downloads" },
@@ -1021,7 +1021,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "pf-3", title: "Pre-orders Placed", chartType: "stat",
-        description: "Total pre-orders placed per week — deposits paid and bike reserved. A leading indicator for future sales volume and pipeline value.",
+        description: "Total pre-orders placed per week: deposits paid and bike reserved. A leading indicator for future sales volume and pipeline value.",
         dataSource: "preorder", x: 9, y: 0, w: 3, h: 6,
         series: [
           { metricKey: "preorders", seriesType: "actual", color: "#10b981", label: "Pre-orders" },
@@ -1039,7 +1039,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "pf-5", title: "Deposits Paid (KES)", chartType: "stat",
-        description: "Total deposit value collected from pre-order customers this week. Represents committed pipeline revenue — rising deposits directly predict near-term sales.",
+        description: "Total deposit value collected from pre-order customers this week. Represents committed pipeline revenue. Rising deposits directly predict near-term sales.",
         dataSource: "preorder", x: 8, y: 6, w: 4, h: 6,
         series: [
           { metricKey: "depositsPaidKES", seriesType: "actual", color: "#f59e0b", label: "Deposits (KES)" },
@@ -1056,7 +1056,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "pf-7", title: "Days to Pre-order & Activation", chartType: "area",
-        description: "Average time from registration to pre-order, and from pre-order to bike activation. Shorter is better — long lags indicate friction or fulfilment delays in the onboarding journey.",
+        description: "Average time from registration to pre-order, and from pre-order to bike activation. Shorter is better. Long lags indicate friction or fulfilment delays in the onboarding journey.",
         dataSource: "preorder", x: 6, y: 12, w: 6, h: 6,
         series: [
           { metricKey: "avgTimeToPreorderDays",   seriesType: "actual", color: "#6366f1", label: "Reg→Pre-order (days)" },
@@ -1065,7 +1065,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "pf-8", title: "Drop-off & Cancellations", chartType: "bar",
-        description: "Absolute drop-off counts at the registration and pre-order stages. Quantifies where the funnel leaks — high registration drop-off may indicate app UX friction.",
+        description: "Absolute drop-off counts at the registration and pre-order stages. Quantifies where the funnel leaks. High registration drop-off may indicate app UX friction.",
         dataSource: "preorder", x: 0, y: 18, w: 6, h: 6,
         series: [
           { metricKey: "dropOffAtRegistration", seriesType: "actual", color: "#FF3B06", label: "Drop-off at Reg" },
@@ -1087,7 +1087,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
   {
     id: "preset-referral-programme",
     title: "Referral Programme",
-    description: "Referral acquisition channel — active referrers, joiners, conversion rate vs referral data dashboard",
+    description: "Referral acquisition channel: active referrers, joiners, conversion rate vs referral data dashboard",
     type: "preset",
     category: "referral",
     presetGroup: "partner",
@@ -1106,7 +1106,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "rp-2", title: "Active Referrers", chartType: "stat",
-        description: "Customers who made at least one referral in the current period. Measures programme participation breadth — low active referrers despite large customer base indicates programme awareness gap.",
+        description: "Customers who made at least one referral in the current period. Measures programme participation breadth. Low active referrers despite large customer base indicates programme awareness gap.",
         dataSource: "wallet", x: 8, y: 0, w: 4, h: 6,
         series: [
           { metricKey: "activeReferrers", seriesType: "actual", color: "#FF3B06", label: "Active Referrers" },
@@ -1114,7 +1114,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "rp-3", title: "Referral Conversion Rate (%)", chartType: "area",
-        description: "Percentage of referral invitations that resulted in a completed bike activation. The core measure of referral programme quality — target above 40%.",
+        description: "Percentage of referral invitations that resulted in a completed bike activation. The core measure of referral programme quality. Target above 40%.",
         dataSource: "wallet", x: 0, y: 6, w: 6, h: 6,
         series: [
           { metricKey: "referralConversionRate", seriesType: "actual", color: "#FF3B06", label: "Conversion %" },
@@ -1122,7 +1122,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "rp-4", title: "Referral Points Earned", chartType: "area",
-        description: "Points awarded to referrers per week. Tracks the incentive cost of the referral channel — compare against referral joiners to calculate cost-per-acquisition.",
+        description: "Points awarded to referrers per week. Tracks the incentive cost of the referral channel. Compare against referral joiners to calculate cost-per-acquisition.",
         dataSource: "wallet", x: 6, y: 6, w: 6, h: 6,
         series: [
           { metricKey: "referralEarnedPoints", seriesType: "actual", color: "#ec4899", label: "Referral Points" },
@@ -1140,7 +1140,7 @@ export const PRESET_DASHBOARDS: Dashboard[] = [
       },
       {
         id: "rp-6", title: "Avg Days to Award", chartType: "line",
-        description: "Average time from referral code entry to award being issued. Should be under 7 days for a healthy programme — longer waits reduce referrer satisfaction and future participation.",
+        description: "Average time from referral code entry to award being issued. Should be under 7 days for a healthy programme. Longer waits reduce referrer satisfaction and future participation.",
         dataSource: "referral", x: 8, y: 12, w: 4, h: 6,
         series: [
           { metricKey: "avgDaysToAward", seriesType: "actual", color: "#6366f1", label: "Days to Award" },

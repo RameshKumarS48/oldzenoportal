@@ -28,7 +28,7 @@ export function PartnerSelector({ mode }: PartnerSelectorProps) {
                 : "text-slate-500 hover:text-slate-700"
             )}
           >
-            {r.label.replace("Infra — ", "")}
+            {r.label.replace("Infra: ", "")}
           </button>
         ))}
       </div>

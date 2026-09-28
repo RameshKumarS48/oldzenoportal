@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 /**
- * Forms module — a lightweight "Google Forms + Sheets" experience hosted inside
+ * Forms module, a lightweight "Google Forms + Sheets" experience hosted inside
  * the dashboard. Admins design forms (schemas) in the builder; submitted data is
  * collected into a spreadsheet-like responses view. Shapes are kept flat and
  * typed so numeric fields can later be aggregated into dashboards.
@@ -83,7 +83,7 @@ function defaultField(type: FieldType): FormField {
 }
 
 // ---------------------------------------------------------------------------
-// Seed data — one example form with a couple of responses so the builder,
+// Seed data, one example form with a couple of responses so the builder,
 // fill view, and responses sheet all have something to show on first visit.
 // ---------------------------------------------------------------------------
 const SEED_FORMS: FormDef[] = [

@@ -87,10 +87,10 @@ export function VehicleTable() {
                 onClick={() => router.push(`/asset-tracking/${encodeURIComponent(v.vin)}`)}
               >
                 <td className="px-3 py-2.5 text-slate-700 font-mono text-xs whitespace-nowrap">{v.vin}</td>
-                <td className="px-3 py-2.5 text-slate-700 whitespace-nowrap">{v.customerName || <span className="text-slate-300">—</span>}</td>
+                <td className="px-3 py-2.5 text-slate-700 whitespace-nowrap">{v.customerName || <span className="text-slate-300">–</span>}</td>
                 <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{v.customerPhone}</td>
                 <td className="px-3 py-2.5 whitespace-nowrap"><VehicleStatusPill value={v.status} /></td>
-                <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{v.tenant || <span className="text-slate-300">—</span>}</td>
+                <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{v.tenant || <span className="text-slate-300">–</span>}</td>
                 <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{v.storeCode}</td>
                 <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{v.dateOfSale}</td>
                 <td className="px-3 py-2.5 text-slate-700 whitespace-nowrap">{v.odometer.toLocaleString()}</td>

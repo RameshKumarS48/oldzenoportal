@@ -47,7 +47,7 @@ export function SelectField({
   );
 }
 
-/** A button styled like a select — for controls that open a popover/modal. */
+/** A button styled like a select, for controls that open a popover/modal. */
 export function TriggerField({
   label,
   children,

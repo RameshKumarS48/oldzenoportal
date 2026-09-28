@@ -132,7 +132,7 @@ export function CustomerFormModal({ mode, open, onClose, onSubmit, initialValues
       )}
 
       <div className="space-y-4">
-        {/* Step 1 — always shown for add/edit; step 1 for onboard */}
+        {/* Step 1, always shown for add/edit; step 1 for onboard */}
         {(mode !== "onboard" || step === 1) && (
           <>
             <div className="grid grid-cols-2 gap-3">
@@ -167,7 +167,7 @@ export function CustomerFormModal({ mode, open, onClose, onSubmit, initialValues
                 <div>
                   <label className={labelClass}>Partner *</label>
                   <select className={fieldClass} value={form.partner} onChange={(e) => set("partner", e.target.value)}>
-                    <option value="">— Select Partner —</option>
+                    <option value="">Select Partner</option>
                     {activePartners.map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
@@ -200,7 +200,7 @@ export function CustomerFormModal({ mode, open, onClose, onSubmit, initialValues
           </>
         )}
 
-        {/* Step 2 — onboarding details (onboard mode step 2, or always for add) */}
+        {/* Step 2, onboarding details (onboard mode step 2, or always for add) */}
         {(mode !== "onboard" || step === 2) && (
           <>
             {mode === "onboard" && (

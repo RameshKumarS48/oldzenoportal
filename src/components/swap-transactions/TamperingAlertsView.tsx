@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, useMemo } from "react";
+import { Fragment, useState, useMemo, useEffect } from "react";
 import {
   Search, ChevronDown, ChevronUp, Info, CheckCircle2, XCircle,
   AlertTriangle, Ban, Bell, Unlock, RotateCcw, ShieldAlert,
@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Pagination } from "@/components/ui/Pagination";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { toast } from "@/store/toast";
 import { useTamperingAlertsStore } from "@/store/tampering-alerts";
 import type { TamperingAlert, ViolationType, AlertStatus } from "@/store/tampering-alerts";
 import { useAuthStore } from "@/store/auth";
@@ -50,10 +52,10 @@ const STATUS_LABELS: Record<AlertStatus, string> = {
 const OFFENCE_LABEL: Record<number, string> = { 1: "1st", 2: "2nd", 3: "3rd", 4: "4th" };
 
 function escalationText(offenceCount: number): { label: string; color: string } {
-  if (offenceCount === 1) return { label: "1st offence — Warning only", color: "text-amber-600" };
-  if (offenceCount === 2) return { label: "2nd offence — Repeat behaviour warning", color: "text-orange-600" };
-  if (offenceCount === 3) return { label: "3rd offence — RFID will be auto-disabled", color: "text-red-600" };
-  return { label: "4th+ offence — Escalated for review", color: "text-rose-700" };
+  if (offenceCount === 1) return { label: "1st offence: warning only", color: "text-amber-600" };
+  if (offenceCount === 2) return { label: "2nd offence: repeat behaviour warning", color: "text-orange-600" };
+  if (offenceCount === 3) return { label: "3rd offence: RFID will be auto-disabled", color: "text-red-600" };
+  return { label: "4th+ offence: escalated for review", color: "text-rose-700" };
 }
 
 function defaultPenalty(alert: TamperingAlert): number {
@@ -103,9 +105,9 @@ function EscalationBanner() {
             <tbody className="divide-y divide-slate-100">
               {[
                 { o: "1st", penalty: "Debit KES X (swap amount)", action: "Warning only" },
-                { o: "2nd", penalty: "Debit KES X (swap amount)", action: "Second warning — repeated behaviour" },
-                { o: "3rd", penalty: "Debit KES X (swap amount)", action: "RFID Tag Disabled — customer must contact Support" },
-                { o: "4th+", penalty: "Debit KES X (swap amount)", action: "Escalated — review for blacklist / risk scoring" },
+                { o: "2nd", penalty: "Debit KES X (swap amount)", action: "Second warning: repeated behaviour" },
+                { o: "3rd", penalty: "Debit KES X (swap amount)", action: "RFID Tag Disabled. Customer must contact Support" },
+                { o: "4th+", penalty: "Debit KES X (swap amount)", action: "Escalated: review for blacklist / risk scoring" },
               ].map((row) => (
                 <tr key={row.o}>
                   <td className="py-1.5 font-semibold text-slate-600 pr-8">{row.o}</td>
@@ -130,7 +132,7 @@ function AuditTrail({ alert }: { alert: TamperingAlert }) {
   const events: { label: string; time?: string; note?: string; color: string }[] = [
     { label: "Alert detected", time: alert.detectedAt, note: alert.detectionReason, color: "bg-slate-400" },
     ...(alert.reviewedAt ? [{ label: `Status → ${STATUS_LABELS[alert.status]}`, time: alert.reviewedAt, note: alert.reviewNote, color: alert.status === "approved" ? "bg-emerald-500" : alert.status === "rejected" ? "bg-slate-400" : "bg-blue-500" }] : []),
-    ...(alert.penaltyAppliedAt ? [{ label: `Penalty applied — KES ${alert.penaltyAmountKES?.toLocaleString()}`, time: alert.penaltyAppliedAt, color: "bg-[#FF3B06]" }] : []),
+    ...(alert.penaltyAppliedAt ? [{ label: `Penalty applied: KES ${alert.penaltyAmountKES?.toLocaleString()}`, time: alert.penaltyAppliedAt, color: "bg-[#FF3B06]" }] : []),
     ...(alert.notificationSentAt ? [{ label: "Customer notification sent", time: alert.notificationSentAt, color: "bg-teal-500" }] : []),
     ...(alert.rfidDisabledAt ? [{ label: "RFID tag disabled", time: alert.rfidDisabledAt, color: "bg-red-500" }] : []),
     ...(alert.rfidReenabledAt ? [{ label: "RFID tag re-enabled", time: alert.rfidReenabledAt, color: "bg-emerald-500" }] : []),
@@ -212,7 +214,7 @@ function ApproveModal({
 
         {alert.isDoubleBill && (
           <div className="text-xs bg-red-50 text-red-700 px-3 py-2 rounded-lg font-medium">
-            Twin-station abuse — double billing applies (2× swap amount).
+            Twin-station abuse: double billing applies (2× swap amount).
           </div>
         )}
 
@@ -265,22 +267,33 @@ function NoteModal({
   onClose: () => void; onConfirm: (note: string) => void;
 }) {
   const [note, setNote] = useState("");
+
+  // The modal stays mounted between alerts, so without this the previous
+  // alert's reason is still in the box when the next one opens.
+  useEffect(() => { if (open) setNote(""); }, [open]);
+
   return (
     <Modal open={open} title={title} onClose={onClose} className="max-w-md">
       <div className="space-y-4">
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1">{label}</label>
+          <p className="text-[11px] text-slate-400 mb-1.5">Recorded on the alert&apos;s audit trail. Required.</p>
           <textarea
             rows={3}
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Add a note…"
+            autoFocus
             className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/20 focus:border-[#7c3aed] resize-none"
           />
         </div>
         <div className="flex gap-2">
           <Button variant="ghost" onClick={onClose} className="flex-1">Cancel</Button>
-          <Button onClick={() => { onConfirm(note); onClose(); }} className={cn("flex-1 text-white", confirmClass)}>
+          <Button
+            onClick={() => { onConfirm(note.trim()); onClose(); }}
+            disabled={!note.trim()}
+            className={cn("flex-1 text-white", confirmClass)}
+          >
             {confirmLabel}
           </Button>
         </div>
@@ -306,6 +319,8 @@ export function TamperingAlertsView() {
   const [approveTarget, setApproveTarget] = useState<TamperingAlert | null>(null);
   const [rejectTarget, setRejectTarget]   = useState<TamperingAlert | null>(null);
   const [investTarget, setInvestTarget]   = useState<TamperingAlert | null>(null);
+  const [rfidTarget, setRfidTarget]       = useState<{ alert: TamperingAlert; disable: boolean } | null>(null);
+  const [reopenTarget, setReopenTarget]   = useState<TamperingAlert | null>(null);
   const [now] = useState(() => Date.now());
   const [page, setPage]                   = useState(1);
   const [perPage, setPerPage]             = useState(25);
@@ -336,7 +351,7 @@ export function TamperingAlertsView() {
   }, [alerts, search, statusFilter, violationFilter, offenceFilter, dateFilter, now]);
 
   // Reset to the first page whenever the filter set changes (adjust state during
-  // render — React's recommended alternative to a setState-in-effect).
+  // render: React's recommended alternative to a setState-in-effect).
   const filterKey = `${search}|${statusFilter}|${violationFilter}|${offenceFilter}|${dateFilter}`;
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
   if (filterKey !== prevFilterKey) {
@@ -460,7 +475,7 @@ export function TamperingAlertsView() {
                         ))}
                       </td>
                       <td className="px-3 py-2.5 text-slate-600 max-w-[140px]">
-                        <p className="truncate">{alert.swapStationName.split("—")[0].trim()}</p>
+                        <p className="truncate">{alert.swapStationName.split(",")[0].trim()}</p>
                         <p className="text-slate-400 text-[10px]">{alert.swapStationId}</p>
                       </td>
                       <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap text-[11px]">
@@ -489,7 +504,7 @@ export function TamperingAlertsView() {
                       <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">
                         {alert.penaltyApplied
                           ? <span className="font-semibold text-emerald-700">KES {alert.penaltyAmountKES?.toLocaleString()}</span>
-                          : <span className="text-slate-300">—</span>}
+                          : <span className="text-slate-300">–</span>}
                       </td>
                       <td className="px-3 py-2.5">
                         <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap", STATUS_COLORS[alert.status])}>
@@ -527,7 +542,10 @@ export function TamperingAlertsView() {
                             <>
                               {!alert.notificationSent && (
                                 <button
-                                  onClick={() => sendNotification(alert.id)}
+                                  onClick={() => {
+                                    sendNotification(alert.id);
+                                    toast.success("Customer notified", `${alert.customerName} was sent the penalty notice for ${alert.id}.`);
+                                  }}
                                   className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-teal-50 text-teal-700 hover:bg-teal-100 transition-colors"
                                 >
                                   <Bell className="w-3 h-3" /> Notify
@@ -535,7 +553,7 @@ export function TamperingAlertsView() {
                               )}
                               {alert.offenceCount >= 3 && !rfidActive && (
                                 <button
-                                  onClick={() => toggleRfid(alert.id, true)}
+                                  onClick={() => setRfidTarget({ alert, disable: true })}
                                   className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
                                 >
                                   <Ban className="w-3 h-3" /> Disable RFID
@@ -547,7 +565,7 @@ export function TamperingAlertsView() {
                           {/* RFID re-enable */}
                           {canWrite && rfidActive && (
                             <button
-                              onClick={() => toggleRfid(alert.id, false)}
+                              onClick={() => setRfidTarget({ alert, disable: false })}
                               className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
                             >
                               <Unlock className="w-3 h-3" /> Re-enable RFID
@@ -557,7 +575,7 @@ export function TamperingAlertsView() {
                           {/* Reopen */}
                           {canWrite && (alert.status === "rejected" || alert.status === "investigating") && (
                             <button
-                              onClick={() => reopenAlert(alert.id)}
+                              onClick={() => setReopenTarget(alert)}
                               className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
                             >
                               <RotateCcw className="w-3 h-3" /> Reopen
@@ -600,6 +618,12 @@ export function TamperingAlertsView() {
         onConfirm={(penaltyKES, note) => {
           if (!approveTarget || !user) return;
           approveAlert(approveTarget.id, user.id, note, penaltyKES);
+          toast.success(
+            "Alert approved",
+            penaltyKES > 0
+              ? `KES ${penaltyKES.toLocaleString()} debited from ${approveTarget.customerName}.`
+              : `${approveTarget.id} closed with no penalty.`
+          );
         }}
       />
 
@@ -614,6 +638,7 @@ export function TamperingAlertsView() {
         onConfirm={(note) => {
           if (!rejectTarget || !user) return;
           rejectAlert(rejectTarget.id, user.id, note);
+          toast.info("Alert rejected", `${rejectTarget.id} closed with no penalty.`);
           setRejectTarget(null);
         }}
       />
@@ -621,7 +646,7 @@ export function TamperingAlertsView() {
       {/* Investigate Modal */}
       <NoteModal
         open={!!investTarget}
-        title={`Mark for Investigation — ${investTarget?.id ?? ""}`}
+        title={`Mark for Investigation: ${investTarget?.id ?? ""}`}
         label="Investigation notes"
         confirmLabel="Mark Investigating"
         confirmClass="bg-blue-600 hover:bg-blue-700"
@@ -629,9 +654,58 @@ export function TamperingAlertsView() {
         onConfirm={(note) => {
           if (!investTarget || !user) return;
           markInvestigating(investTarget.id, user.id, note);
+          toast.info("Marked for investigation", `${investTarget.id} stays open until a decision is recorded.`);
           setInvestTarget(null);
         }}
       />
+
+      <ConfirmModal
+        open={!!rfidTarget}
+        title={rfidTarget?.disable ? "Disable RFID tag" : "Re-enable RFID tag"}
+        confirmLabel={rfidTarget?.disable ? "Disable RFID" : "Re-enable RFID"}
+        tone={rfidTarget?.disable ? "danger" : "neutral"}
+        onClose={() => setRfidTarget(null)}
+        onConfirm={() => {
+          if (!rfidTarget) return;
+          toggleRfid(rfidTarget.alert.id, rfidTarget.disable);
+          if (rfidTarget.disable) {
+            toast.info("RFID disabled", `${rfidTarget.alert.customerName} cannot swap until the tag is re-enabled.`);
+          } else {
+            toast.success("RFID re-enabled", `${rfidTarget.alert.customerName} can swap again.`);
+          }
+          setRfidTarget(null);
+        }}
+      >
+        {rfidTarget?.disable ? (
+          <>
+            <strong className="font-semibold text-slate-800">{rfidTarget.alert.customerName}</strong> will
+            not be able to start a swap at any station until someone re-enables the tag. They keep their
+            wallet balance and their bike.
+          </>
+        ) : (
+          <>
+            <strong className="font-semibold text-slate-800">{rfidTarget?.alert.customerName}</strong> will
+            be able to swap again immediately, including at the station where the offence was recorded.
+          </>
+        )}
+      </ConfirmModal>
+
+      <ConfirmModal
+        open={!!reopenTarget}
+        title={`Reopen alert ${reopenTarget?.id ?? ""}`}
+        confirmLabel="Reopen alert"
+        tone="danger"
+        onClose={() => setReopenTarget(null)}
+        onConfirm={() => {
+          if (!reopenTarget) return;
+          reopenAlert(reopenTarget.id);
+          toast.info("Alert reopened", `${reopenTarget.id} is back in the pending queue.`);
+          setReopenTarget(null);
+        }}
+      >
+        This clears the recorded decision and review note, and puts the alert back in the pending queue.
+        The original note cannot be recovered.
+      </ConfirmModal>
     </div>
   );
 }

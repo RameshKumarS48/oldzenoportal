@@ -70,7 +70,7 @@ export function FilterBar() {
             onChange={(v) => setFilter("immobilization", v)}
           />
 
-          {/* Date of Sale — reveals a native date picker when "Pick Date" is chosen */}
+          {/* Date of Sale, reveals a native date picker when "Pick Date" is chosen */}
           <Field label="Date of Sale">
             <div className="relative">
               <select

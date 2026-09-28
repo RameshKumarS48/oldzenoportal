@@ -84,7 +84,7 @@ export function FormRenderer({ form, onSubmit }: Props) {
               />
             ) : f.type === "select" ? (
               <select value={val as string} onChange={(e) => set(f.id, e.target.value)} className={cn(inputCls(f.id), "appearance-none")}>
-                <option value="">— Select —</option>
+                <option value="">Select</option>
                 {(f.options ?? []).map((o) => (
                   <option key={o} value={o}>{o}</option>
                 ))}

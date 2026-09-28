@@ -4,9 +4,10 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Bike, ExternalLink, ChevronDown } from "lucide-react";
 import { useAssetTrackingStore } from "@/store/asset-tracking";
-import { MapPlaceholder } from "@/components/asset-tracking/MapPlaceholder";
+import { VehicleMap } from "@/components/asset-tracking/VehicleMap";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/store/toast";
 import { ConnectivityBadge, ImmobilizationBadge } from "@/components/ui/StatusIndicator";
 import { useAccess } from "@/lib/access";
 
@@ -45,8 +46,14 @@ export default function VehicleDetailPage() {
   const isImmobilized = vehicle.immobilization !== "Off";
 
   function handleImmobilize() {
+    const wasImmobilized = vehicle!.immobilization !== "Off";
     toggleImmobilization(vehicle!.vin);
     setConfirmOpen(false);
+    if (wasImmobilized) {
+      toast.success("Vehicle mobilised", `${vehicle!.vin} can be ridden again.`);
+    } else {
+      toast.info("Vehicle immobilised", `${vehicle!.vin} cannot be started until it is mobilised.`);
+    }
   }
 
   return (
@@ -102,13 +109,13 @@ export default function VehicleDetailPage() {
             </div>
           </div>
           <div className="px-5 py-2">
-            <InfoRow label="Customer Name">{vehicle.customerName || <span className="text-slate-300">—</span>}</InfoRow>
+            <InfoRow label="Customer Name">{vehicle.customerName || <span className="text-slate-300">–</span>}</InfoRow>
             <InfoRow label="Customer Phone">{vehicle.customerPhone}</InfoRow>
             <InfoRow label="Date of Sale">{vehicle.dateOfSale}</InfoRow>
             <InfoRow label="Odometer">{vehicle.odometer.toLocaleString()}</InfoRow>
             <InfoRow label="SOC">{vehicle.soc}</InfoRow>
             <InfoRow label="Immobilization"><ImmobilizationBadge value={vehicle.immobilization} /></InfoRow>
-            <InfoRow label="Tenant">{vehicle.tenant || <span className="text-slate-300">—</span>}</InfoRow>
+            <InfoRow label="Tenant">{vehicle.tenant || <span className="text-slate-300">–</span>}</InfoRow>
             <InfoRow label="Status">{vehicle.status}</InfoRow>
             <InfoRow label="Store Code">{vehicle.storeCode}</InfoRow>
             <InfoRow label="Plate">{vehicle.plate}</InfoRow>
@@ -136,7 +143,7 @@ export default function VehicleDetailPage() {
         </div>
 
         {/* Right map */}
-        <MapPlaceholder className="flex-1" />
+        <VehicleMap vehicles={[vehicle]} className="flex-1" />
       </div>
 
       {/* Immobilize confirmation modal */}

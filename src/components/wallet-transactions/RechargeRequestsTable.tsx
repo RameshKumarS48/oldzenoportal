@@ -3,6 +3,8 @@
 import { Fragment, useMemo, useState } from "react";
 import { Search, Download, ChevronDown, ChevronUp, PackageOpen, RotateCw } from "lucide-react";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
+import { toast } from "@/store/toast";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Pagination } from "@/components/ui/Pagination";
 import {
   useWalletTransactionsStore,
@@ -28,7 +30,7 @@ function fmtDateTime(iso: string) {
 
 /** daraja TransactionDate: YYYYMMDDHHmmss → readable */
 function fmtDaraja(s?: string) {
-  if (!s || s.length < 14) return "—";
+  if (!s || s.length < 14) return "–";
   return `${s.slice(6, 8)}/${s.slice(4, 6)}/${s.slice(0, 4)} ${s.slice(8, 10)}:${s.slice(10, 12)}`;
 }
 
@@ -66,7 +68,7 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
   return (
     <div>
       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</p>
-      <p className="text-xs text-slate-700 mt-0.5 break-all">{value ?? "—"}</p>
+      <p className="text-xs text-slate-700 mt-0.5 break-all">{value ?? "–"}</p>
     </div>
   );
 }
@@ -76,8 +78,8 @@ function RequestDetail({ r }: { r: RechargeRequest }) {
   return (
     <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 space-y-4">
       <div className="grid grid-cols-4 gap-4">
-        <DetailField label="VIN" value={vehicle?.vin ? <span className="font-mono">{vehicle.vin}</span> : "—"} />
-        <DetailField label="IMEI" value={vehicle?.imei ? <span className="font-mono">{vehicle.imei}</span> : "—"} />
+        <DetailField label="VIN" value={vehicle?.vin ? <span className="font-mono">{vehicle.vin}</span> : "–"} />
+        <DetailField label="IMEI" value={vehicle?.imei ? <span className="font-mono">{vehicle.imei}</span> : "–"} />
         <DetailField label="M-Pesa ID" value={<span className="font-mono">{r.id}</span>} />
         <DetailField label="Checkout Request ID" value={<span className="font-mono">{r.checkoutRequestId}</span>} />
         <DetailField label="Merchant Request ID" value={<span className="font-mono">{r.merchantRequestId}</span>} />
@@ -88,12 +90,12 @@ function RequestDetail({ r }: { r: RechargeRequest }) {
         <DetailField label="Payment Type" value={r.paymentType} />
         <DetailField label="Result Code" value={r.resultCode} />
         <DetailField label="Result Description" value={r.resultDescription} />
-        <DetailField label="M-Pesa Receipt" value={r.mpesaReceiptNumber ? <span className="font-mono">{r.mpesaReceiptNumber}</span> : "—"} />
+        <DetailField label="M-Pesa Receipt" value={r.mpesaReceiptNumber ? <span className="font-mono">{r.mpesaReceiptNumber}</span> : "–"} />
         <DetailField label="Transaction Date" value={fmtDaraja(r.transactionDate)} />
-        <DetailField label="Wallet Balance" value={r.balance != null ? `KES ${r.balance.toLocaleString()}` : "—"} />
-        <DetailField label="Referral User" value={r.referralUser || "—"} />
+        <DetailField label="Wallet Balance" value={r.balance != null ? `KES ${r.balance.toLocaleString()}` : "–"} />
+        <DetailField label="Referral User" value={r.referralUser || "–"} />
         <DetailField label="Status Count" value={r.statusCount} />
-        <DetailField label="Initial Response" value={`${r.initialResponseCode} — ${r.initialResponseDescription}`} />
+        <DetailField label="Initial Response" value={`${r.initialResponseCode}: ${r.initialResponseDescription}`} />
         <div className="col-span-4">
           <DetailField label="Customer Message" value={r.customerMessage} />
         </div>
@@ -121,8 +123,9 @@ export function RechargeRequestsTable() {
   const [dateFilter, setDate]       = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [page, setPage]             = useState(1);
+  const [retryTarget, setRetryTarget] = useState<RechargeRequest | null>(null);
   const [perPage, setPerPage]       = useState(25);
-  // Captured once on mount — the relative-date filters are bucketed (today/7d/30d).
+  // Captured once on mount, the relative-date filters are bucketed (today/7d/30d).
   const [now] = useState(() => Date.now());
 
   const sorted = useMemo(
@@ -220,7 +223,14 @@ export function RechargeRequestsTable() {
         )}
 
         <button
-          onClick={() => exportCSV(filtered)}
+          onClick={() => {
+            if (filtered.length === 0) {
+              toast.error("Nothing to export", "No recharge request matches the current filters. Clear a filter and try again.");
+              return;
+            }
+            exportCSV(filtered);
+            toast.success("Export downloaded", `${filtered.length.toLocaleString()} recharge requests written to CSV.`);
+          }}
           className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#003B49] text-white hover:bg-[#00505f] transition-colors"
         >
           <Download className="w-3.5 h-3.5" /> Export CSV
@@ -268,10 +278,10 @@ export function RechargeRequestsTable() {
                       <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{fmtDateTime(r.timestamp)}</td>
                       <td className="px-3 py-2.5 font-medium text-slate-700">{r.customerName}</td>
                       <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">{r.phone}</td>
-                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{vehicle?.vin ?? "—"}</td>
-                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{vehicle?.imei ?? "—"}</td>
+                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{vehicle?.vin ?? "–"}</td>
+                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{vehicle?.imei ?? "–"}</td>
                       <td className="px-3 py-2.5 text-right font-semibold text-slate-700 whitespace-nowrap">KES {r.amountKES.toLocaleString()}</td>
-                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">{r.mpesaReceiptNumber ?? "—"}</td>
+                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">{r.mpesaReceiptNumber ?? "–"}</td>
                       <td className="px-3 py-2.5 text-slate-500 max-w-[220px] truncate" title={r.resultDescription}>{r.resultDescription}</td>
                       <td className="px-3 py-2.5 text-center text-slate-500">{r.statusCount}</td>
                       <td className="px-3 py-2.5">
@@ -282,7 +292,7 @@ export function RechargeRequestsTable() {
                       <td className="px-3 py-2.5">
                         <button
                           disabled={!canRetry}
-                          onClick={(ev) => { ev.stopPropagation(); reinitiate(r.id); }}
+                          onClick={(ev) => { ev.stopPropagation(); setRetryTarget(r); }}
                           className={cn(
                             "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-colors",
                             canRetry
@@ -313,6 +323,27 @@ export function RechargeRequestsTable() {
         </div>
         <Pagination total={filtered.length} page={page} perPage={perPage} onPage={setPage} onPerPage={setPerPage} />
       </div>
+      <ConfirmModal
+        open={!!retryTarget}
+        title="Re-initiate STK push"
+        confirmLabel="Re-initiate"
+        tone="neutral"
+        onClose={() => setRetryTarget(null)}
+        onConfirm={() => {
+          if (!retryTarget) return;
+          reinitiate(retryTarget.id);
+          toast.success(
+            "STK push re-initiated",
+            `${retryTarget.customerName} will get a prompt on ${retryTarget.phone} for KES ${retryTarget.amountKES.toLocaleString()}.`
+          );
+          setRetryTarget(null);
+        }}
+      >
+        <strong className="font-semibold text-slate-800">{retryTarget?.customerName}</strong> gets a fresh
+        M-Pesa prompt on <span className="font-mono">{retryTarget?.phone}</span> for{" "}
+        <strong className="font-semibold text-slate-800">KES {retryTarget?.amountKES.toLocaleString()}</strong>.
+        Only send this if the earlier attempt genuinely failed, or they may be charged twice.
+      </ConfirmModal>
     </div>
   );
 }

@@ -23,7 +23,7 @@ function fmtDate(iso: string) {
 }
 
 function fmtLease(seconds?: number): string {
-  if (!seconds) return "—";
+  if (!seconds) return "–";
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
@@ -46,9 +46,9 @@ function exportCSV(rows: BillingSession[]) {
   URL.revokeObjectURL(url);
 }
 
-// Pre-compute derived analytics (stable — doesn't use random so safe to call once)
+// Pre-compute derived analytics (stable, doesn't use random so safe to call once)
 function buildChartData(sessions: BillingSession[]) {
-  // Daily kWh — last 30 days ending 2026-07-29
+  // Daily kWh, last 30 days ending 2026-07-29
   const base = new Date("2026-07-29T00:00:00Z");
   const dailyKwh: { date: string; kWh: number }[] = [];
   for (let i = 29; i >= 0; i--) {
@@ -308,20 +308,20 @@ export default function MasterBillingPage() {
                     </td>
                     <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">{s.stationId.toUpperCase()}</td>
                     <td className="px-3 py-2.5 font-semibold text-slate-700">
-                      {s.totalKwh > 0 ? `${s.totalKwh}` : <span className="text-slate-300">—</span>}
+                      {s.totalKwh > 0 ? `${s.totalKwh}` : <span className="text-slate-300">–</span>}
                     </td>
                     <td className="px-3 py-2.5 text-slate-600">
-                      {s.totalPoints > 0 ? s.totalPoints.toLocaleString() : <span className="text-slate-300">—</span>}
+                      {s.totalPoints > 0 ? s.totalPoints.toLocaleString() : <span className="text-slate-300">–</span>}
                     </td>
-                    <td className="px-3 py-2.5 text-slate-500">{s.slab1Kwh > 0 ? `${s.slab1Kwh} kWh` : "—"}</td>
-                    <td className="px-3 py-2.5 text-slate-500">{s.slab2Kwh > 0 ? `${s.slab2Kwh} kWh` : "—"}</td>
+                    <td className="px-3 py-2.5 text-slate-500">{s.slab1Kwh > 0 ? `${s.slab1Kwh} kWh` : "–"}</td>
+                    <td className="px-3 py-2.5 text-slate-500">{s.slab2Kwh > 0 ? `${s.slab2Kwh} kWh` : "–"}</td>
                     <td className="px-3 py-2.5">
                       {s.ahDischarged1 != null ? (
                         <div className="flex items-center gap-1 text-[11px]">
                           <span className="text-orange-500 font-semibold">↓{s.ahDischarged1}Ah</span>
                           {s.ahRegen1 != null && <span className="text-emerald-500">↑{s.ahRegen1}Ah</span>}
                         </div>
-                      ) : <span className="text-slate-300">—</span>}
+                      ) : <span className="text-slate-300">–</span>}
                     </td>
                     <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">
                       {s.type === "swap"
@@ -334,7 +334,7 @@ export default function MasterBillingPage() {
                         {s.skipped     && <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-500">Skip</span>}
                         {s.rfidMismatch && <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-600">RFID</span>}
                         {s.multiday    && <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-600">Multi</span>}
-                        {!s.flagged && !s.skipped && !s.rfidMismatch && !s.multiday && <span className="text-slate-200">—</span>}
+                        {!s.flagged && !s.skipped && !s.rfidMismatch && !s.multiday && <span className="text-slate-200">–</span>}
                       </div>
                     </td>
                   </tr>

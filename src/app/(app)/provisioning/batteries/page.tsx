@@ -112,7 +112,7 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="py-2 border-b border-slate-100 flex gap-4">
       <span className="text-xs text-slate-400 w-36 shrink-0">{label}</span>
-      <span className="text-sm text-slate-700 font-medium">{value || "—"}</span>
+      <span className="text-sm text-slate-700 font-medium">{value || "–"}</span>
     </div>
   );
 }
@@ -359,7 +359,7 @@ export default function ProvisionBatteryPage() {
           <div className="grid grid-cols-3 gap-6">
             {[
               { label: "Bring-up Batch SHP-2026-047 (12 units)", progress: 58, done: false },
-              { label: "Cycler Test Run — Babadogo", progress: 83, done: false },
+              { label: "Cycler Test Run, Babadogo", progress: 83, done: false },
               { label: "Shipment SHP-2026-041 Received", progress: 100, done: true },
             ].map(op => (
               <div key={op.label} className="flex flex-col gap-1.5">
@@ -438,11 +438,11 @@ export default function ProvisionBatteryPage() {
                     </td>
                     <td className="px-3 py-2.5"><StepsProgress status={b.status} /></td>
                     <td className="px-3 py-2.5 font-mono text-[10px] text-slate-500">{b.firmwareVersion}</td>
-                    <td className="px-3 py-2.5 text-slate-500">{b.technician ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-slate-500">{b.technician ?? "–"}</td>
                     <td className="px-3 py-2.5 text-center">
                       {b.repairCount > 0
                         ? <span className="px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 font-semibold text-[10px]">{b.repairCount}</span>
-                        : <span className="text-slate-300">—</span>
+                        : <span className="text-slate-300">–</span>
                       }
                     </td>
                   </tr>

@@ -22,7 +22,7 @@ export function DeleteConfirmModal({
             <div>
               <p className="font-medium">This permanently removes the log entry.</p>
               <p className="mt-1 text-red-600/90">
-                {ACTION_LABELS[action.actionType]} · {action.vin || action.customerPhone || "—"} ·{" "}
+                {ACTION_LABELS[action.actionType]} · {action.vin || action.customerPhone || "–"} ·{" "}
                 {action.timestamp}
               </p>
               <p className="mt-1 text-red-600/80">

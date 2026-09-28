@@ -75,7 +75,7 @@ export default function SwapStationsPage() {
   ];
 
   const topEnergy = [...SWAP_STATIONS].sort((a,b)=>b.energyConsumptionKwh-a.energyConsumptionKwh).slice(0,12).map(s=>({
-    name: s.name.split("—")[0].trim().slice(0,14),
+    name: s.name.split(",")[0].trim().slice(0,14),
     kWh: s.energyConsumptionKwh,
   }));
 
@@ -180,7 +180,7 @@ export default function SwapStationsPage() {
                     <tr key={s.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">{s.id}</td>
                       <td className="px-3 py-2.5">
-                        <p className="font-medium text-slate-700">{s.name.split("—")[0].trim()}</p>
+                        <p className="font-medium text-slate-700">{s.name.split(",")[0].trim()}</p>
                         <p className="text-slate-400 text-[11px]">{s.location}</p>
                       </td>
                       <td className="px-3 py-2.5">
@@ -196,7 +196,7 @@ export default function SwapStationsPage() {
                       <td className="px-3 py-2.5">
                         {utilPct !== null
                           ? <span className={cn("font-semibold", utilizationColor(utilPct))}>{utilPct}%</span>
-                          : <span className="text-slate-300">—</span>}
+                          : <span className="text-slate-300">–</span>}
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono text-[11px] text-slate-600">{s.energyConsumptionKwh.toLocaleString()}</td>
                       <td className="px-3 py-2.5">
@@ -204,7 +204,7 @@ export default function SwapStationsPage() {
                       </td>
                       <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{fmtDate(s.startDate)}</td>
                       <td className="px-3 py-2.5 text-slate-500 text-right">
-                        {s.rent === 0 ? <span className="text-slate-300">—</span> : `KES ${s.rent.toLocaleString()}`}
+                        {s.rent === 0 ? <span className="text-slate-300">–</span> : `KES ${s.rent.toLocaleString()}`}
                       </td>
                     </tr>
                   );

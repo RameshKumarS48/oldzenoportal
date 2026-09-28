@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "@/store/toast";
 import { ArrowUpDown, ArrowUp, ArrowDown, Pencil, Trash2, Link2, RotateCw } from "lucide-react";
 import {
   useScannerProvisioningStore,
@@ -68,7 +69,7 @@ function SyncBadge({ value }: { value: SyncStatus }) {
 function RfidCell({ id, status }: { id: string; status: RfidStatus }) {
   const retryRfid = useScannerProvisioningStore((s) => s.retryRfid);
   const canWrite = useAccess().canWrite("scanner");
-  if (status === "unassigned") return <span className="text-slate-300">—</span>;
+  if (status === "unassigned") return <span className="text-slate-300">–</span>;
   if (status === "assigned") {
     return (
       <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 whitespace-nowrap">
@@ -84,7 +85,10 @@ function RfidCell({ id, status }: { id: string; status: RfidStatus }) {
       </span>
       {canWrite && (
         <button
-          onClick={() => retryRfid(id)}
+          onClick={() => {
+            retryRfid(id);
+            toast.success("RFID assigned", "The tag is now linked to the bike in Asset Tracking.");
+          }}
           className="flex items-center gap-1 text-xs text-zeno-teal hover:text-zeno-teal-hover font-medium"
           title="Retry RFID assignment"
         >
@@ -101,7 +105,7 @@ function MonoCell({ value }: { value: string }) {
   return value ? (
     <span className="text-slate-600 font-mono text-xs">{value}</span>
   ) : (
-    <span className="text-slate-300">—</span>
+    <span className="text-slate-300">–</span>
   );
 }
 
@@ -201,7 +205,7 @@ export function ActionTable({
                   <td className="px-3 py-2.5 text-slate-500 text-xs whitespace-nowrap">{a.timestamp}</td>
                   <td className="px-3 py-2.5 whitespace-nowrap"><ActionBadge value={a.actionType} /></td>
                   <td className="px-3 py-2.5 text-slate-700 font-mono text-xs whitespace-nowrap">
-                    {a.vin || <span className="text-slate-300">—</span>}
+                    {a.vin || <span className="text-slate-300">–</span>}
                   </td>
                   <td className="px-3 py-2.5 whitespace-nowrap"><MonoCell value={a.chassisId} /></td>
                   <td className="px-3 py-2.5 whitespace-nowrap"><MonoCell value={a.vcuImei} /></td>
@@ -210,16 +214,16 @@ export function ActionTable({
                   <td className="px-3 py-2.5 whitespace-nowrap"><MonoCell value={a.motorId} /></td>
                   <td className="px-3 py-2.5 whitespace-nowrap"><MonoCell value={a.registrationNo} /></td>
                   <td className="px-3 py-2.5 text-slate-700 whitespace-nowrap">
-                    {a.customerName || <span className="text-slate-300">—</span>}
+                    {a.customerName || <span className="text-slate-300">–</span>}
                   </td>
                   <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">
-                    {a.customerPhone || <span className="text-slate-300">—</span>}
+                    {a.customerPhone || <span className="text-slate-300">–</span>}
                   </td>
                   <td className="px-3 py-2.5 whitespace-nowrap"><MonoCell value={a.drivingLicense} /></td>
                   <td className="px-3 py-2.5 whitespace-nowrap"><RfidCell id={a.id} status={a.rfidStatus} /></td>
                   <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{a.storeCode}</td>
                   <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">
-                    {a.tenant || <span className="text-slate-300">—</span>}
+                    {a.tenant || <span className="text-slate-300">–</span>}
                   </td>
                   <td className="px-3 py-2.5 whitespace-nowrap"><BikeStateBadge value={a.bikeState} /></td>
                   <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{a.performedBy}</td>
@@ -243,7 +247,7 @@ export function ActionTable({
                     {a.signatureCaptured ? (
                       <span className="text-green-600 text-xs font-medium">Captured</span>
                     ) : (
-                      <span className="text-slate-400 text-xs">—</span>
+                      <span className="text-slate-400 text-xs">–</span>
                     )}
                   </td>
                   <td className="px-3 py-2.5 whitespace-nowrap"><SyncBadge value={a.syncStatus} /></td>

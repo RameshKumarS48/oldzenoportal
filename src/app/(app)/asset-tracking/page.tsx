@@ -6,10 +6,11 @@ import { useAssetTrackingStore } from "@/store/asset-tracking";
 import { AccessGuard } from "@/components/ui/AccessGuard";
 import { Topbar } from "@/components/layout/Topbar";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/store/toast";
 import { SearchInput, SegmentedControl } from "@/components/ui/FilterControls";
 import { FilterBar } from "@/components/asset-tracking/FilterBar";
 import { VehicleTable } from "@/components/asset-tracking/VehicleTable";
-import { MapPlaceholder } from "@/components/asset-tracking/MapPlaceholder";
+import { VehicleMap } from "@/components/asset-tracking/VehicleMap";
 
 type View = "list" | "map";
 
@@ -58,7 +59,13 @@ export default function AssetTrackingPage() {
   const filteredVehicles = useAssetTrackingStore((s) => s.filteredVehicles);
 
   function handleExport() {
-    exportToXLSX(filteredVehicles());
+    const rows = filteredVehicles();
+    if (rows.length === 0) {
+      toast.error("Nothing to export", "No vehicle matches the current filters. Clear a filter and try again.");
+      return;
+    }
+    exportToXLSX(rows);
+    toast.success("Export downloaded", `${rows.length.toLocaleString()} vehicles written to XLSX.`);
   }
 
   return (
@@ -97,7 +104,7 @@ export default function AssetTrackingPage() {
         {view === "list" ? (
           <VehicleTable />
         ) : (
-          <MapPlaceholder className="flex-1" />
+          <VehicleMap vehicles={filteredVehicles()} className="flex-1" />
         )}
       </div>
       </main>

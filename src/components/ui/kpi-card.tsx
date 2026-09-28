@@ -64,8 +64,8 @@ export function KpiCard({ label, value, unit, previousValue, comparisonLabel = "
           <span className="text-[8px] font-bold text-green-700 uppercase tracking-widest leading-none">live</span>
         </div>
       )}
-      <div className="px-4 pt-3 pb-3">
-        <div className="flex items-center justify-between gap-1 mb-1.5">
+      <div className="px-3.5 pt-2.5 pb-2.5">
+        <div className="flex items-center justify-between gap-1 mb-1">
           <div className="flex items-center gap-1 min-w-0">
             <p
               className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest leading-none truncate"
@@ -77,7 +77,7 @@ export function KpiCard({ label, value, unit, previousValue, comparisonLabel = "
           </div>
         </div>
         <p
-          className="text-xl font-bold text-slate-900 leading-none mb-2"
+          className="text-[19px] font-bold text-slate-900 leading-none mb-1.5"
           style={{ fontFamily: "var(--font-display)" }}
         >
           {formattedValue}

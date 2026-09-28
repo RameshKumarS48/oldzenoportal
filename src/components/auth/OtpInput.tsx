@@ -16,7 +16,7 @@ interface OtpInputProps {
 
 /**
  * Six separate boxes backed by one string. Typing advances, backspace retreats,
- * arrows move, and pasting a whole code fills the row in one go — the last of
+ * arrows move, and pasting a whole code fills the row in one go, the last of
  * which matters most, because people paste codes far more often than they type
  * them digit by digit.
  */
@@ -47,11 +47,11 @@ export function OtpInput({
     if (!digits) return;
 
     // Clamp to the filled length so a click on a far box can't leave a hole
-    // mid-code — the value stays a contiguous left-packed string throughout.
+    // mid-code, the value stays a contiguous left-packed string throughout.
     const at = Math.min(index, value.length);
 
     if (digits.length > 1) {
-      // A paste (or an autofilled code) landing in one box — spread it forward.
+      // A paste (or an autofilled code) landing in one box, spread it forward.
       const next = (value.slice(0, at) + digits).slice(0, length);
       commit(next);
       focus(next.length);

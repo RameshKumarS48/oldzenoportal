@@ -38,11 +38,11 @@ export const SYNC_LABELS: Record<SyncStatus, string> = {
 export const SYNC_STATUSES = Object.keys(SYNC_LABELS) as SyncStatus[];
 
 // RFID assignment is tracked as a status (not a free-text tag) in the flow:
-// unassigned (—), pending (awaiting confirmation, retryable), assigned (green).
+// unassigned (blank), pending (awaiting confirmation, retryable), assigned (green).
 export type RfidStatus = "unassigned" | "pending" | "assigned";
 
 export const RFID_LABELS: Record<RfidStatus, string> = {
-  unassigned: "—",
+  unassigned: "–",
   pending: "Pending",
   assigned: "Assigned",
 };
@@ -617,7 +617,7 @@ export const useScannerProvisioningStore = create<ScannerProvisioningStore>((set
     return rows.length ? rows[0].vin : null;
   },
 
-  // The RFID currently mapped to a VIN — the latest rfid_assign not undone by a later deactivate.
+  // The RFID currently mapped to a VIN, the latest rfid_assign not undone by a later deactivate.
   activeRfidForVin: (vin) => {
     if (!vin) return null;
     const rows = get()

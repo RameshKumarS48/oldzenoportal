@@ -3,6 +3,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { Search, Download, ChevronDown, ChevronUp, PackageOpen, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
+import { toast } from "@/store/toast";
 import { Pagination } from "@/components/ui/Pagination";
 import {
   useWalletTransactionsStore,
@@ -62,7 +63,7 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
   return (
     <div>
       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</p>
-      <p className="text-xs text-slate-700 mt-0.5 break-all">{value ?? "—"}</p>
+      <p className="text-xs text-slate-700 mt-0.5 break-all">{value ?? "–"}</p>
     </div>
   );
 }
@@ -74,14 +75,14 @@ function EntryDetail({ entry }: { entry: WalletLedgerEntry }) {
       <div className="grid grid-cols-4 gap-4">
         <DetailField label="Ledger ID" value={<span className="font-mono">{entry.id}</span>} />
         <DetailField label="Customer ID" value={<span className="font-mono">{entry.customerId}</span>} />
-        <DetailField label="VIN" value={vehicle?.vin ? <span className="font-mono">{vehicle.vin}</span> : "—"} />
-        <DetailField label="IMEI" value={vehicle?.imei ? <span className="font-mono">{vehicle.imei}</span> : "—"} />
+        <DetailField label="VIN" value={vehicle?.vin ? <span className="font-mono">{vehicle.vin}</span> : "–"} />
+        <DetailField label="IMEI" value={vehicle?.imei ? <span className="font-mono">{vehicle.imei}</span> : "–"} />
         <DetailField label="Direction" value={entry.direction === "credit" ? "Credit (+)" : "Debit (−)"} />
         <DetailField label="Category" value={CATEGORY_META[entry.category].label} />
         <DetailField label="Amount" value={fmtKES(entry.amountKES)} />
         <DetailField label="Balance After" value={fmtKES(entry.balanceAfterKES)} />
         <DetailField label="Status" value={LEDGER_STATUS_META[entry.status].label} />
-        <DetailField label="Reference" value={entry.reference ? <span className="font-mono">{entry.reference}</span> : "—"} />
+        <DetailField label="Reference" value={entry.reference ? <span className="font-mono">{entry.reference}</span> : "–"} />
         {entry.rechargeId && (
           <div className="col-span-2">
             <DetailField label="Linked Recharge Request" value={<span className="font-mono">{entry.rechargeId}</span>} />
@@ -121,7 +122,7 @@ export function WalletLedgerTable() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [page, setPage]             = useState(1);
   const [perPage, setPerPage]       = useState(25);
-  // Captured once on mount — the relative-date filters are bucketed (today/7d/30d).
+  // Captured once on mount, the relative-date filters are bucketed (today/7d/30d).
   const [now] = useState(() => Date.now());
 
   const sorted = useMemo(
@@ -226,7 +227,14 @@ export function WalletLedgerTable() {
         )}
 
         <button
-          onClick={() => exportCSV(filtered)}
+          onClick={() => {
+            if (filtered.length === 0) {
+              toast.error("Nothing to export", "No ledger entry matches the current filters. Clear a filter and try again.");
+              return;
+            }
+            exportCSV(filtered);
+            toast.success("Export downloaded", `${filtered.length.toLocaleString()} ledger entrys written to CSV.`);
+          }}
           className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#003B49] text-white hover:bg-[#00505f] transition-colors"
         >
           <Download className="w-3.5 h-3.5" /> Export CSV
@@ -269,8 +277,8 @@ export function WalletLedgerTable() {
                       <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{fmtDateTime(e.occurredAt)}</td>
                       <td className="px-3 py-2.5 font-medium text-slate-700">{e.customerName}</td>
                       <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">{e.phone}</td>
-                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{vehicle?.vin ?? "—"}</td>
-                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{vehicle?.imei ?? "—"}</td>
+                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{vehicle?.vin ?? "–"}</td>
+                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{vehicle?.imei ?? "–"}</td>
                       <td className="px-3 py-2.5">
                         <span className={cn("px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap", CATEGORY_META[e.category].badge)}>
                           {CATEGORY_META[e.category].label}

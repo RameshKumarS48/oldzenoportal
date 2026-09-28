@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { AccessGuard } from "@/components/ui/AccessGuard";
+import { toast } from "@/store/toast";
 import { Topbar } from "@/components/layout/Topbar";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -88,9 +89,15 @@ export default function UsersPage() {
     : "";
 
   const handleCopyLink = async () => {
-    await navigator.clipboard.writeText(inviteUrl);
-    setLinkCopied(true);
-    setTimeout(() => setLinkCopied(false), 2000);
+    // The clipboard API rejects outside a secure context or when the browser
+    // withholds permission, so the link has to stay recoverable by hand.
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      toast.error("Couldn't copy the link", "Your browser blocked clipboard access. Select the link above and copy it manually.");
+    }
   };
 
   const th = "text-left px-5 py-3.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap";
@@ -294,7 +301,10 @@ export default function UsersPage() {
         user={deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => {
-          if (deleteTarget) deleteUser(deleteTarget.id);
+          if (deleteTarget) {
+            deleteUser(deleteTarget.id);
+            toast.info("User deleted", `${deleteTarget.name} can no longer sign in.`);
+          }
           setDeleteTarget(null);
         }}
       />
@@ -342,7 +352,13 @@ export default function UsersPage() {
           <Button
             variant="danger"
             className="flex-1"
-            onClick={() => { if (revokeTarget) revokeInvite(revokeTarget.token); setRevokeTarget(null); }}
+            onClick={() => {
+              if (revokeTarget) {
+                revokeInvite(revokeTarget.token);
+                toast.info("Invite revoked", `The link sent to ${revokeTarget.email} no longer works.`);
+              }
+              setRevokeTarget(null);
+            }}
           >
             Revoke invite
           </Button>

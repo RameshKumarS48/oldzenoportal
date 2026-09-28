@@ -32,21 +32,21 @@ interface StationProvRecord {
 }
 
 const STATION_RECORDS: StationProvRecord[] = [
-  { id:"sp-01", name:"Zeno Hub — Kasarani",      location:"Kasarani, Nairobi",       region:"nbo",      partner:"zeno",    plannedDate:"2024-08-01", surveyDate:"2024-08-10", installDate:"2024-09-01", wiringDate:"2024-09-12", powerOnDate:"2024-09-15", commissionDate:"2024-09-20", liveDate:"2024-09-22", status:"live",        installType:"three_phase", capacity:8,  technician:"James K." },
-  { id:"sp-02", name:"Zeno Hub — Githurai",      location:"Githurai 44, Nairobi",    region:"nbo",      partner:"zeno",    plannedDate:"2024-09-05", surveyDate:"2024-09-15", installDate:"2024-10-10", wiringDate:"2024-10-20", powerOnDate:"2024-10-24", commissionDate:"2024-10-28", liveDate:"2024-11-01", status:"live",        installType:"three_phase", capacity:8,  technician:"Sarah M." },
-  { id:"sp-03", name:"Watu Hub — Roysambu",      location:"Roysambu, Nairobi",       region:"nbo",      partner:"watu",    plannedDate:"2024-10-01", surveyDate:"2024-10-10", installDate:"2024-11-05", wiringDate:"2024-11-15", powerOnDate:"2024-11-18", commissionDate:"2024-11-22", liveDate:"2024-11-25", status:"live",        installType:"three_phase", capacity:12, technician:"Peter O." },
-  { id:"sp-04", name:"MKopa Hub — Kahawa West",  location:"Kahawa West, Nairobi",    region:"nbo",      partner:"mkopa",   plannedDate:"2024-11-01", surveyDate:"2024-11-12", installDate:"2024-12-08", wiringDate:"2024-12-16", powerOnDate:"2024-12-19", commissionDate:"2024-12-22", liveDate:"2024-12-24", status:"live",        installType:"three_phase", capacity:8,  technician:"Alice W." },
-  { id:"sp-05", name:"Zeno Hub — Ruiru",         location:"Ruiru Town, Kiambu",      region:"nbo",      partner:"zeno",    plannedDate:"2025-01-10", surveyDate:"2025-01-20", installDate:"2025-02-15", wiringDate:"2025-02-22", powerOnDate:"2025-02-25", commissionDate:"2025-03-01", liveDate:"2025-03-04", status:"live",        installType:"single_phase",capacity:6,  technician:"James K." },
-  { id:"sp-06", name:"GW Hub — Westlands",       location:"Westlands, Nairobi",      region:"nbo",      partner:"gw",      plannedDate:"2025-02-01", surveyDate:"2025-02-12", installDate:"2025-03-10", wiringDate:"2025-03-18", powerOnDate:"2025-03-20", commissionDate:"2025-03-24", liveDate:"2025-03-26", status:"live",        installType:"three_phase", capacity:10, technician:"Sarah M." },
-  { id:"sp-07", name:"Zeno Hub — Nanyuki Town",  location:"Nanyuki Town Centre",     region:"nanyuki",  partner:"zeno",    plannedDate:"2025-03-15", surveyDate:"2025-03-25", installDate:"2025-04-20", wiringDate:"2025-04-28", powerOnDate:"2025-05-02", commissionDate:"2025-05-06", liveDate:"2025-05-10", status:"live",        installType:"three_phase", capacity:8,  technician:"Peter O." },
-  { id:"sp-08", name:"Watu Hub — Nanyuki South", location:"Nanyuki South, Laikipia", region:"nanyuki",  partner:"watu",    plannedDate:"2025-06-01", surveyDate:"2025-06-12", installDate:"2025-07-08", wiringDate:"2025-07-15", powerOnDate:"2025-07-18", commissionDate:"2025-07-22", liveDate:"2025-07-25", status:"live",        installType:"single_phase",capacity:6,  technician:"Alice W." },
-  { id:"sp-09", name:"Zeno Hub — Naro Moru",     location:"Naro Moru, Nyeri County", region:"naromoru", partner:"zeno",    plannedDate:"2025-07-01", surveyDate:"2025-07-10", installDate:"2025-08-05", wiringDate:"2025-08-12", powerOnDate:"2025-08-15", commissionDate:"2025-08-19", liveDate:"2025-08-22", status:"live",        installType:"three_phase", capacity:8,  technician:"James K." },
-  { id:"sp-10", name:"GW Hub — Nyeri Central",   location:"Nyeri Town, Nyeri County",region:"nyeri",    partner:"gw",      plannedDate:"2025-09-01", surveyDate:"2025-09-12", installDate:"2025-10-08", wiringDate:"2025-10-16", powerOnDate:"2025-10-19", commissionDate:"2025-10-23", liveDate:"2025-10-26", status:"live",        installType:"three_phase", capacity:8,  technician:"Sarah M." },
-  { id:"sp-11", name:"MKopa Hub — Nyeri South",  location:"Karatina, Nyeri County",  region:"nyeri",    partner:"mkopa",   plannedDate:"2025-11-01", surveyDate:"2025-11-12", installDate:"2025-12-05", wiringDate:"2025-12-13", powerOnDate:"2025-12-16", commissionDate:"2025-12-20", liveDate:"2025-12-22", status:"live",        installType:"single_phase",capacity:6,  technician:"Peter O." },
-  { id:"sp-12", name:"Zeno Hub — Kenyatta Ave",  location:"Kenyatta Ave, Nairobi CBD",region:"nbo",     partner:"zeno",    plannedDate:"2026-03-01", surveyDate:"2026-03-15", installDate:"2026-04-12", wiringDate:"2026-04-20", powerOnDate:"2026-04-23", commissionDate:"2026-04-28", liveDate:"2026-05-01", status:"live",        installType:"three_phase", capacity:12, technician:"Alice W." },
-  { id:"sp-13", name:"Watu Hub — Langata",       location:"Langata Road, Nairobi",   region:"nbo",      partner:"watu",    plannedDate:"2026-05-10", surveyDate:"2026-05-22", installDate:"2026-06-18", wiringDate:"2026-06-25", powerOnDate:"2026-06-28", commissionDate:"2026-07-02", status:"commissioned", installType:"three_phase", capacity:8,  technician:"James K." },
-  { id:"sp-14", name:"GW Hub — Embakasi",        location:"Embakasi, Nairobi",       region:"nbo",      partner:"gw",      plannedDate:"2026-06-01", surveyDate:"2026-06-14", installDate:"2026-07-10", wiringDate:"2026-07-18", powerOnDate:"2026-07-22", status:"powered_on", installType:"three_phase", capacity:10, technician:"Sarah M." },
-  { id:"sp-15", name:"Zeno Hub — Isiolo Rd",     location:"Isiolo Rd, Nanyuki",      region:"nanyuki",  partner:"zeno",    plannedDate:"2026-07-01", status:"planned", installType:"three_phase", capacity:8 },
+  { id:"sp-01", name:"Zeno Hub, Kasarani",      location:"Kasarani, Nairobi",       region:"nbo",      partner:"zeno",    plannedDate:"2024-08-01", surveyDate:"2024-08-10", installDate:"2024-09-01", wiringDate:"2024-09-12", powerOnDate:"2024-09-15", commissionDate:"2024-09-20", liveDate:"2024-09-22", status:"live",        installType:"three_phase", capacity:8,  technician:"James K." },
+  { id:"sp-02", name:"Zeno Hub, Githurai",      location:"Githurai 44, Nairobi",    region:"nbo",      partner:"zeno",    plannedDate:"2024-09-05", surveyDate:"2024-09-15", installDate:"2024-10-10", wiringDate:"2024-10-20", powerOnDate:"2024-10-24", commissionDate:"2024-10-28", liveDate:"2024-11-01", status:"live",        installType:"three_phase", capacity:8,  technician:"Sarah M." },
+  { id:"sp-03", name:"Watu Hub, Roysambu",      location:"Roysambu, Nairobi",       region:"nbo",      partner:"watu",    plannedDate:"2024-10-01", surveyDate:"2024-10-10", installDate:"2024-11-05", wiringDate:"2024-11-15", powerOnDate:"2024-11-18", commissionDate:"2024-11-22", liveDate:"2024-11-25", status:"live",        installType:"three_phase", capacity:12, technician:"Peter O." },
+  { id:"sp-04", name:"MKopa Hub, Kahawa West",  location:"Kahawa West, Nairobi",    region:"nbo",      partner:"mkopa",   plannedDate:"2024-11-01", surveyDate:"2024-11-12", installDate:"2024-12-08", wiringDate:"2024-12-16", powerOnDate:"2024-12-19", commissionDate:"2024-12-22", liveDate:"2024-12-24", status:"live",        installType:"three_phase", capacity:8,  technician:"Alice W." },
+  { id:"sp-05", name:"Zeno Hub, Ruiru",         location:"Ruiru Town, Kiambu",      region:"nbo",      partner:"zeno",    plannedDate:"2025-01-10", surveyDate:"2025-01-20", installDate:"2025-02-15", wiringDate:"2025-02-22", powerOnDate:"2025-02-25", commissionDate:"2025-03-01", liveDate:"2025-03-04", status:"live",        installType:"single_phase",capacity:6,  technician:"James K." },
+  { id:"sp-06", name:"GW Hub, Westlands",       location:"Westlands, Nairobi",      region:"nbo",      partner:"gw",      plannedDate:"2025-02-01", surveyDate:"2025-02-12", installDate:"2025-03-10", wiringDate:"2025-03-18", powerOnDate:"2025-03-20", commissionDate:"2025-03-24", liveDate:"2025-03-26", status:"live",        installType:"three_phase", capacity:10, technician:"Sarah M." },
+  { id:"sp-07", name:"Zeno Hub, Nanyuki Town",  location:"Nanyuki Town Centre",     region:"nanyuki",  partner:"zeno",    plannedDate:"2025-03-15", surveyDate:"2025-03-25", installDate:"2025-04-20", wiringDate:"2025-04-28", powerOnDate:"2025-05-02", commissionDate:"2025-05-06", liveDate:"2025-05-10", status:"live",        installType:"three_phase", capacity:8,  technician:"Peter O." },
+  { id:"sp-08", name:"Watu Hub, Nanyuki South", location:"Nanyuki South, Laikipia", region:"nanyuki",  partner:"watu",    plannedDate:"2025-06-01", surveyDate:"2025-06-12", installDate:"2025-07-08", wiringDate:"2025-07-15", powerOnDate:"2025-07-18", commissionDate:"2025-07-22", liveDate:"2025-07-25", status:"live",        installType:"single_phase",capacity:6,  technician:"Alice W." },
+  { id:"sp-09", name:"Zeno Hub, Naro Moru",     location:"Naro Moru, Nyeri County", region:"naromoru", partner:"zeno",    plannedDate:"2025-07-01", surveyDate:"2025-07-10", installDate:"2025-08-05", wiringDate:"2025-08-12", powerOnDate:"2025-08-15", commissionDate:"2025-08-19", liveDate:"2025-08-22", status:"live",        installType:"three_phase", capacity:8,  technician:"James K." },
+  { id:"sp-10", name:"GW Hub, Nyeri Central",   location:"Nyeri Town, Nyeri County",region:"nyeri",    partner:"gw",      plannedDate:"2025-09-01", surveyDate:"2025-09-12", installDate:"2025-10-08", wiringDate:"2025-10-16", powerOnDate:"2025-10-19", commissionDate:"2025-10-23", liveDate:"2025-10-26", status:"live",        installType:"three_phase", capacity:8,  technician:"Sarah M." },
+  { id:"sp-11", name:"MKopa Hub, Nyeri South",  location:"Karatina, Nyeri County",  region:"nyeri",    partner:"mkopa",   plannedDate:"2025-11-01", surveyDate:"2025-11-12", installDate:"2025-12-05", wiringDate:"2025-12-13", powerOnDate:"2025-12-16", commissionDate:"2025-12-20", liveDate:"2025-12-22", status:"live",        installType:"single_phase",capacity:6,  technician:"Peter O." },
+  { id:"sp-12", name:"Zeno Hub, Kenyatta Ave",  location:"Kenyatta Ave, Nairobi CBD",region:"nbo",     partner:"zeno",    plannedDate:"2026-03-01", surveyDate:"2026-03-15", installDate:"2026-04-12", wiringDate:"2026-04-20", powerOnDate:"2026-04-23", commissionDate:"2026-04-28", liveDate:"2026-05-01", status:"live",        installType:"three_phase", capacity:12, technician:"Alice W." },
+  { id:"sp-13", name:"Watu Hub, Langata",       location:"Langata Road, Nairobi",   region:"nbo",      partner:"watu",    plannedDate:"2026-05-10", surveyDate:"2026-05-22", installDate:"2026-06-18", wiringDate:"2026-06-25", powerOnDate:"2026-06-28", commissionDate:"2026-07-02", status:"commissioned", installType:"three_phase", capacity:8,  technician:"James K." },
+  { id:"sp-14", name:"GW Hub, Embakasi",        location:"Embakasi, Nairobi",       region:"nbo",      partner:"gw",      plannedDate:"2026-06-01", surveyDate:"2026-06-14", installDate:"2026-07-10", wiringDate:"2026-07-18", powerOnDate:"2026-07-22", status:"powered_on", installType:"three_phase", capacity:10, technician:"Sarah M." },
+  { id:"sp-15", name:"Zeno Hub, Isiolo Rd",     location:"Isiolo Rd, Nanyuki",      region:"nanyuki",  partner:"zeno",    plannedDate:"2026-07-01", status:"planned", installType:"three_phase", capacity:8 },
 ];
 
 const STATUS_META: Record<StationProvRecord["status"], { label: string; badge: string; step: number }> = {
@@ -79,7 +79,7 @@ function CommissionProgress({ status }: { status: StationProvRecord["status"] })
 }
 
 function fmtDate(d?: string) {
-  if (!d) return "—";
+  if (!d) return "–";
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" });
 }
 
@@ -130,7 +130,7 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="py-2 border-b border-slate-100 flex gap-4">
       <span className="text-xs text-slate-400 w-36 shrink-0">{label}</span>
-      <span className="text-sm text-slate-700 font-medium">{value || "—"}</span>
+      <span className="text-sm text-slate-700 font-medium">{value || "–"}</span>
     </div>
   );
 }
@@ -211,7 +211,7 @@ export default function ProvisionSwapStationPage() {
               {step === 0 && (
                 <div className="space-y-4">
                   <h3 className="font-bold text-slate-700 mb-4" style={{ fontFamily: "var(--font-display)" }}>Station Details</h3>
-                  <Field label="Station Name" required><input value={form.name} onChange={set("name")} placeholder="e.g. Kasarani Hub — Nairobi" className={fieldCls} /></Field>
+                  <Field label="Station Name" required><input value={form.name} onChange={set("name")} placeholder="e.g. Kasarani Hub, Nairobi" className={fieldCls} /></Field>
                   <Field label="Location / Address" required><input value={form.location} onChange={set("location")} placeholder="e.g. Kasarani, Nairobi" className={fieldCls} /></Field>
                   <Field label="Region">
                     <select value={form.region} onChange={set("region")} className={selectCls}>
@@ -253,9 +253,9 @@ export default function ProvisionSwapStationPage() {
                   </div>
                   <Field label="Rating">
                     <select value={form.rating} onChange={set("rating")} className={selectCls}>
-                      <option value="H">H — High utilisation</option>
-                      <option value="M">M — Medium utilisation</option>
-                      <option value="L">L — Low utilisation</option>
+                      <option value="H">H (high utilisation)</option>
+                      <option value="M">M (medium utilisation)</option>
+                      <option value="L">L (low utilisation)</option>
                     </select>
                   </Field>
                   <Field label="Notes"><textarea value={form.hwNotes} onChange={set("hwNotes")} rows={2} placeholder="Optional notes…" className={fieldCls + " resize-none"} /></Field>
@@ -327,7 +327,7 @@ export default function ProvisionSwapStationPage() {
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Live Operations</p>
           <div className="grid grid-cols-3 gap-6">
             {[
-              { label: "Langata Hub Commissioning — Final Steps", progress: 88, done: false },
+              { label: "Langata Hub Commissioning, Final Steps", progress: 88, done: false },
               { label: "Embakasi Hub Power-On & Wiring Checks", progress: 62, done: false },
               { label: "Kasarani Hub Firmware Upgrade v3.1", progress: 100, done: true },
             ].map(op => (
@@ -401,7 +401,7 @@ export default function ProvisionSwapStationPage() {
                     </td>
                     <td className="px-3 py-2.5"><CommissionProgress status={r.status} /></td>
                     <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{fmtDate(r.liveDate)}</td>
-                    <td className="px-3 py-2.5 text-slate-500">{r.technician ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-slate-500">{r.technician ?? "–"}</td>
                   </tr>
                 ))}
               </tbody>

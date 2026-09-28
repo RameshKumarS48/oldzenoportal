@@ -83,7 +83,7 @@ export default function FormsPage() {
       <main className="flex-1 overflow-y-auto bg-zeno-bg p-6">
         <p className="text-sm text-slate-500 mb-5 max-w-2xl">
           Build custom data-collection forms, share them, and view submissions as a live sheet.
-          Design any asset-intake or survey flow here without code — add, edit, and reorder fields as your requirements change.
+          Design any asset-intake or survey flow here without code. Add, edit, and reorder fields as your requirements change.
           Already have a spreadsheet? <span className="text-slate-600 font-medium">Import</span> a CSV or Excel file to start from it.
         </p>
 

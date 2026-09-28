@@ -28,7 +28,7 @@ export function WidgetCard({ widget, onDelete, editable = false, removable = fal
   const latestRow = rows.at(-1);
   const statSeries = series[0];
   const statRaw = latestRow && statSeries ? (latestRow[statSeries.key] as number | undefined) : undefined;
-  const statFormatted = statRaw != null ? formatNumber(statRaw) : "—";
+  const statFormatted = statRaw != null ? formatNumber(statRaw) : "–";
 
   // Target for stat: look for a "target" series
   const targetSeries = series.find((s) => s.key.endsWith("_target"));

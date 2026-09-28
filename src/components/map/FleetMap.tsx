@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import type { GeoJSONSource, MapLayerMouseEvent, StyleSpecification } from "maplibre-gl";
 import type { Feature, FeatureCollection, Point } from "geojson";
@@ -63,13 +63,14 @@ export function FleetMap({ assets, mode }: { assets: MapAsset[]; mode: Mode }) {
   const readyRef = useRef(false);
   const assetsRef = useRef(assets);
   const modeRef = useRef<Mode>(mode);
+  const [failure, setFailure] = useState<string | null>(null);
 
   // init once
   useEffect(() => {
     if (mapRef.current || !containerRef.current) return;
 
     // Turbopack's default worker resolution ships a broken worker in the
-    // production build — every GeoJSON source then hangs at 0 features, so the
+    // production build, every GeoJSON source then hangs at 0 features, so the
     // basemap renders but no pins/clusters/heatmap ever appear. Point MapLibre
     // at our self-hosted worker instead (see scripts/copy-maplibre-worker.mjs).
     maplibregl.setWorkerUrl("/vendor/maplibre/maplibre-gl-worker.mjs");
@@ -84,6 +85,14 @@ export function FleetMap({ assets, mode }: { assets: MapAsset[]; mode: Mode }) {
       attributionControl: false,
     });
     mapRef.current = map;
+
+    // Without this the map fails in silence: an unreachable tile host or a bad
+    // style leaves a blank grey panel with no explanation anywhere.
+    map.on("error", (e) => {
+      const message = e.error?.message ?? "Unknown map error";
+      console.error("[FleetMap]", message, e);
+      setFailure(message);
+    });
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
@@ -216,7 +225,14 @@ export function FleetMap({ assets, mode }: { assets: MapAsset[]; mode: Mode }) {
       }
     });
 
+    // MapLibre measures its container once, at construction. This component is
+    // loaded dynamically into a flex column, so it can be built before the
+    // container has been laid out. Re-measure whenever the box changes size.
+    const observer = new ResizeObserver(() => map.resize());
+    observer.observe(containerRef.current);
+
     return () => {
+      observer.disconnect();
       map.remove();
       mapRef.current = null;
       popupRef.current = null;
@@ -242,5 +258,19 @@ export function FleetMap({ assets, mode }: { assets: MapAsset[]; mode: Mode }) {
     applyMode(map, mode);
   }, [mode]);
 
-  return <div ref={containerRef} className="w-full h-full" />;
+  return (
+    <div className="relative w-full h-full">
+      <div ref={containerRef} className="w-full h-full" />
+      {failure && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-50/95 px-6">
+          <div className="max-w-sm text-center">
+            <p className="text-sm font-semibold text-slate-600">The map could not load</p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+              {failure}. Vehicle positions are still listed in List View.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

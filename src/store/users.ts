@@ -12,7 +12,7 @@ export interface PendingInvite {
   /** Captured on step 1 of the invite dialog and carried onto the new account. */
   name: string;
   role: UserRole;
-  /** Tenant the invitee belongs to — "zeno" for internal roles. */
+  /** Tenant the invitee belongs to, "zeno" for internal roles. */
   partnerId: string;
   invitedBy: string;
   createdAt: string;
@@ -99,7 +99,7 @@ export const useUsersStore = create<UsersState>()(
       },
 
       // Called after the invite page has already verified the token signature.
-      // No password is set — every account signs in with an emailed OTP.
+      // No password is set, every account signs in with an emailed OTP.
       registerFromInvite: async (email, role, name) => {
         const existing = get().users.find((u) => u.email.toLowerCase() === email.toLowerCase());
         if (existing) return { success: false, error: "An account with this email already exists." };

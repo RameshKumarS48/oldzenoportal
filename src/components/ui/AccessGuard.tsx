@@ -5,7 +5,7 @@ import { useAccess, MODULE_LABELS } from "@/lib/access";
 import type { AccessModule } from "@/lib/access";
 
 /**
- * Route guard for dome's five tabs. Hiding a nav link isn't enough — a user who
+ * Route guard for dome's five tabs. Hiding a nav link isn't enough, a user who
  * types the URL must be refused too, so every gated page wraps its body in this.
  */
 export function AccessGuard({

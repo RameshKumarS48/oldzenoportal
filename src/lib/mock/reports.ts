@@ -59,11 +59,11 @@ export const SCHEDULED_REPORTS: ScheduledReport[] = [
 ];
 
 export const GENERATED_REPORTS: GeneratedReport[] = [
-  { id: "gr1", name: "Weekly Summary — Jul 7, 2026", reportType: "weekly_summary", generatedAt: "2026-07-13T08:00:00Z", periodStart: "2026-07-07", periodEnd: "2026-07-13", format: "pdf", sizeKb: 248, partner: "Partner Overall" },
-  { id: "gr2", name: "Weekly Summary — Jul 7, 2026 (CSV)", reportType: "weekly_summary", generatedAt: "2026-07-13T08:00:00Z", periodStart: "2026-07-07", periodEnd: "2026-07-13", format: "csv", sizeKb: 42, partner: "Partner Overall" },
-  { id: "gr3", name: "Monthly Review — June 2026", reportType: "monthly_review", generatedAt: "2026-07-01T08:00:00Z", periodStart: "2026-06-01", periodEnd: "2026-06-30", format: "pdf", sizeKb: 1024, partner: "Partner Overall" },
-  { id: "gr4", name: "Monthly Review — June 2026 (CSV)", reportType: "monthly_review", generatedAt: "2026-07-01T08:00:00Z", periodStart: "2026-06-01", periodEnd: "2026-06-30", format: "csv", sizeKb: 156, partner: "Partner Overall" },
+  { id: "gr1", name: "Weekly Summary, Jul 7, 2026", reportType: "weekly_summary", generatedAt: "2026-07-13T08:00:00Z", periodStart: "2026-07-07", periodEnd: "2026-07-13", format: "pdf", sizeKb: 248, partner: "Partner Overall" },
+  { id: "gr2", name: "Weekly Summary, Jul 7, 2026 (CSV)", reportType: "weekly_summary", generatedAt: "2026-07-13T08:00:00Z", periodStart: "2026-07-07", periodEnd: "2026-07-13", format: "csv", sizeKb: 42, partner: "Partner Overall" },
+  { id: "gr3", name: "Monthly Review, June 2026", reportType: "monthly_review", generatedAt: "2026-07-01T08:00:00Z", periodStart: "2026-06-01", periodEnd: "2026-06-30", format: "pdf", sizeKb: 1024, partner: "Partner Overall" },
+  { id: "gr4", name: "Monthly Review, June 2026 (CSV)", reportType: "monthly_review", generatedAt: "2026-07-01T08:00:00Z", periodStart: "2026-06-01", periodEnd: "2026-06-30", format: "csv", sizeKb: 156, partner: "Partner Overall" },
   { id: "gr5", name: "Q2 2026 Quarterly Rollup", reportType: "quarterly_rollup", generatedAt: "2026-07-01T09:00:00Z", periodStart: "2026-04-01", periodEnd: "2026-06-30", format: "pdf", sizeKb: 2840, partner: "All Partners" },
-  { id: "gr6", name: "Weekly Summary — Jun 30, 2026", reportType: "weekly_summary", generatedAt: "2026-07-06T08:00:00Z", periodStart: "2026-06-30", periodEnd: "2026-07-06", format: "pdf", sizeKb: 232, partner: "Partner Overall" },
-  { id: "gr7", name: "Weekly Summary — GW — Jul 7, 2026", reportType: "weekly_summary", generatedAt: "2026-07-13T08:30:00Z", periodStart: "2026-07-07", periodEnd: "2026-07-13", format: "pdf", sizeKb: 198, partner: "Greenwheels" },
+  { id: "gr6", name: "Weekly Summary, Jun 30, 2026", reportType: "weekly_summary", generatedAt: "2026-07-06T08:00:00Z", periodStart: "2026-06-30", periodEnd: "2026-07-06", format: "pdf", sizeKb: 232, partner: "Partner Overall" },
+  { id: "gr7", name: "Weekly Summary (GW), Jul 7, 2026", reportType: "weekly_summary", generatedAt: "2026-07-13T08:30:00Z", periodStart: "2026-07-07", periodEnd: "2026-07-13", format: "pdf", sizeKb: 198, partner: "Greenwheels" },
 ];

@@ -122,7 +122,7 @@ export default function DashboardViewPage({ params }: Props) {
           <InfraMetricsGrid row={latestInfraRow} allRows={allInfraData} getDefinition={getDefinition} search={search} />
         )}
 
-        {/* Chart widgets — custom dashboards AND chart-based preset dashboards */}
+        {/* Chart widgets, custom dashboards AND chart-based preset dashboards */}
         {dashboard.presetView !== "metrics-grid" && sortedWidgets.length > 0 && (
           <div className="grid grid-cols-12 gap-4 auto-rows-[220px]">
             {sortedWidgets.map((widget) => (

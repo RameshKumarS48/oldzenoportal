@@ -12,7 +12,7 @@ interface AuthState {
   setHasHydrated: (v: boolean) => void;
   /**
    * Completes sign-in for an email whose OTP has already been verified by
-   * `useOtpStore`. There is no password path — every user signs in by code.
+   * `useOtpStore`. There is no password path, every user signs in by code.
    */
   loginWithOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;

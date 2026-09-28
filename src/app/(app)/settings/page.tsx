@@ -203,7 +203,7 @@ function ComparisonTab() {
 }
 
 // ──────────────────────────────────────────────────────────────
-// Data Params Tab (from admin/settings — simplified)
+// Data Params Tab (from admin/settings, simplified)
 // ──────────────────────────────────────────────────────────────
 
 type SourceId = "all" | "partner" | "infra" | "referral" | "wallet" | "energy" | "preorder";

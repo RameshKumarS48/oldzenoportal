@@ -70,7 +70,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
           </div>
           <h1 className="text-xl font-bold text-slate-800 mb-2">Account created</h1>
           <p className="text-sm text-slate-500 mb-6">
-            <strong>{invite.email}</strong> is ready. Sign in with a one-time code — no password
+            <strong>{invite.email}</strong> is ready. Sign in with a one-time code. No password
             to remember.
           </p>
           <Button onClick={() => router.push("/login")}>Go to sign in</Button>

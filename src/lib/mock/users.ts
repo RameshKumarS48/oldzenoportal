@@ -16,13 +16,13 @@ export interface AppUser {
   createdAt: string;
   avatar?: string;
   emailVerified?: boolean;
-  /** Tenant this user belongs to — "zeno" for internal roles, else a partner id. */
+  /** Tenant this user belongs to, "zeno" for internal roles, else a partner id. */
   partnerId?: string;
   customPermissions?: Array<{ module: string; actions: string[] }>;
 }
 
 /**
- * Display names. These are the labels in the access spec — see `src/lib/access.ts`
+ * Display names. These are the labels in the access spec, see `src/lib/access.ts`
  * for the grants each one carries.
  */
 export const ROLE_LABELS: Record<UserRole, string> = {
@@ -49,7 +49,7 @@ export function isSupportRole(role: UserRole | string | undefined): boolean {
 }
 
 // Sign-in is email + one-time code (see src/store/otp.ts), so accounts carry no
-// password at all — there is nothing to seed, reset, or leak.
+// password at all, there is nothing to seed, reset, or leak.
 export const SEED_USERS: AppUser[] = [
   { id: "u1",  name: "Ramesh Kumar",   email: "admin@zenomoto.com",   role: "zeno_super_admin",   status: "active",   createdAt: "2026-01-15", partnerId: "zeno",  emailVerified: true },
   { id: "u2",  name: "Willie Omondi",  email: "willie@zeno.earth",    role: "zeno_admin",          status: "active",   createdAt: "2026-01-20", partnerId: "zeno",  emailVerified: true },

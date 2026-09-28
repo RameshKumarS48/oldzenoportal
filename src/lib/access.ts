@@ -1,14 +1,14 @@
 "use client";
 
 /**
- * Dome's access model — the single source of truth for who can see and do what.
+ * Dome's access model, the single source of truth for who can see and do what.
  *
  * Five roles, five modules. A role holds a flat list of permission grants where
  * `_ro` (read) and `_rw` (write) are *separate* grants: a read-write role holds
  * both. Grants are fixed per role and are not editable per user.
  *
  * The four data modules line up 1:1 with dome's four data tabs, and
- * `user_management` with the fifth — so nav gating, route guards and the invite
+ * `user_management` with the fifth, so nav gating, route guards and the invite
  * dialog's permission summary all read from this one table.
  */
 
@@ -84,7 +84,7 @@ export const ROLE_ID_BY_KEY: Record<UserRole, number> = {
   partner_user:        5,
 };
 
-/** The reverse map — used when a form hands back a role by id. */
+/** The reverse map, used when a form hands back a role by id. */
 export const ROLE_KEY_BY_ID: Record<number, UserRole> = Object.fromEntries(
   Object.entries(ROLE_ID_BY_KEY).map(([key, id]) => [id, key as UserRole])
 ) as Record<number, UserRole>;
@@ -120,7 +120,7 @@ export function roleDefinition(role: UserRole | string | undefined): RoleDefinit
 
 /** Display name for a role, straight from the access table. */
 export function roleName(role: UserRole | string | undefined): string {
-  return roleDefinition(role)?.name ?? "—";
+  return roleDefinition(role)?.name ?? "–";
 }
 
 export function permissionsFor(role: UserRole | string | undefined): Permission[] {

@@ -67,13 +67,13 @@ export function distinctStations(r: SwapRecord): string[] {
 
 /**
  * A swap that touches two different battery stations. Per ops rule: one `bs`
- * per swap is expected — a second station showing up is probably an alert.
+ * per swap is expected, a second station showing up is probably an alert.
  */
 export function isCrossStation(r: SwapRecord): boolean {
   return distinctStations(r).length >= 2;
 }
 
-/** A swap that warrants a tampering review — flagged, cross-station, rfid mismatch, or orphan recovery. */
+/** A swap that warrants a tampering review, flagged, cross-station, rfid mismatch, or orphan recovery. */
 export function isTamperingCandidate(r: SwapRecord): boolean {
   return r.flagged || isCrossStation(r) || hasRfidMismatch(r) || /ORPHAN/i.test(r.errorNote ?? "");
 }
@@ -621,7 +621,7 @@ const MOCK_RECORDS: SwapRecord[] = [
     collectStationId: "bs0002",
     dispenseTimestamp: "2026-09-14T09:45:12+03:00",
     collectTimestamp: "2026-09-15T09:45:41+03:00",
-    multiday: "Dispensed 14 Sep 21:10, collected 15 Sep 09:45 — billed across two days",
+    multiday: "Dispensed 14 Sep 21:10, collected 15 Sep 09:45. Billed across two days",
     skipped: false,
     flagged: false,
     manualIgnore: false,

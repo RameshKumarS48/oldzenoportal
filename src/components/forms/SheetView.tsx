@@ -152,7 +152,7 @@ export function SheetView({ form, submissions }: Props) {
           <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={busy}>
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} Import
           </Button>
-          <Button size="sm" variant="outline" disabled title="Chart this data — coming soon">
+          <Button size="sm" variant="outline" disabled title="Chart this data (coming soon)">
             <BarChart3 className="w-4 h-4" /> Build Dashboard
           </Button>
           <Button size="sm" variant="ghost-dark" onClick={() => downloadCSV(form, submissions)}>
@@ -233,7 +233,7 @@ export function SheetView({ form, submissions }: Props) {
             {submissions.length === 0 && (
               <tr>
                 <td colSpan={form.fields.length + 2} className="px-4 py-8 text-center text-sm text-slate-400">
-                  No rows yet — add one below, fill the form, or import a CSV/Excel file.
+                  No rows yet. Add one below, fill the form, or import a CSV/Excel file.
                 </td>
               </tr>
             )}
@@ -250,7 +250,7 @@ export function SheetView({ form, submissions }: Props) {
       </div>
 
       <p className="text-[11px] text-slate-400">
-        Edit any cell inline. Columns here are the form&apos;s fields — rename, retype, add, or remove them and the form updates too.
+        Edit any cell inline. Columns here are the form&apos;s fields: rename, retype, add, or remove them and the form updates too.
         {submissions.length > 0 && ` Last edited ${format(new Date(form.updatedAt), "d MMM yyyy, HH:mm")}.`}
       </p>
     </div>

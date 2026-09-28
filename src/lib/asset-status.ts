@@ -1,5 +1,5 @@
 /**
- * Operational status — the single source of truth.
+ * Operational status, the single source of truth.
  *
  * In a fleet-ops tool the status colour *is* the information, so every place a
  * status appears (table cell, detail panel, map pin, export) reads its hue and
@@ -36,7 +36,7 @@ export const IMMOBILIZATION_META: Record<Immobilization, { dot: string; label: s
   MobilizedRequestAck:    { dot: "bg-status-online",  label: "Mob ack",     alert: false },
 };
 
-/** Vehicle lifecycle pill — soft tint, not a dot. */
+/** Vehicle lifecycle pill, soft tint, not a dot. */
 export const VEHICLE_STATUS_META: Record<VehicleStatus, string> = {
   active: "bg-green-50 text-green-700",
   new:    "bg-blue-50 text-blue-700",

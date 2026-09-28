@@ -30,12 +30,12 @@ interface FCSession {
 
 const SESSIONS: FCSession[] = [
   // Active sessions (right now)
-  { id:"FCS-0001", stationId:"FC-NBO-01", stationName:"Zeno Hub — Westlands",    unitNo:2, phone:"0712 345 678", customerName:"NICKSON MWITI",    startTime:"2026-07-30T07:10:00Z", status:"active",    region:"nbo" },
+  { id:"FCS-0001", stationId:"FC-NBO-01", stationName:"Zeno Hub, Westlands",    unitNo:2, phone:"0712 345 678", customerName:"NICKSON MWITI",    startTime:"2026-07-30T07:10:00Z", status:"active",    region:"nbo" },
   { id:"FCS-0002", stationId:"FC-NBO-05", stationName:"Kilimani Business Ctr",   unitNo:1, phone:"0723 456 789", customerName:"Grace Wanjiru",     startTime:"2026-07-30T07:22:00Z", status:"active",    region:"nbo" },
   { id:"FCS-0003", stationId:"FC-NAN-01", stationName:"Nanyuki Town Centre",      unitNo:3, phone:"0734 567 890", customerName:"David Kimani",      startTime:"2026-07-30T07:35:00Z", status:"active",    region:"nanyuki" },
 
-  // Completed sessions — today
-  { id:"FCS-0004", stationId:"FC-NBO-01", stationName:"Zeno Hub — Westlands",    unitNo:1, phone:"0745 678 901", customerName:"MUVUNYI JEAN",      startTime:"2026-07-30T05:12:00Z", endTime:"2026-07-30T06:04:00Z", durationMin:52, kwhDelivered:8.3,  costKES:415,  status:"completed", region:"nbo" },
+  // Completed sessions, today
+  { id:"FCS-0004", stationId:"FC-NBO-01", stationName:"Zeno Hub, Westlands",    unitNo:1, phone:"0745 678 901", customerName:"MUVUNYI JEAN",      startTime:"2026-07-30T05:12:00Z", endTime:"2026-07-30T06:04:00Z", durationMin:52, kwhDelivered:8.3,  costKES:415,  status:"completed", region:"nbo" },
   { id:"FCS-0005", stationId:"FC-NBO-02", stationName:"Upperhill Medical Ctr",   unitNo:2, phone:"0756 789 012", customerName:"James Ng'ang'a",    startTime:"2026-07-30T05:44:00Z", endTime:"2026-07-30T06:58:00Z", durationMin:74, kwhDelivered:11.8, costKES:590,  status:"completed", region:"nbo" },
   { id:"FCS-0006", stationId:"FC-NBO-03", stationName:"Parklands Retail Park",   unitNo:1, phone:"0767 890 123", customerName:"Fredrick Ochieng",  startTime:"2026-07-30T06:00:00Z", endTime:"2026-07-30T07:05:00Z", durationMin:65, kwhDelivered:10.4, costKES:520,  status:"completed", region:"nbo" },
   { id:"FCS-0007", stationId:"FC-NBO-04", stationName:"Karen Country Club",      unitNo:1, phone:"0778 901 234", customerName:"Erick Nganda",      startTime:"2026-07-30T06:15:00Z", endTime:"2026-07-30T07:02:00Z", durationMin:47, kwhDelivered:7.5,  costKES:375,  status:"completed", region:"nbo" },
@@ -46,7 +46,7 @@ const SESSIONS: FCSession[] = [
   { id:"FCS-0012", stationId:"FC-NBO-09", stationName:"Kasarani Arena",          unitNo:4, phone:"0734 456 789", customerName:"Ruth Akinyi",       startTime:"2026-07-30T04:45:00Z", endTime:"2026-07-30T05:58:00Z", durationMin:73, kwhDelivered:11.7, costKES:585,  status:"completed", region:"nbo" },
   { id:"FCS-0013", stationId:"FC-NAN-02", stationName:"Nanyuki Shopping Mall",   unitNo:2, phone:"0745 567 890", customerName:"Charles Mutua",     startTime:"2026-07-30T05:55:00Z", endTime:"2026-07-30T07:00:00Z", durationMin:65, kwhDelivered:10.4, costKES:520,  status:"completed", region:"nanyuki" },
   { id:"FCS-0014", stationId:"FC-NYR-02", stationName:"Outspan Hotel",           unitNo:1, phone:"0756 678 901", customerName:"Esther Nafula",     startTime:"2026-07-30T06:10:00Z", endTime:"2026-07-30T07:08:00Z", durationMin:58, kwhDelivered:9.3,  costKES:465,  status:"completed", region:"nyeri" },
-  { id:"FCS-0015", stationId:"FC-NBO-01", stationName:"Zeno Hub — Westlands",    unitNo:3, phone:"0767 789 012", customerName:"Samuel Odhiambo",   startTime:"2026-07-30T04:30:00Z", endTime:"2026-07-30T05:45:00Z", durationMin:75, kwhDelivered:12.0, costKES:600,  status:"completed", region:"nbo" },
+  { id:"FCS-0015", stationId:"FC-NBO-01", stationName:"Zeno Hub, Westlands",    unitNo:3, phone:"0767 789 012", customerName:"Samuel Odhiambo",   startTime:"2026-07-30T04:30:00Z", endTime:"2026-07-30T05:45:00Z", durationMin:75, kwhDelivered:12.0, costKES:600,  status:"completed", region:"nbo" },
   { id:"FCS-0016", stationId:"FC-NBO-02", stationName:"Upperhill Medical Ctr",   unitNo:1, phone:"0778 890 123", customerName:"Faith Chebet",      startTime:"2026-07-30T04:15:00Z", endTime:"2026-07-30T05:28:00Z", durationMin:73, kwhDelivered:11.7, costKES:585,  status:"completed", region:"nbo" },
   { id:"FCS-0017", stationId:"FC-NAN-03", stationName:"Delamere Camp",           unitNo:1, phone:"0789 901 234", customerName:"Brian Otieno",      startTime:"2026-07-30T05:20:00Z", endTime:"2026-07-30T06:15:00Z", durationMin:55, kwhDelivered:8.8,  costKES:440,  status:"completed", region:"nanyuki" },
   { id:"FCS-0018", stationId:"FC-NBO-03", stationName:"Parklands Retail Park",   unitNo:4, phone:"0712 456 789", customerName:"Margaret Waweru",   startTime:"2026-07-30T04:00:00Z", endTime:"2026-07-30T05:12:00Z", durationMin:72, kwhDelivered:11.5, costKES:575,  status:"completed", region:"nbo" },
@@ -57,7 +57,7 @@ const SESSIONS: FCSession[] = [
   { id:"FCS-0021", stationId:"FC-NBO-07", stationName:"Ruaka Supercentre",       unitNo:4, phone:"0745 789 012", customerName:"MUVUNYI JEAN",      startTime:"2026-07-30T06:55:00Z", endTime:"2026-07-30T07:01:00Z", durationMin:6,  kwhDelivered:0.2,  costKES:0,    status:"error",     region:"nbo" },
 
   // Yesterday's sessions
-  { id:"FCS-0022", stationId:"FC-NBO-01", stationName:"Zeno Hub — Westlands",    unitNo:1, phone:"0756 890 123", customerName:"NICKSON MWITI",    startTime:"2026-07-29T18:30:00Z", endTime:"2026-07-29T19:45:00Z", durationMin:75, kwhDelivered:12.0, costKES:600,  status:"completed", region:"nbo" },
+  { id:"FCS-0022", stationId:"FC-NBO-01", stationName:"Zeno Hub, Westlands",    unitNo:1, phone:"0756 890 123", customerName:"NICKSON MWITI",    startTime:"2026-07-29T18:30:00Z", endTime:"2026-07-29T19:45:00Z", durationMin:75, kwhDelivered:12.0, costKES:600,  status:"completed", region:"nbo" },
   { id:"FCS-0023", stationId:"FC-NBO-02", stationName:"Upperhill Medical Ctr",   unitNo:3, phone:"0767 901 234", customerName:"Fredrick Ochieng",  startTime:"2026-07-29T17:15:00Z", endTime:"2026-07-29T18:28:00Z", durationMin:73, kwhDelivered:11.7, costKES:585,  status:"completed", region:"nbo" },
   { id:"FCS-0024", stationId:"FC-NBO-04", stationName:"Karen Country Club",      unitNo:2, phone:"0778 012 345", customerName:"Grace Wanjiru",     startTime:"2026-07-29T16:00:00Z", endTime:"2026-07-29T17:08:00Z", durationMin:68, kwhDelivered:10.9, costKES:545,  status:"completed", region:"nbo" },
   { id:"FCS-0025", stationId:"FC-NAN-01", stationName:"Nanyuki Town Centre",      unitNo:2, phone:"0789 123 456", customerName:"David Kimani",      startTime:"2026-07-29T15:30:00Z", endTime:"2026-07-29T16:42:00Z", durationMin:72, kwhDelivered:11.5, costKES:575,  status:"completed", region:"nanyuki" },
@@ -70,7 +70,7 @@ const SESSIONS: FCSession[] = [
   { id:"FCS-0032", stationId:"FC-NBO-05", stationName:"Kilimani Business Ctr",   unitNo:2, phone:"0778 123 456", customerName:"Augustine Mbevi",   startTime:"2026-07-29T08:45:00Z", endTime:"2026-07-29T09:58:00Z", durationMin:73, kwhDelivered:11.7, costKES:585,  status:"completed", region:"nbo" },
   { id:"FCS-0033", stationId:"FC-NYR-02", stationName:"Outspan Hotel",           unitNo:2, phone:"0789 234 567", customerName:"Moses Mwangi",      startTime:"2026-07-29T08:00:00Z", endTime:"2026-07-29T09:12:00Z", durationMin:72, kwhDelivered:11.5, costKES:575,  status:"completed", region:"nyeri" },
   { id:"FCS-0034", stationId:"FC-NBO-07", stationName:"Ruaka Supercentre",       unitNo:1, phone:"0712 678 901", customerName:"Kevin Njoroge",     startTime:"2026-07-29T07:30:00Z", endTime:"2026-07-29T08:42:00Z", durationMin:72, kwhDelivered:11.5, costKES:575,  status:"completed", region:"nbo" },
-  { id:"FCS-0035", stationId:"FC-NBO-01", stationName:"Zeno Hub — Westlands",    unitNo:4, phone:"0723 789 012", customerName:"Zechariah Anita",   startTime:"2026-07-29T07:00:00Z", endTime:"2026-07-29T08:15:00Z", durationMin:75, kwhDelivered:12.0, costKES:600,  status:"completed", region:"nbo" },
+  { id:"FCS-0035", stationId:"FC-NBO-01", stationName:"Zeno Hub, Westlands",    unitNo:4, phone:"0723 789 012", customerName:"Zechariah Anita",   startTime:"2026-07-29T07:00:00Z", endTime:"2026-07-29T08:15:00Z", durationMin:75, kwhDelivered:12.0, costKES:600,  status:"completed", region:"nbo" },
 ];
 
 const STATUS_META = {
@@ -267,7 +267,7 @@ export default function FastChargersDataPage() {
                     <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">{s.id}</td>
                     <td className="px-3 py-2.5">
                       <div className="font-medium text-slate-700 text-[12px]">{s.stationId}</div>
-                      <div className="text-slate-400 text-[11px] truncate max-w-[140px]">{s.stationName.split("—")[1]?.trim() ?? s.stationName}</div>
+                      <div className="text-slate-400 text-[11px] truncate max-w-[140px]">{s.stationName.split(",")[1]?.trim() ?? s.stationName}</div>
                     </td>
                     <td className="px-3 py-2.5 text-slate-500 text-center">U{s.unitNo}</td>
                     <td className="px-3 py-2.5">
@@ -279,15 +279,15 @@ export default function FastChargersDataPage() {
                       {s.endTime ? fmtDateTime(s.endTime) : <span className="text-emerald-600 font-medium">ongoing</span>}
                     </td>
                     <td className="px-3 py-2.5 text-slate-500 tabular-nums">
-                      {s.durationMin != null ? `${s.durationMin} min` : "—"}
+                      {s.durationMin != null ? `${s.durationMin} min` : "–"}
                     </td>
                     <td className="px-3 py-2.5">
                       {s.kwhDelivered != null
                         ? <SocBar kwh={s.kwhDelivered} />
-                        : <span className="text-slate-300">—</span>}
+                        : <span className="text-slate-300">–</span>}
                     </td>
                     <td className="px-3 py-2.5 font-semibold text-slate-700 text-right tabular-nums">
-                      {s.costKES != null ? `KES ${s.costKES.toLocaleString()}` : "—"}
+                      {s.costKES != null ? `KES ${s.costKES.toLocaleString()}` : "–"}
                     </td>
                     <td className="px-3 py-2.5">
                       <span className={cn("px-2 py-0.5 rounded text-[11px] font-semibold", STATUS_META[s.status].badge)}>

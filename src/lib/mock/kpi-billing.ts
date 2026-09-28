@@ -78,7 +78,7 @@ function makeDate(daysBack: number, hour = 10): string {
 }
 
 export const BILLING_SESSIONS: BillingSession[] = [
-  // ── Peter Munyoki — 15 swap sessions (most active) ──────────────────────────
+  // ── Peter Munyoki: 15 swap sessions (most active) ──────────────────────────
   ...Array.from({ length: 15 }, (_, i) => {
     const slab1 = rand(0.35, 0.50);
     const total = rand(1.9, 3.1);
@@ -107,7 +107,7 @@ export const BILLING_SESSIONS: BillingSession[] = [
     };
   }),
 
-  // ── Remaining customers — 35 more swap sessions ──────────────────────────────
+  // ── Remaining customers: 35 more swap sessions ──────────────────────────────
   ...Array.from({ length: 35 }, (_, i) => {
     const cx = CUSTOMERS[1 + (i % (CUSTOMERS.length - 1))];
     const slab1 = rand(0.32, 0.50);
@@ -135,7 +135,7 @@ export const BILLING_SESSIONS: BillingSession[] = [
       rfid2: pick(RFIDS), bin2: pick(BINS), dispenseSlot2: Math.ceil(Math.random() * 6), collectSlot2: Math.ceil(Math.random() * 6),
       ahDischarged2: ahD2, ahCharged2: ahC2, ahRegen2: ahR2, ahSwapChargeUsed2: parseFloat((ahD2 - ahC2 - ahR2).toFixed(2)),
       leaseDuration1: Math.round(rand(20000, 45000, 0)), leaseDuration2: Math.round(rand(20000, 45000, 0)),
-      errorNote: isSkipped ? "Session incomplete — no billing" : isFlagged ? "Flagged for review" : isRfid ? "RFID mismatch detected" : undefined,
+      errorNote: isSkipped ? "Session incomplete: no billing" : isFlagged ? "Flagged for review" : isRfid ? "RFID mismatch detected" : undefined,
     };
   }),
 

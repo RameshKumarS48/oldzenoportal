@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toast } from "@/store/toast";
 import { ROLE_LABELS } from "@/lib/mock/users";
 import type { UserRole } from "@/lib/mock/users";
 
@@ -24,6 +25,16 @@ export function Topbar({ title, actions }: TopbarProps) {
   const isLoading = useActualsStore((s) => s.isLoading);
   const lastSyncedAt = useActualsStore((s) => s.lastSyncedAt);
   const { theme, toggle } = useThemeStore();
+
+  const handleSync = async () => {
+    await sync();
+    const { error, weeks } = useActualsStore.getState();
+    if (error) {
+      toast.error("Sync failed", `${error.replace(/^Error:\s*/, "")}. The figures below are the last ones that loaded.`);
+    } else {
+      toast.success("Data synced", `${weeks.length} weeks of actuals are up to date.`);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -50,7 +61,7 @@ export function Topbar({ title, actions }: TopbarProps) {
         <span className="text-sm text-white/50 mr-1">{format(new Date(), "d MMM yyyy")}</span>
 
         <button
-          onClick={() => void sync()}
+          onClick={() => void handleSync()}
           disabled={isLoading}
           title={lastSyncedAt ? `Last synced ${format(new Date(lastSyncedAt), "HH:mm")}` : "Sync live data"}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-colors text-xs font-medium disabled:opacity-50"

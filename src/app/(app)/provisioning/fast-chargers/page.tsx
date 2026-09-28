@@ -30,18 +30,18 @@ interface ChargerProvRecord {
 }
 
 const CHARGER_RECORDS: ChargerProvRecord[] = [
-  { id:"fc-01", name:"Zeno FC — Westlands",      location:"Westlands, Nairobi",        region:"nbo",      partner:"zeno",  plannedDate:"2024-10-01", installDate:"2024-11-05", wiringDate:"2024-11-12", powerOnDate:"2024-11-15", liveDate:"2024-11-20", status:"live",      installType:"three_phase", units:2, billingType:"pre_paid",  technician:"James K." },
-  { id:"fc-02", name:"Watu FC — Westlands",       location:"Westlands, Nairobi",        region:"nbo",      partner:"watu", plannedDate:"2024-11-01", installDate:"2024-12-03", wiringDate:"2024-12-10", powerOnDate:"2024-12-13", liveDate:"2024-12-16", status:"live",      installType:"three_phase", units:2, billingType:"post_paid", technician:"Sarah M." },
-  { id:"fc-03", name:"Zeno FC — Karen",           location:"Karen, Nairobi",            region:"nbo",      partner:"zeno",  plannedDate:"2025-01-10", installDate:"2025-02-12", wiringDate:"2025-02-18", powerOnDate:"2025-02-21", liveDate:"2025-02-25", status:"live",      installType:"three_phase", units:4, billingType:"pre_paid",  technician:"Peter O." },
-  { id:"fc-04", name:"MKopa FC — Kasarani",       location:"Kasarani, Nairobi",         region:"nbo",      partner:"mkopa",plannedDate:"2025-02-15", installDate:"2025-03-18", wiringDate:"2025-03-24", powerOnDate:"2025-03-27", liveDate:"2025-03-30", status:"live",      installType:"three_phase", units:2, billingType:"pre_paid",  technician:"Alice W." },
-  { id:"fc-05", name:"Zeno FC — Nanyuki Centre",  location:"Nanyuki Town Centre",       region:"nanyuki",  partner:"zeno",  plannedDate:"2025-04-01", installDate:"2025-05-05", wiringDate:"2025-05-12", powerOnDate:"2025-05-15", liveDate:"2025-05-18", status:"live",      installType:"three_phase", units:2, billingType:"pre_paid",  technician:"James K." },
-  { id:"fc-06", name:"GW FC — Nanyuki Mall",      location:"Nanyuki Mall, Laikipia",    region:"nanyuki",  partner:"gw",    plannedDate:"2025-05-10", installDate:"2025-06-12", wiringDate:"2025-06-18", powerOnDate:"2025-06-21", liveDate:"2025-06-24", status:"live",      installType:"single_phase",units:2, billingType:"post_paid", technician:"Sarah M." },
-  { id:"fc-07", name:"Zeno FC — Naro Moru",       location:"Naro Moru, Nyeri County",   region:"naromoru", partner:"zeno",  plannedDate:"2025-06-01", installDate:"2025-07-08", wiringDate:"2025-07-14", powerOnDate:"2025-07-17", liveDate:"2025-07-20", status:"live",      installType:"three_phase", units:2, billingType:"pre_paid",  technician:"Peter O." },
-  { id:"fc-08", name:"Zeno FC — Nyeri Central",   location:"Nyeri Town, Nyeri County",  region:"nyeri",    partner:"zeno",  plannedDate:"2025-08-01", installDate:"2025-09-04", wiringDate:"2025-09-10", powerOnDate:"2025-09-13", liveDate:"2025-09-16", status:"live",      installType:"three_phase", units:4, billingType:"pre_paid",  technician:"Alice W." },
-  { id:"fc-09", name:"Fortune FC — Ruiru",        location:"Ruiru Town, Kiambu",        region:"nbo",      partner:"fortune",plannedDate:"2025-10-01",installDate:"2025-11-05", wiringDate:"2025-11-11", powerOnDate:"2025-11-14", liveDate:"2025-11-18", status:"live",      installType:"three_phase", units:2, billingType:"post_paid", technician:"James K." },
-  { id:"fc-10", name:"Zeno FC — Langata",         location:"Langata Rd, Nairobi",       region:"nbo",      partner:"zeno",  plannedDate:"2026-05-01", installDate:"2026-06-04", wiringDate:"2026-06-10", powerOnDate:"2026-06-13", liveDate:"2026-06-17", status:"live",      installType:"three_phase", units:4, billingType:"pre_paid",  technician:"Sarah M." },
-  { id:"fc-11", name:"Watu FC — Embakasi",        location:"Embakasi, Nairobi",         region:"nbo",      partner:"watu", plannedDate:"2026-06-15", installDate:"2026-07-18", wiringDate:"2026-07-24", powerOnDate:"2026-07-27", status:"powered_on", installType:"three_phase", units:2, billingType:"post_paid", technician:"Peter O." },
-  { id:"fc-12", name:"Zeno FC — Nyahururu",       location:"Nyahururu, Laikipia",       region:"nanyuki",  partner:"zeno",  plannedDate:"2026-07-01", status:"planned", installType:"three_phase", units:2, billingType:"pre_paid" },
+  { id:"fc-01", name:"Zeno FC, Westlands",      location:"Westlands, Nairobi",        region:"nbo",      partner:"zeno",  plannedDate:"2024-10-01", installDate:"2024-11-05", wiringDate:"2024-11-12", powerOnDate:"2024-11-15", liveDate:"2024-11-20", status:"live",      installType:"three_phase", units:2, billingType:"pre_paid",  technician:"James K." },
+  { id:"fc-02", name:"Watu FC, Westlands",       location:"Westlands, Nairobi",        region:"nbo",      partner:"watu", plannedDate:"2024-11-01", installDate:"2024-12-03", wiringDate:"2024-12-10", powerOnDate:"2024-12-13", liveDate:"2024-12-16", status:"live",      installType:"three_phase", units:2, billingType:"post_paid", technician:"Sarah M." },
+  { id:"fc-03", name:"Zeno FC, Karen",           location:"Karen, Nairobi",            region:"nbo",      partner:"zeno",  plannedDate:"2025-01-10", installDate:"2025-02-12", wiringDate:"2025-02-18", powerOnDate:"2025-02-21", liveDate:"2025-02-25", status:"live",      installType:"three_phase", units:4, billingType:"pre_paid",  technician:"Peter O." },
+  { id:"fc-04", name:"MKopa FC, Kasarani",       location:"Kasarani, Nairobi",         region:"nbo",      partner:"mkopa",plannedDate:"2025-02-15", installDate:"2025-03-18", wiringDate:"2025-03-24", powerOnDate:"2025-03-27", liveDate:"2025-03-30", status:"live",      installType:"three_phase", units:2, billingType:"pre_paid",  technician:"Alice W." },
+  { id:"fc-05", name:"Zeno FC, Nanyuki Centre",  location:"Nanyuki Town Centre",       region:"nanyuki",  partner:"zeno",  plannedDate:"2025-04-01", installDate:"2025-05-05", wiringDate:"2025-05-12", powerOnDate:"2025-05-15", liveDate:"2025-05-18", status:"live",      installType:"three_phase", units:2, billingType:"pre_paid",  technician:"James K." },
+  { id:"fc-06", name:"GW FC, Nanyuki Mall",      location:"Nanyuki Mall, Laikipia",    region:"nanyuki",  partner:"gw",    plannedDate:"2025-05-10", installDate:"2025-06-12", wiringDate:"2025-06-18", powerOnDate:"2025-06-21", liveDate:"2025-06-24", status:"live",      installType:"single_phase",units:2, billingType:"post_paid", technician:"Sarah M." },
+  { id:"fc-07", name:"Zeno FC, Naro Moru",       location:"Naro Moru, Nyeri County",   region:"naromoru", partner:"zeno",  plannedDate:"2025-06-01", installDate:"2025-07-08", wiringDate:"2025-07-14", powerOnDate:"2025-07-17", liveDate:"2025-07-20", status:"live",      installType:"three_phase", units:2, billingType:"pre_paid",  technician:"Peter O." },
+  { id:"fc-08", name:"Zeno FC, Nyeri Central",   location:"Nyeri Town, Nyeri County",  region:"nyeri",    partner:"zeno",  plannedDate:"2025-08-01", installDate:"2025-09-04", wiringDate:"2025-09-10", powerOnDate:"2025-09-13", liveDate:"2025-09-16", status:"live",      installType:"three_phase", units:4, billingType:"pre_paid",  technician:"Alice W." },
+  { id:"fc-09", name:"Fortune FC, Ruiru",        location:"Ruiru Town, Kiambu",        region:"nbo",      partner:"fortune",plannedDate:"2025-10-01",installDate:"2025-11-05", wiringDate:"2025-11-11", powerOnDate:"2025-11-14", liveDate:"2025-11-18", status:"live",      installType:"three_phase", units:2, billingType:"post_paid", technician:"James K." },
+  { id:"fc-10", name:"Zeno FC, Langata",         location:"Langata Rd, Nairobi",       region:"nbo",      partner:"zeno",  plannedDate:"2026-05-01", installDate:"2026-06-04", wiringDate:"2026-06-10", powerOnDate:"2026-06-13", liveDate:"2026-06-17", status:"live",      installType:"three_phase", units:4, billingType:"pre_paid",  technician:"Sarah M." },
+  { id:"fc-11", name:"Watu FC, Embakasi",        location:"Embakasi, Nairobi",         region:"nbo",      partner:"watu", plannedDate:"2026-06-15", installDate:"2026-07-18", wiringDate:"2026-07-24", powerOnDate:"2026-07-27", status:"powered_on", installType:"three_phase", units:2, billingType:"post_paid", technician:"Peter O." },
+  { id:"fc-12", name:"Zeno FC, Nyahururu",       location:"Nyahururu, Laikipia",       region:"nanyuki",  partner:"zeno",  plannedDate:"2026-07-01", status:"planned", installType:"three_phase", units:2, billingType:"pre_paid" },
 ];
 
 const STATUS_META: Record<ChargerProvRecord["status"], { label: string; badge: string; step: number }> = {
@@ -71,7 +71,7 @@ function CommissionProgress({ status }: { status: ChargerProvRecord["status"] })
 }
 
 function fmtDate(d?: string) {
-  if (!d) return "—";
+  if (!d) return "–";
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" });
 }
 
@@ -122,7 +122,7 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="py-2 border-b border-slate-100 flex gap-4">
       <span className="text-xs text-slate-400 w-36 shrink-0">{label}</span>
-      <span className="text-sm text-slate-700 font-medium">{value || "—"}</span>
+      <span className="text-sm text-slate-700 font-medium">{value || "–"}</span>
     </div>
   );
 }
@@ -204,7 +204,7 @@ export default function ProvisionFastChargerPage() {
               {step === 0 && (
                 <div className="space-y-4">
                   <h3 className="font-bold text-slate-700 mb-4" style={{ fontFamily: "var(--font-display)" }}>Charger Details</h3>
-                  <Field label="Charger Name" required><input value={form.name} onChange={set("name")} placeholder="e.g. Zeno FC — Westlands" className={fieldCls} /></Field>
+                  <Field label="Charger Name" required><input value={form.name} onChange={set("name")} placeholder="e.g. Zeno FC, Westlands" className={fieldCls} /></Field>
                   <Field label="Location / Address" required><input value={form.location} onChange={set("location")} placeholder="e.g. Westlands, Nairobi" className={fieldCls} /></Field>
                   <Field label="Region">
                     <select value={form.region} onChange={set("region")} className={selectCls}>
@@ -403,7 +403,7 @@ export default function ProvisionFastChargerPage() {
                     </td>
                     <td className="px-3 py-2.5"><CommissionProgress status={r.status} /></td>
                     <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{fmtDate(r.liveDate)}</td>
-                    <td className="px-3 py-2.5 text-slate-500">{r.technician ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-slate-500">{r.technician ?? "–"}</td>
                   </tr>
                 ))}
               </tbody>

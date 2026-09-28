@@ -23,6 +23,6 @@ export function useTenantOptions(): TenantOption[] {
 
 /** Resolve a tenant id to its display label, falling back to the raw id. */
 export function tenantLabel(options: TenantOption[], id: string | undefined): string {
-  if (!id) return "—";
+  if (!id) return "–";
   return options.find((o) => o.id === id)?.label ?? id;
 }

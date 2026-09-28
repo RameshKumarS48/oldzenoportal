@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, ChevronDown, UserPlus } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
+import { toast } from "@/store/toast";
 import { PermissionSummary } from "@/components/users/PermissionSummary";
 import { useTenantOptions } from "@/lib/tenants";
 import { useUsersStore } from "@/store/users";
@@ -13,7 +14,7 @@ import type { UserRole } from "@/lib/mock/users";
 const ROLE_OPTIONS = (Object.keys(ROLE_LABELS) as UserRole[]);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/* The dialog sits on a tinted panel so the fields read as white cut-outs —
+/* The dialog sits on a tinted panel so the fields read as white cut-outs,
    fields are what you act on here, so they get the lighter surface. */
 export const DIALOG_PANEL = "bg-[#EDF0F1] max-w-lg";
 export const FIELD =
@@ -102,9 +103,12 @@ export function InviteUserModal({ open, onClose, invitedBy, onInvited }: InviteU
         email: email.trim(), name: name.trim(), role, partnerId, invitedBy,
       });
       onInvited(invite);
+      toast.success("Invite created", `Share the link with ${name.trim()} so they can set up their account.`);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't create the invite.");
+      const message = err instanceof Error ? err.message : "Couldn't create the invite.";
+      setError(message);
+      toast.error("Invite not created", message);
       setStep(1);
     } finally {
       setSending(false);
@@ -118,7 +122,7 @@ export function InviteUserModal({ open, onClose, invitedBy, onInvited }: InviteU
       className={DIALOG_PANEL}
       title={
         <DialogHeading icon={UserPlus} tint="bg-[#FBE3DC] text-[#C4340A]">
-          Invite User — Step {step} of 2
+          Invite User, Step {step} of 2
         </DialogHeading>
       }
     >

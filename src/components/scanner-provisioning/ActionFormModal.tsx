@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
+import { toast } from "@/store/toast";
 import {
   useScannerProvisioningStore,
   SYNC_STATUSES,
@@ -43,7 +44,7 @@ const TITLES: Record<ScannerActionType, string> = {
   deactivate: "Deactivate",
 };
 
-/** The Add Entry chooser — one card per action type, in lifecycle order. */
+/** The Add Entry chooser, one card per action type, in lifecycle order. */
 const ACTION_CHOICES: {
   type: ScannerActionType;
   description: string;
@@ -72,7 +73,7 @@ function nowLabel(): string {
   return "01 Sep 2026 12:00";
 }
 
-// Resulting bike state is derived from the action — no longer a manual field.
+// Resulting bike state is derived from the action, no longer a manual field.
 function deriveBikeState(t: ScannerActionType): BikeState {
   switch (t) {
     case "bike_assign":
@@ -224,6 +225,10 @@ export function ActionFormModal({
       setError(result.error ?? "Could not save the entry.");
       return;
     }
+    toast.success(
+      editing ? "Entry saved" : "Entry added",
+      `${TITLES[actionType]}${payload.vin ? ` for ${payload.vin}` : ""} recorded.`
+    );
     onClose();
   }
 
@@ -235,7 +240,7 @@ export function ActionFormModal({
 
   return (
     <Modal open={open} onClose={onClose} title={title} className="max-w-2xl">
-      {/* Step 1 — choose the action. Every type the store understands is
+      {/* Step 1, choose the action. Every type the store understands is
           creatable here; previously only two were, which left the other six
           reachable only by editing a row that already existed. */}
       {!editing && mode === null ? (
@@ -300,7 +305,7 @@ export function ActionFormModal({
 
           {needsComponents && (
             <div className="rounded-lg border border-slate-200 p-3 space-y-3">
-              <p className="text-xs font-semibold text-slate-500">Field Scanner — component scan</p>
+              <p className="text-xs font-semibold text-slate-500">Field Scanner: component scan</p>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={labelCls}>Chassis</label>
@@ -462,7 +467,7 @@ export function ActionFormModal({
                 className={inputCls}
               >
                 {TENANTS.map((t) => (
-                  <option key={t || "none"} value={t}>{t || "— none —"}</option>
+                  <option key={t || "none"} value={t}>{t || "None"}</option>
                 ))}
               </select>
             </div>

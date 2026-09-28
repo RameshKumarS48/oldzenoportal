@@ -35,7 +35,7 @@ export function FilterBar() {
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-        {/* Action Type — custom labels, so an inline select wrapped in Field */}
+        {/* Action Type, custom labels, so an inline select wrapped in Field */}
         <Field label="Action Type">
           <div className="relative">
             <select
@@ -82,7 +82,7 @@ export function FilterBar() {
           options={SOURCE_OPTIONS}
           onChange={(v) => setFilter("source", v)}
         />
-        {/* Sync Status — custom labels, so an inline select wrapped in Field */}
+        {/* Sync Status, custom labels, so an inline select wrapped in Field */}
         <Field label="Sync Status">
           <div className="relative">
             <select

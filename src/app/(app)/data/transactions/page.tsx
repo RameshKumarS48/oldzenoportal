@@ -283,9 +283,9 @@ export default function TransactionsPage() {
                       </span>
                     </td>
                     <td className="px-3 py-2.5 font-mono text-[11px] text-slate-400">
-                      {t.stationId ?? t.vehicleId?.slice(-6) ?? "—"}
+                      {t.stationId ?? t.vehicleId?.slice(-6) ?? "–"}
                     </td>
-                    <td className="px-3 py-2.5 font-mono text-[11px] text-slate-400">{t.reference ?? "—"}</td>
+                    <td className="px-3 py-2.5 font-mono text-[11px] text-slate-400">{t.reference ?? "–"}</td>
                     <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{fmtDateTime(t.occurredAt)}</td>
                   </tr>
                 ))}

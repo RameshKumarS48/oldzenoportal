@@ -131,7 +131,7 @@ export default function OnboardingPage() {
                     <td className="px-4 py-2.5">
                       {(c.promoPointsAllocated + c.referralPointsBalance) > 0
                         ? <span className="font-medium text-indigo-600">{(c.promoPointsAllocated + c.referralPointsBalance).toLocaleString()} pts</span>
-                        : <span className="text-slate-300">—</span>}
+                        : <span className="text-slate-300">–</span>}
                     </td>
                   </tr>
                 ))}

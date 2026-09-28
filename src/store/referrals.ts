@@ -19,7 +19,7 @@ export interface Referral {
 }
 
 const MOCK_REFERRALS: Referral[] = [
-  // Active referrals (referee has received bike — referrer points activated)
+  // Active referrals (referee has received bike, referrer points activated)
   { id: "REF-001", referrerId: "CX-1004", refereeId: "CX-1012", referralCode: "ZNO-MB004", dateUsed: "2026-03-29", status: "active",  pointsToReferee: 1000, pointsToReferrer: 1000, pendingPoints: 0, triggerEvent: "first_swap", activationDate: "2026-04-02" },
   { id: "REF-002", referrerId: "CX-1015", refereeId: "CX-1016", referralCode: "ZNO-CB015", dateUsed: "2025-11-01", status: "active",  pointsToReferee: 1000, pointsToReferrer: 1000, pendingPoints: 0, triggerEvent: "first_swap", activationDate: "2025-11-05" },
   { id: "REF-003", referrerId: "CX-1007", refereeId: "CX-1020", referralCode: "ZNO-KG007", dateUsed: "2026-04-18", status: "active",  pointsToReferee: 1000, pointsToReferrer: 1000, pendingPoints: 0, triggerEvent: "account_activation", activationDate: "2026-04-22" },

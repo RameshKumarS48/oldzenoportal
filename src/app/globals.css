@@ -4,7 +4,7 @@
   /* ── Zeno brand ─────────────────────────────────────────────
      One source of truth for every brand colour. Consume as
      utilities: bg-zeno-teal, text-zeno-red, ring-zeno-teal, … */
-  --color-zeno-red: #FF3B06;        /* signature vermilion — logo, export, critical actions */
+  --color-zeno-red: #FF3B06;        /* signature vermilion: logo, export, critical actions */
   --color-zeno-red-hover: #E03500;
   --color-zeno-orange: #FF3B06;     /* alias kept for existing usages */
   --color-zeno-teal: #003B49;       /* primary surfaces + actions (sidebar, primary buttons) */
@@ -92,7 +92,7 @@ body {
   opacity: 1;
 }
 
-/* MapLibre — on-brand popup + controls */
+/* MapLibre, on-brand popup + controls */
 .maplibregl-popup-content {
   border-radius: 10px;
   padding: 12px 14px;

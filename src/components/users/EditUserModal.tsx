@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Pencil } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
+import { toast } from "@/store/toast";
 import {
   DIALOG_PANEL, FIELD, LABEL, DialogHeading, SelectField,
 } from "@/components/users/InviteUserModal";
@@ -42,6 +43,7 @@ export function EditUserModal({
     if (!user) return;
     if (!name.trim()) return setError("Name can't be empty.");
     updateUser(user.id, { name: name.trim(), role, partnerId, status });
+    toast.success("Changes saved", `${name.trim()} is now ${ROLE_LABELS[role]}, ${status === "active" ? "active" : "inactive"}.`);
     onClose();
   };
 

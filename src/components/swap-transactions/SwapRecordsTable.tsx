@@ -3,6 +3,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { Search, Download, ArrowRight, ChevronDown, ChevronUp, PackageOpen, AlertTriangle } from "lucide-react";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
+import { toast } from "@/store/toast";
 import { Pagination } from "@/components/ui/Pagination";
 import {
   useSwapTransactionsStore,
@@ -28,7 +29,7 @@ function fmtDateTime(iso: string) {
 }
 
 function fmtTs(iso?: string) {
-  return iso ? fmtDateTime(iso) : "—";
+  return iso ? fmtDateTime(iso) : "–";
 }
 
 function totalBilledKWh(r: SwapRecord) {
@@ -68,7 +69,7 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
   return (
     <div>
       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</p>
-      <p className="text-xs text-slate-700 mt-0.5 break-all">{value ?? "—"}</p>
+      <p className="text-xs text-slate-700 mt-0.5 break-all">{value ?? "–"}</p>
     </div>
   );
 }
@@ -83,8 +84,8 @@ function RecordDetail({ record }: { record: SwapRecord }) {
         <DetailField label="Dispense Timestamp" value={fmtTs(record.dispenseTimestamp)} />
         <DetailField label="Collect Timestamp" value={fmtTs(record.collectTimestamp)} />
         <DetailField label="Dispense Swap Txn ID" value={<span className="font-mono">{record.id}</span>} />
-        <DetailField label="Collect Swap Txn ID" value={<span className="font-mono">{record.collectSwapTransactionId ?? "—"}</span>} />
-        <DetailField label="Multiday Split" value={record.multiday ?? "—"} />
+        <DetailField label="Collect Swap Txn ID" value={<span className="font-mono">{record.collectSwapTransactionId ?? "–"}</span>} />
+        <DetailField label="Multiday Split" value={record.multiday ?? "–"} />
         <DetailField label="Manual Ignore" value={record.manualIgnore ? "Yes" : "No"} />
       </div>
 
@@ -110,11 +111,11 @@ function RecordDetail({ record }: { record: SwapRecord }) {
                       ? <span className="text-red-600 font-semibold">Yes</span>
                       : <span className="text-slate-400">No</span>}
                   </td>
-                  <td className="py-1.5 pr-4 text-slate-600">{b.slotDispense ?? "—"} → {b.slotCollect ?? "—"}</td>
-                  <td className="py-1.5 pr-4 text-slate-600">{b.ahDischarged ?? "—"}</td>
-                  <td className="py-1.5 pr-4 text-slate-600">{b.ahCharged ?? "—"}</td>
-                  <td className="py-1.5 pr-4 text-slate-600">{b.ahRegen ?? "—"}</td>
-                  <td className="py-1.5 pr-4 font-mono text-slate-500 whitespace-nowrap">{b.rfidTagUid ?? "—"}</td>
+                  <td className="py-1.5 pr-4 text-slate-600">{b.slotDispense ?? "–"} → {b.slotCollect ?? "–"}</td>
+                  <td className="py-1.5 pr-4 text-slate-600">{b.ahDischarged ?? "–"}</td>
+                  <td className="py-1.5 pr-4 text-slate-600">{b.ahCharged ?? "–"}</td>
+                  <td className="py-1.5 pr-4 text-slate-600">{b.ahRegen ?? "–"}</td>
+                  <td className="py-1.5 pr-4 font-mono text-slate-500 whitespace-nowrap">{b.rfidTagUid ?? "–"}</td>
                 </tr>
               ))}
             </tbody>
@@ -125,10 +126,10 @@ function RecordDetail({ record }: { record: SwapRecord }) {
       {/* Recovery / error */}
       {(record.errorNote || record.recovery) && (
         <div className="grid grid-cols-4 gap-4">
-          <DetailField label="Error Note" value={record.errorNote ?? "—"} />
-          <DetailField label="Recovery Confidence" value={record.recovery?.confidence ?? "—"} />
-          <DetailField label="Recovery Method" value={record.recovery?.method ?? "—"} />
-          <DetailField label="Recovery kWh" value={record.recovery?.kwh != null ? record.recovery.kwh.toFixed(3) : "—"} />
+          <DetailField label="Error Note" value={record.errorNote ?? "–"} />
+          <DetailField label="Recovery Confidence" value={record.recovery?.confidence ?? "–"} />
+          <DetailField label="Recovery Method" value={record.recovery?.method ?? "–"} />
+          <DetailField label="Recovery kWh" value={record.recovery?.kwh != null ? record.recovery.kwh.toFixed(3) : "–"} />
           {record.recovery?.evidence && (
             <div className="col-span-4">
               <DetailField label="Recovery Evidence" value={record.recovery.evidence} />
@@ -286,7 +287,14 @@ export function SwapRecordsTable() {
         )}
 
         <button
-          onClick={() => exportCSV(filtered)}
+          onClick={() => {
+            if (filtered.length === 0) {
+              toast.error("Nothing to export", "No swap record matches the current filters. Clear a filter and try again.");
+              return;
+            }
+            exportCSV(filtered);
+            toast.success("Export downloaded", `${filtered.length.toLocaleString()} swap records written to CSV.`);
+          }}
           className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#003B49] text-white hover:bg-[#00505f] transition-colors"
         >
           <Download className="w-3.5 h-3.5" /> Export CSV
@@ -347,23 +355,23 @@ export function SwapRecordsTable() {
                           crossStation ? "text-rose-700 font-semibold" : "text-slate-500"
                         )}>
                           {crossStation && <AlertTriangle className="w-3 h-3 text-rose-600" />}
-                          {r.dispenseStationId || "—"}
+                          {r.dispenseStationId || "–"}
                           <ArrowRight className={cn("w-3 h-3", crossStation ? "text-rose-400" : "text-slate-300")} />
-                          {r.collectStationId || "—"}
+                          {r.collectStationId || "–"}
                         </span>
                         {crossStation && (
-                          <span className="block text-[10px] text-rose-600 font-semibold mt-0.5">2 stations — review</span>
+                          <span className="block text-[10px] text-rose-600 font-semibold mt-0.5">2 stations, review</span>
                         )}
                       </td>
                       <td className="px-3 py-2.5">
                         {rfidBad
                           ? <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-orange-50 text-orange-700">Mismatch</span>
-                          : <span className="text-slate-300">—</span>}
+                          : <span className="text-slate-300">–</span>}
                       </td>
                       <td className="px-3 py-2.5">
                         {r.flagged
                           ? <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-red-50 text-red-700">Flagged</span>
-                          : <span className="text-slate-300">—</span>}
+                          : <span className="text-slate-300">–</span>}
                       </td>
                       <td className="px-3 py-2.5">
                         <span className={cn("px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap", SWAP_STATUS_META[status].badge)}>

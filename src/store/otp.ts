@@ -7,7 +7,7 @@ import { useUsersStore } from "@/store/users";
  * Email + OTP sign-in.
  *
  * There is no mail service behind this portal, so the generated code is shown
- * on screen in a prototype banner — the same trick the invite flow already uses
+ * on screen in a prototype banner, the same trick the invite flow already uses
  * for invite links. Everything else is real: codes are randomly generated, they
  * genuinely expire, wrong guesses are counted, and too many lock the challenge.
  * That keeps every branch of the flow exercisable rather than decorative.
@@ -96,7 +96,7 @@ export const useOtpStore = create<OtpState>()((set, get) => ({
 
   resend: () => {
     const challenge = get().challenge;
-    if (!challenge) return { ok: false, error: "Start again — no code was requested." };
+    if (!challenge) return { ok: false, error: "Start again. No code was requested." };
 
     const wait = get().resendIn();
     if (wait > 0) {
@@ -120,7 +120,7 @@ export const useOtpStore = create<OtpState>()((set, get) => ({
 
   verify: (code) => {
     const challenge = get().challenge;
-    if (!challenge) return { ok: false, error: "Start again — no code was requested." };
+    if (!challenge) return { ok: false, error: "Start again. No code was requested." };
 
     const locked = get().lockedFor();
     if (locked > 0) {

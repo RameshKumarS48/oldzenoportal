@@ -28,7 +28,7 @@ const CORE_MODULES: AccessModule[] = ["vehicle", "scanner", "swap_info", "wallet
 /**
  * What a role can reach, rendered read-only. Access follows the role and isn't
  * editable per person, so this is a statement of fact for whoever is sending the
- * invite — not a set of controls.
+ * invite, not a set of controls.
  */
 export function PermissionSummary({ role }: { role: UserRole }) {
   const modules: AccessModule[] = [

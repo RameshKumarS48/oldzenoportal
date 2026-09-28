@@ -10,6 +10,7 @@ import {
   type ScannerAction,
 } from "@/store/scanner-provisioning";
 import { AccessGuard } from "@/components/ui/AccessGuard";
+import { toast } from "@/store/toast";
 import { Topbar } from "@/components/layout/Topbar";
 import { useAccess } from "@/lib/access";
 import { Button } from "@/components/ui/button";
@@ -86,7 +87,10 @@ export default function ScannerProvisioningPage() {
   }
 
   function handleConfirmDelete() {
-    if (deleting) deleteAction(deleting.id);
+    if (deleting) {
+      deleteAction(deleting.id);
+      toast.info("Entry deleted", `${deleting.vin || deleting.customerName || "The entry"} was removed from the log.`);
+    }
     setDeleting(null);
   }
 
@@ -97,7 +101,7 @@ export default function ScannerProvisioningPage() {
       {/* Page controls */}
       <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-200 bg-white shrink-0">
         <p className="text-xs text-slate-400 max-w-md">
-          Every scanner-app action — bring-up, dispatch, onboarding, assignment, RFID, handover &amp; deactivation
+          Every scanner-app action: bring-up, dispatch, onboarding, assignment, RFID, handover &amp; deactivation
         </p>
 
         <div className="flex items-center gap-3">
@@ -107,7 +111,18 @@ export default function ScannerProvisioningPage() {
             placeholder="Search VIN, phone, RFID, staff…"
             className="w-64"
           />
-          <Button variant="secondary" onClick={() => exportToXLSX(filteredActions())}>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              const rows = filteredActions();
+              if (rows.length === 0) {
+                toast.error("Nothing to export", "No entry matches the current filters. Clear a filter and try again.");
+                return;
+              }
+              exportToXLSX(rows);
+              toast.success("Export downloaded", `${rows.length.toLocaleString()} entries written to XLSX.`);
+            }}
+          >
             <Download className="w-4 h-4" />
             Export
           </Button>

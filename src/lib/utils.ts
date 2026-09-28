@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatNumber(value: number, decimals = 0): string {
-  if (value === 0) return "—";
+  if (value === 0) return "–";
   return new Intl.NumberFormat("en-US", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
@@ -14,17 +14,17 @@ export function formatNumber(value: number, decimals = 0): string {
 }
 
 export function formatPercent(value: number): string {
-  if (value === 0) return "—";
+  if (value === 0) return "–";
   return `${value.toFixed(1)}%`;
 }
 
 export function formatCurrency(value: number, currency = "KES"): string {
-  if (value === 0) return "—";
+  if (value === 0) return "–";
   return `${currency} ${new Intl.NumberFormat("en-US").format(Math.round(value))}`;
 }
 
 export function formatVariance(value: number): string {
-  if (value === 0) return "—";
+  if (value === 0) return "–";
   const sign = value > 0 ? "+" : "";
   return `${sign}${formatNumber(value)}`;
 }

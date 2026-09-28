@@ -9,7 +9,7 @@ import { OtpInput } from "@/components/auth/OtpInput";
 
 /**
  * Sign-in is a swap: you arrive without a code, you leave with access, and the
- * code you use lasts minutes. The bay on the left carries that — a battery that
+ * code you use lasts minutes. The bay on the left carries that, a battery that
  * drains with the code's remaining life, so the thing on screen is real state
  * rather than ornament.
  */
@@ -243,7 +243,7 @@ export default function LoginPage() {
               {/* No mail service is wired up yet, so the code is shown here. */}
               {challenge && (
                 <p className="mt-10 rounded-lg border border-dashed border-[#C6D0D2] px-4 py-3 text-[13px] leading-relaxed text-[#5E7278]">
-                  Prototype — no email is sent. Your code is{" "}
+                  Prototype: no email is sent. Your code is{" "}
                   <span className="font-semibold tracking-[0.2em] text-[#0B1D22]">
                     {challenge.code}
                   </span>
