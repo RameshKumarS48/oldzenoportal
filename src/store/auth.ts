@@ -4,13 +4,17 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { AppUser } from "@/lib/mock/users";
 import { useUsersStore } from "@/store/users";
-import { hashPassword, createSessionToken, verifySessionToken } from "@/lib/auth-utils";
+import { createSessionToken } from "@/lib/auth-utils";
 
 interface AuthState {
   user: Omit<AppUser, "password"> | null;
   _hasHydrated: boolean;
   setHasHydrated: (v: boolean) => void;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  /**
+   * Completes sign-in for an email whose OTP has already been verified by
+   * `useOtpStore`. There is no password path — every user signs in by code.
+   */
+  loginWithOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
 }
 
@@ -36,28 +40,20 @@ export const useAuthStore = create<AuthState>()(
       _hasHydrated: false,
       setHasHydrated: (v) => set({ _hasHydrated: v }),
 
-      login: async (email: string, password: string) => {
+      loginWithOtp: async (email: string) => {
         const users = useUsersStore.getState().users;
         const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
 
+        // These were already checked when the code was issued; re-checking keeps
+        // the store safe to call directly and covers a user deactivated mid-flow.
         if (!user) {
           return { success: false, error: "No account found with that email address." };
         }
         if (user.status === "inactive") {
           return { success: false, error: "Your account is inactive. Contact an administrator." };
         }
-        if (user.emailVerified === false) {
-          return { success: false, error: "Please verify your email before signing in. Check your inbox for the verification link." };
-        }
 
-        const hash = await hashPassword(password);
-        if (user.password !== hash) {
-          return { success: false, error: "Incorrect password." };
-        }
-
-        // Store user without password
-        const { password: _pw, ...safeUser } = user;
-        set({ user: safeUser });
+        set({ user });
         await setSessionCookie(user.id, user.role);
         return { success: true };
       },

@@ -112,7 +112,13 @@ export default function PartnerOnboardPage() {
     try {
       addPartner({ ...org, assignedVehicles: selectedVINs });
       if (sendInvite && adminEmail.trim()) {
-        await createInvite(adminEmail.trim(), "partner_super_admin", currentUser?.name ?? "Zeno Admin");
+        await createInvite({
+          email: adminEmail.trim(),
+          name: adminName.trim() || adminEmail.trim(),
+          role: "partner_super_admin",
+          partnerId: org.name.toLowerCase().replace(/\s+/g, "_"),
+          invitedBy: currentUser?.name ?? "Zeno Admin",
+        });
       }
       setDone(true);
     } catch (err) {

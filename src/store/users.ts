@@ -4,26 +4,37 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { SEED_USERS } from "@/lib/mock/users";
 import type { AppUser, UserRole, UserStatus } from "@/lib/mock/users";
-import { hashPassword, createInviteToken } from "@/lib/auth-utils";
+import { createInviteToken } from "@/lib/auth-utils";
 
 export interface PendingInvite {
   token: string;
   email: string;
+  /** Captured on step 1 of the invite dialog and carried onto the new account. */
+  name: string;
   role: UserRole;
+  /** Tenant the invitee belongs to — "zeno" for internal roles. */
+  partnerId: string;
   invitedBy: string;
   createdAt: string;
   expiresAt: string;
-  customPermissions?: Array<{ module: string; actions: string[] }>;
+}
+
+export interface InviteInput {
+  email: string;
+  name: string;
+  role: UserRole;
+  partnerId: string;
+  invitedBy: string;
 }
 
 interface UsersState {
   users: AppUser[];
   invites: PendingInvite[];
-  addUser: (data: { name: string; email: string; role: UserRole; password?: string }) => void;
-  updateUser: (id: string, data: Partial<Pick<AppUser, "name" | "email" | "role" | "status">>) => void;
+  addUser: (data: { name: string; email: string; role: UserRole; partnerId?: string }) => void;
+  updateUser: (id: string, data: Partial<Pick<AppUser, "name" | "email" | "role" | "status" | "partnerId">>) => void;
   deleteUser: (id: string) => void;
-  createInvite: (email: string, role: UserRole, invitedBy: string, customPermissions?: Array<{ module: string; actions: string[] }>) => Promise<PendingInvite>;
-  registerFromInvite: (email: string, role: string, name: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  createInvite: (input: InviteInput) => Promise<PendingInvite>;
+  registerFromInvite: (email: string, role: string, name: string) => Promise<{ success: boolean; error?: string }>;
   verifyEmail: (email: string) => void;
   revokeInvite: (token: string) => void;
 }
@@ -43,8 +54,9 @@ export const useUsersStore = create<UsersState>()(
               name: data.name,
               email: data.email,
               role: data.role,
-              password: data.password,
+              partnerId: data.partnerId,
               status: "active" as UserStatus,
+              emailVerified: true,
               createdAt: new Date().toISOString().split("T")[0],
             },
           ],
@@ -58,7 +70,7 @@ export const useUsersStore = create<UsersState>()(
       deleteUser: (id) =>
         set((s) => ({ users: s.users.filter((u) => u.id !== id) })),
 
-      createInvite: async (email, role, invitedBy, customPermissions) => {
+      createInvite: async ({ email, name, role, partnerId, invitedBy }) => {
         const existing = get().users.find((u) => u.email.toLowerCase() === email.toLowerCase());
         if (existing) throw new Error("A user with this email already exists.");
 
@@ -68,11 +80,12 @@ export const useUsersStore = create<UsersState>()(
         const invite: PendingInvite = {
           token,
           email,
+          name,
           role,
+          partnerId,
           invitedBy,
           createdAt: new Date().toISOString(),
           expiresAt,
-          customPermissions,
         };
 
         set((s) => ({
@@ -85,12 +98,12 @@ export const useUsersStore = create<UsersState>()(
         return invite;
       },
 
-      // Called after the invite page has already verified the token signature
-      registerFromInvite: async (email, role, name, password) => {
+      // Called after the invite page has already verified the token signature.
+      // No password is set — every account signs in with an emailed OTP.
+      registerFromInvite: async (email, role, name) => {
         const existing = get().users.find((u) => u.email.toLowerCase() === email.toLowerCase());
         if (existing) return { success: false, error: "An account with this email already exists." };
 
-        const hashedPassword = await hashPassword(password);
         const pendingInvite = get().invites.find((i) => i.email.toLowerCase() === email.toLowerCase());
 
         const newUser: AppUser = {
@@ -98,10 +111,12 @@ export const useUsersStore = create<UsersState>()(
           name: name.trim(),
           email,
           role: role as UserRole,
-          password: hashedPassword,
+          partnerId: pendingInvite?.partnerId,
           status: "active",
+          // Completing the invite proves the address; the OTP proves it again at
+          // every sign-in, so there's no separate verification step.
+          emailVerified: true,
           createdAt: new Date().toISOString().split("T")[0],
-          customPermissions: pendingInvite?.customPermissions,
         };
 
         set((s) => ({

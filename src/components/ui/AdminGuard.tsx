@@ -2,7 +2,7 @@
 
 import { ShieldCheck } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
-import { isZenoAdmin, canManageUsers } from "@/lib/mock/users";
+import { isZenoAdmin } from "@/lib/mock/users";
 
 function AccessDenied({ message }: { message?: string }) {
   return (
@@ -20,13 +20,6 @@ function AccessDenied({ message }: { message?: string }) {
 export function AdminGuard({ children }: { children: React.ReactNode }) {
   const role = useAuthStore((s) => s.user?.role);
   if (!isZenoAdmin(role)) return <AccessDenied />;
-  return <>{children}</>;
-}
-
-/** Allows any role that can manage users: zeno_super_admin, zeno_admin, partner_super_admin. */
-export function UsersGuard({ children }: { children: React.ReactNode }) {
-  const role = useAuthStore((s) => s.user?.role);
-  if (!canManageUsers(role)) return <AccessDenied message="You need admin privileges to manage users." />;
   return <>{children}</>;
 }
 

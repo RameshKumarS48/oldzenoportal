@@ -15,19 +15,26 @@ export interface AppUser {
   status: UserStatus;
   createdAt: string;
   avatar?: string;
-  password?: string;
   emailVerified?: boolean;
+  /** Tenant this user belongs to — "zeno" for internal roles, else a partner id. */
   partnerId?: string;
   customPermissions?: Array<{ module: string; actions: string[] }>;
 }
 
+/**
+ * Display names. These are the labels in the access spec — see `src/lib/access.ts`
+ * for the grants each one carries.
+ */
 export const ROLE_LABELS: Record<UserRole, string> = {
   zeno_super_admin:    "Super Admin",
   zeno_admin:          "Internal User",
   zeno_support:        "Internal Viewer",
   partner_super_admin: "External Admin",
-  partner_user:        "External User",
+  partner_user:        "External Viewer",
 };
+
+/** The internal tenant every Zeno staff account belongs to. */
+export const INTERNAL_TENANT = "zeno";
 
 export function isZenoAdmin(role: UserRole | string | undefined): boolean {
   return role === "zeno_super_admin" || role === "zeno_admin";
@@ -41,25 +48,17 @@ export function isSupportRole(role: UserRole | string | undefined): boolean {
   return role === "zeno_support";
 }
 
-/** Can this role manage users (includes partner admins who manage their own org). */
-export function canManageUsers(role: UserRole | string | undefined): boolean {
-  return role === "zeno_super_admin" || role === "zeno_admin" || role === "partner_super_admin";
-}
-
-// Passwords are SHA-256 hashes. Plain-text equivalents are in .env.local (gitignored).
-// Dev defaults: admins → "Admin@2026", users → "Zeno@2026", support → "Zeno@2026"
-const ADMIN_HASH = "a36aef5a11c4073fbe60314fc9df530a9d5f986533594d1f5190742ff9e0e408";
-const USER_HASH  = "60ee89117a4a14614cdd5ff775fa02a6c2c1ce0a283e25bc0a56ac9a74de9570";
-
+// Sign-in is email + one-time code (see src/store/otp.ts), so accounts carry no
+// password at all — there is nothing to seed, reset, or leak.
 export const SEED_USERS: AppUser[] = [
-  { id: "u1",  name: "Ramesh Kumar",   email: "admin@zenomoto.com",   role: "zeno_super_admin",   status: "active",   createdAt: "2026-01-15", password: ADMIN_HASH, emailVerified: true },
-  { id: "u2",  name: "Willie Omondi",  email: "willie@zeno.earth",    role: "zeno_admin",          status: "active",   createdAt: "2026-01-20", password: USER_HASH,  emailVerified: true },
-  { id: "u3",  name: "Omar Hassan",    email: "omar@zeno.earth",      role: "zeno_support",        status: "active",   createdAt: "2026-02-01", password: USER_HASH,  emailVerified: true },
-  { id: "u4",  name: "Brian Mwangi",   email: "brian@zeno.earth",     role: "zeno_admin",          status: "active",   createdAt: "2026-02-10", password: USER_HASH,  emailVerified: true },
-  { id: "u5",  name: "Keith Kariuki",  email: "keith@zeno.earth",     role: "zeno_support",        status: "active",   createdAt: "2026-02-15", password: USER_HASH,  emailVerified: true },
-  { id: "u6",  name: "Vijayanand P",   email: "vijay@zeno.earth",     role: "zeno_admin",          status: "active",   createdAt: "2026-01-01", password: ADMIN_HASH, emailVerified: true },
-  { id: "u7",  name: "Alastair N.",    email: "alastair@zeno.earth",  role: "zeno_support",        status: "inactive", createdAt: "2026-03-01", password: USER_HASH,  emailVerified: true },
-  { id: "u8",  name: "James Kariuki",  email: "james@watu.co.ke",     role: "partner_super_admin", status: "active",   createdAt: "2026-03-10", password: USER_HASH,  emailVerified: true, partnerId: "watu" },
-  { id: "u9",  name: "Aisha Mwenda",   email: "aisha@gw.co.ke",       role: "partner_user",        status: "active",   createdAt: "2026-04-01", password: USER_HASH,  emailVerified: true, partnerId: "gw" },
-  { id: "u10", name: "Amara Osei",     email: "support@zeno.earth",   role: "zeno_support",        status: "active",   createdAt: "2026-04-15", password: USER_HASH,  emailVerified: true },
+  { id: "u1",  name: "Ramesh Kumar",   email: "admin@zenomoto.com",   role: "zeno_super_admin",   status: "active",   createdAt: "2026-01-15", partnerId: "zeno",  emailVerified: true },
+  { id: "u2",  name: "Willie Omondi",  email: "willie@zeno.earth",    role: "zeno_admin",          status: "active",   createdAt: "2026-01-20", partnerId: "zeno",  emailVerified: true },
+  { id: "u3",  name: "Omar Hassan",    email: "omar@zeno.earth",      role: "zeno_support",        status: "active",   createdAt: "2026-02-01", partnerId: "zeno",  emailVerified: true },
+  { id: "u4",  name: "Brian Mwangi",   email: "brian@zeno.earth",     role: "zeno_admin",          status: "active",   createdAt: "2026-02-10", partnerId: "zeno",  emailVerified: true },
+  { id: "u5",  name: "Keith Kariuki",  email: "keith@zeno.earth",     role: "zeno_support",        status: "active",   createdAt: "2026-02-15", partnerId: "zeno",  emailVerified: true },
+  { id: "u6",  name: "Vijayanand P",   email: "vijay@zeno.earth",     role: "zeno_admin",          status: "active",   createdAt: "2026-01-01", partnerId: "zeno",  emailVerified: true },
+  { id: "u7",  name: "Alastair N.",    email: "alastair@zeno.earth",  role: "zeno_support",        status: "inactive", createdAt: "2026-03-01", partnerId: "zeno",  emailVerified: true },
+  { id: "u8",  name: "James Kariuki",  email: "james@watu.co.ke",     role: "partner_super_admin", status: "active",   createdAt: "2026-03-10", partnerId: "watu",  emailVerified: true },
+  { id: "u9",  name: "Aisha Mwenda",   email: "aisha@gw.co.ke",       role: "partner_user",        status: "active",   createdAt: "2026-04-01", partnerId: "gw",    emailVerified: true },
+  { id: "u10", name: "Amara Osei",     email: "support@zeno.earth",   role: "zeno_support",        status: "active",   createdAt: "2026-04-15", partnerId: "zeno",  emailVerified: true },
 ];
