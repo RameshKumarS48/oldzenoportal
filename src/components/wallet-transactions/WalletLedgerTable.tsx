@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Search, Download, ChevronDown, ChevronUp, PackageOpen, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { Pagination } from "@/components/ui/Pagination";
@@ -117,7 +117,7 @@ export function WalletLedgerTable() {
   const [search, setSearch]         = useState("");
   const [dirFilter, setDir]         = useState<LedgerDirection | "">("");
   const [catFilter, setCat]         = useState<LedgerCategory | "">("");
-  const [dateFilter, setDate]       = useState("7d");
+  const [dateFilter, setDate]       = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [page, setPage]             = useState(1);
   const [perPage, setPerPage]       = useState(25);
@@ -261,9 +261,8 @@ export function WalletLedgerTable() {
                 const isCredit = e.direction === "credit";
                 const vehicle = vehicleFor(e.customerId);
                 return (
-                  <>
+                  <Fragment key={e.id}>
                     <tr
-                      key={e.id}
                       className={cn("hover:bg-slate-50 transition-colors cursor-pointer", expanded && "bg-slate-50")}
                       onClick={() => setExpandedId(expanded ? null : e.id)}
                     >
@@ -302,7 +301,7 @@ export function WalletLedgerTable() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>

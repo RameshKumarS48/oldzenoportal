@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Search, Download, ArrowRight, ChevronDown, ChevronUp, PackageOpen, AlertTriangle } from "lucide-react";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { Pagination } from "@/components/ui/Pagination";
@@ -159,7 +159,7 @@ export function SwapRecordsTable() {
   const [stationFilter, setStation]   = useState("");
   const [rfidFilter, setRfid]         = useState("");
   const [statusFilter, setStatus]     = useState("");
-  const [dateFilter, setDate]         = useState("7d");
+  const [dateFilter, setDate]         = useState("");
   const [expandedId, setExpandedId]   = useState<string | null>(null);
   const [page, setPage]               = useState(1);
   const [perPage, setPerPage]         = useState(25);
@@ -319,9 +319,8 @@ export function SwapRecordsTable() {
                 const rfidBad = hasRfidMismatch(r);
                 const crossStation = isCrossStation(r);
                 return (
-                  <>
+                  <Fragment key={r.id}>
                     <tr
-                      key={r.id}
                       className={cn(
                         "hover:bg-slate-50 transition-colors cursor-pointer",
                         expanded && "bg-slate-50",
@@ -383,7 +382,7 @@ export function SwapRecordsTable() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>

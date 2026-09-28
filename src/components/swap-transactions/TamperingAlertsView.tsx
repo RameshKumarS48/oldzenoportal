@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { Fragment, useState, useMemo } from "react";
 import {
   Search, ChevronDown, ChevronUp, Info, CheckCircle2, XCircle,
   AlertTriangle, Ban, Bell, Unlock, RotateCcw, ShieldAlert,
@@ -301,7 +301,7 @@ export function TamperingAlertsView() {
   const [statusFilter, setStatusFilter]   = useState("");
   const [violationFilter, setViolFilter]  = useState("");
   const [offenceFilter, setOffenceFilter] = useState("");
-  const [dateFilter, setDateFilter]       = useState("7d");
+  const [dateFilter, setDateFilter]       = useState("");
   const [expandedId, setExpandedId]       = useState<string | null>(null);
   const [approveTarget, setApproveTarget] = useState<TamperingAlert | null>(null);
   const [rejectTarget, setRejectTarget]   = useState<TamperingAlert | null>(null);
@@ -438,9 +438,8 @@ export function TamperingAlertsView() {
                 const expanded = expandedId === alert.id;
                 const rfidActive = alert.rfidDisabled && !alert.rfidReenabledAt;
                 return (
-                  <>
+                  <Fragment key={alert.id}>
                     <tr
-                      key={alert.id}
                       className={cn(
                         "hover:bg-slate-50 transition-colors cursor-pointer",
                         expanded && "bg-slate-50"
@@ -585,7 +584,7 @@ export function TamperingAlertsView() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>

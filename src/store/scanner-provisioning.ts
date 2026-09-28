@@ -92,13 +92,6 @@ export type ScannerFilterState = {
   dateTo: string;
 };
 
-// "yyyy-mm-dd" for a <input type="date">, offset by `daysAgo` from today (0 = today).
-function isoDate(daysAgo = 0): string {
-  const d = new Date();
-  d.setDate(d.getDate() - daysAgo);
-  return d.toISOString().slice(0, 10);
-}
-
 // Default the date window to the last 7 days (inclusive of today).
 function defaultFilters(): ScannerFilterState {
   return {
@@ -110,8 +103,10 @@ function defaultFilters(): ScannerFilterState {
     bikeState: "All",
     source: "All",
     syncStatus: "All",
-    dateFrom: isoDate(7),
-    dateTo: isoDate(0),
+    // Unbounded by default. A rolling window would hide the seeded log, which
+    // is dated earlier than "today", and land every visitor on an empty table.
+    dateFrom: "",
+    dateTo: "",
   };
 }
 
