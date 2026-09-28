@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { AccessGuard } from "@/components/ui/AccessGuard";
+import { Topbar } from "@/components/layout/Topbar";
 import { ShieldAlert, ArrowLeftRight } from "lucide-react";
 import { TamperingAlertsView } from "@/components/swap-transactions/TamperingAlertsView";
 import { SwapRecordsTable } from "@/components/swap-transactions/SwapRecordsTable";
@@ -12,14 +14,15 @@ export default function SwapTransactionsPage() {
   const [view, setView] = useState<View>("tampering");
 
   return (
-    <main className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
+    <AccessGuard module="swap_info">
+      <Topbar title="Swap Transactions" />
+      <main className="flex flex-col flex-1 overflow-hidden">
+      {/* Page controls */}
       <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-200 bg-white shrink-0">
         <div className="flex items-center gap-2.5">
           {view === "tampering"
             ? <ShieldAlert className="w-5 h-5 text-[#FF3B06]" />
             : <ArrowLeftRight className="w-5 h-5 text-[#003B49]" />}
-          <h1 className="text-lg font-semibold text-slate-800 tracking-tight">Swap Transactions</h1>
         </div>
 
         {/* View switcher */}
@@ -41,6 +44,7 @@ export default function SwapTransactionsPage() {
       <div className="flex-1 overflow-y-auto bg-zeno-bg p-6">
         {view === "tampering" ? <TamperingAlertsView /> : <SwapRecordsTable />}
       </div>
-    </main>
+      </main>
+    </AccessGuard>
   );
 }

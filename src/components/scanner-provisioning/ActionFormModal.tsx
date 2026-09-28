@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, UserPlus, Bike, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  AlertTriangle, UserPlus, Bike, ChevronLeft,
+  Tag, Truck, Link2, CreditCard, PenLine, PowerOff,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import {
   useScannerProvisioningStore,
@@ -38,6 +42,22 @@ const TITLES: Record<ScannerActionType, string> = {
   handover: "Handover",
   deactivate: "Deactivate",
 };
+
+/** The Add Entry chooser — one card per action type, in lifecycle order. */
+const ACTION_CHOICES: {
+  type: ScannerActionType;
+  description: string;
+  icon: LucideIcon;
+}[] = [
+  { type: "bring_up",         description: "Scan a bike into inventory (5-component scan)", icon: Bike },
+  { type: "tenant_assign",    description: "Pre-assign the bike to a tenant",               icon: Tag },
+  { type: "dispatch",         description: "Move the bike to a store (store code change)",  icon: Truck },
+  { type: "customer_onboard", description: "Register a customer by phone number",           icon: UserPlus },
+  { type: "bike_assign",      description: "Assign a bike to a customer (VIN + phone + OTP)", icon: Link2 },
+  { type: "rfid_assign",      description: "Map an RFID tag to the bike",                   icon: CreditCard },
+  { type: "handover",         description: "Capture the signed handover",                   icon: PenLine },
+  { type: "deactivate",       description: "Retire the bike and clear its RFID",            icon: PowerOff },
+];
 
 // Which action types capture which sections.
 const NEEDS_CUSTOMER: ScannerActionType[] = ["customer_onboard", "bike_assign", "rfid_assign", "handover", "deactivate"];
@@ -215,36 +235,29 @@ export function ActionFormModal({
 
   return (
     <Modal open={open} onClose={onClose} title={title} className="max-w-2xl">
-      {/* Step 1 — choose what to add (mirrors the scanner app's two-option dashboard). */}
+      {/* Step 1 — choose the action. Every type the store understands is
+          creatable here; previously only two were, which left the other six
+          reachable only by editing a row that already existed. */}
       {!editing && mode === null ? (
         <div className="space-y-3">
           <p className="text-sm text-slate-500">What would you like to record?</p>
-          <button
-            onClick={() => chooseMode("customer_onboard")}
-            className="w-full flex items-center gap-4 px-5 py-5 rounded-xl border border-slate-200 hover:border-zeno-teal/50 hover:bg-zeno-teal/5 transition-colors text-left"
-          >
-            <span className="flex items-center justify-center w-11 h-11 rounded-full bg-zeno-teal/10 text-zeno-teal shrink-0">
-              <UserPlus className="w-5 h-5" />
-            </span>
-            <span className="flex-1">
-              <span className="block text-base font-semibold text-slate-800">Customer Onboarding</span>
-              <span className="block text-xs text-slate-400 mt-0.5">Register a customer by phone number</span>
-            </span>
-            <ChevronRight className="w-5 h-5 text-slate-300" />
-          </button>
-          <button
-            onClick={() => chooseMode("bring_up")}
-            className="w-full flex items-center gap-4 px-5 py-5 rounded-xl border border-slate-200 hover:border-zeno-teal/50 hover:bg-zeno-teal/5 transition-colors text-left"
-          >
-            <span className="flex items-center justify-center w-11 h-11 rounded-full bg-zeno-teal/10 text-zeno-teal shrink-0">
-              <Bike className="w-5 h-5" />
-            </span>
-            <span className="flex-1">
-              <span className="block text-base font-semibold text-slate-800">Bike Bring Up</span>
-              <span className="block text-xs text-slate-400 mt-0.5">Scan a bike into inventory (5-component scan)</span>
-            </span>
-            <ChevronRight className="w-5 h-5 text-slate-300" />
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            {ACTION_CHOICES.map(({ type, description, icon: Icon }) => (
+              <button
+                key={type}
+                onClick={() => chooseMode(type)}
+                className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-slate-200 hover:border-zeno-teal/50 hover:bg-zeno-teal/5 transition-colors text-left"
+              >
+                <span className="flex items-center justify-center w-9 h-9 rounded-full bg-zeno-teal/10 text-zeno-teal shrink-0">
+                  <Icon className="w-4 h-4" />
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-semibold text-slate-800">{TITLES[type]}</span>
+                  <span className="block text-[11px] text-slate-400 mt-0.5 leading-snug">{description}</span>
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       ) : (
         <div className="space-y-4">

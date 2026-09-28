@@ -13,6 +13,7 @@ import {
   type RechargeStatus,
 } from "@/store/wallet-transactions";
 import { cn } from "@/lib/utils";
+import { useAccess } from "@/lib/access";
 
 // ── Formatting ────────────────────────────────────────────────────────────────
 
@@ -113,6 +114,7 @@ const STATUS_OPTIONS: [RechargeStatus | "", string][] = [
 export function RechargeRequestsTable() {
   const recharges = useWalletTransactionsStore((s) => s.recharges);
   const reinitiate = useWalletTransactionsStore((s) => s.reinitiateRecharge);
+  const canWrite = useAccess().canWrite("wallet_info");
 
   const [search, setSearch]         = useState("");
   const [statusFilter, setStatus]   = useState<RechargeStatus | "">("");
@@ -251,7 +253,7 @@ export function RechargeRequestsTable() {
               {paginated.map((r) => {
                 const expanded = expandedId === r.id;
                 const status = rechargeStatus(r);
-                const canRetry = status !== "success";
+                const canRetry = canWrite && status !== "success";
                 const vehicle = vehicleFor(r.customerId);
                 return (
                   <>

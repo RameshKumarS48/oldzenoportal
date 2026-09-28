@@ -11,6 +11,7 @@ import {
   type RfidStatus,
 } from "@/store/scanner-provisioning";
 import { Pagination } from "@/components/ui/Pagination";
+import { useAccess } from "@/lib/access";
 
 const ACTION_COLORS: Record<ScannerActionType, string> = {
   bring_up: "bg-slate-100 text-slate-600",
@@ -66,6 +67,7 @@ function SyncBadge({ value }: { value: SyncStatus }) {
 // RFID assignment shown as a status: dash (unassigned), amber Pending (retryable), green Assigned.
 function RfidCell({ id, status }: { id: string; status: RfidStatus }) {
   const retryRfid = useScannerProvisioningStore((s) => s.retryRfid);
+  const canWrite = useAccess().canWrite("scanner");
   if (status === "unassigned") return <span className="text-slate-300">—</span>;
   if (status === "assigned") {
     return (
@@ -80,14 +82,16 @@ function RfidCell({ id, status }: { id: string; status: RfidStatus }) {
       <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 whitespace-nowrap">
         Pending
       </span>
-      <button
-        onClick={() => retryRfid(id)}
-        className="flex items-center gap-1 text-xs text-zeno-teal hover:text-zeno-teal-hover font-medium"
-        title="Retry RFID assignment"
-      >
-        <RotateCw className="w-3 h-3" />
-        Retry
-      </button>
+      {canWrite && (
+        <button
+          onClick={() => retryRfid(id)}
+          className="flex items-center gap-1 text-xs text-zeno-teal hover:text-zeno-teal-hover font-medium"
+          title="Retry RFID assignment"
+        >
+          <RotateCw className="w-3 h-3" />
+          Retry
+        </button>
+      )}
     </span>
   );
 }
@@ -142,9 +146,10 @@ export function ActionTable({
   onEdit,
   onDelete,
 }: {
-  onEdit: (action: ScannerAction) => void;
-  onDelete: (action: ScannerAction) => void;
+  onEdit?: (action: ScannerAction) => void;
+  onDelete?: (action: ScannerAction) => void;
 }) {
+  const showActions = !!(onEdit || onDelete);
   const page = useScannerProvisioningStore((s) => s.page);
   const perPage = useScannerProvisioningStore((s) => s.perPage);
   const setPage = useScannerProvisioningStore((s) => s.setPage);
@@ -174,15 +179,17 @@ export function ActionTable({
                   </span>
                 </th>
               ))}
-              <th className="px-3 py-3 text-right text-xs font-semibold text-slate-500 whitespace-nowrap sticky right-0 bg-slate-50">
-                Actions
-              </th>
+              {showActions && (
+                <th className="px-3 py-3 text-right text-xs font-semibold text-slate-500 whitespace-nowrap sticky right-0 bg-slate-50">
+                  Actions
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={COLUMNS.length + 1} className="text-center py-16 text-slate-400 text-sm">
+                <td colSpan={COLUMNS.length + (showActions ? 1 : 0)} className="text-center py-16 text-slate-400 text-sm">
                   No scanner entries match the current filters.
                 </td>
               </tr>
@@ -248,24 +255,30 @@ export function ActionTable({
                       )}
                     </span>
                   </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap text-right sticky right-0 bg-white">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => onEdit(a)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-zeno-teal hover:bg-slate-100 transition-colors"
-                        title="Edit"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => onDelete(a)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-zeno-red hover:bg-red-50 transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
+                  {showActions && (
+                    <td className="px-3 py-2.5 whitespace-nowrap text-right sticky right-0 bg-white">
+                      <div className="flex items-center justify-end gap-1">
+                        {onEdit && (
+                          <button
+                            onClick={() => onEdit(a)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-zeno-teal hover:bg-slate-100 transition-colors"
+                            title="Edit"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {onDelete && (
+                          <button
+                            onClick={() => onDelete(a)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-zeno-red hover:bg-red-50 transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               );
             })}

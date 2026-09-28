@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Bell, Settings, User, RefreshCw, Sun, Moon } from "lucide-react";
+import { LogOut, Settings, User, RefreshCw, Sun, Moon } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { useActualsStore } from "@/store/actuals";
 import { useThemeStore } from "@/store/theme";
@@ -71,10 +71,6 @@ export function Topbar({ title, actions }: TopbarProps) {
           className="p-2 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors"
         >
           {theme === "light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-        </button>
-
-        <button className="p-2 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors">
-          <Bell className="w-4 h-4" />
         </button>
 
         <div className="flex items-center gap-2 pl-3 border-l border-white/20">

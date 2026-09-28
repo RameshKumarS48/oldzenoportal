@@ -9,6 +9,9 @@ import {
   RFID_LABELS,
   type ScannerAction,
 } from "@/store/scanner-provisioning";
+import { AccessGuard } from "@/components/ui/AccessGuard";
+import { Topbar } from "@/components/layout/Topbar";
+import { useAccess } from "@/lib/access";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/FilterControls";
 import { FilterBar } from "@/components/scanner-provisioning/FilterBar";
@@ -66,6 +69,8 @@ export default function ScannerProvisioningPage() {
   const filteredActions = useScannerProvisioningStore((s) => s.filteredActions);
   const deleteAction = useScannerProvisioningStore((s) => s.deleteAction);
 
+  const canWrite = useAccess().canWrite("scanner");
+
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ScannerAction | null>(null);
   const [deleting, setDeleting] = useState<ScannerAction | null>(null);
@@ -86,15 +91,14 @@ export default function ScannerProvisioningPage() {
   }
 
   return (
-    <main className="flex flex-col h-full overflow-hidden">
-      {/* Topbar */}
+    <AccessGuard module="scanner">
+      <Topbar title="Scanner Provisioning Flow" />
+      <main className="flex flex-col flex-1 overflow-hidden">
+      {/* Page controls */}
       <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-200 bg-white shrink-0">
-        <div>
-          <h1 className="text-base font-semibold text-slate-800">Scanner Provisioning Flow</h1>
-          <p className="text-xs text-slate-400">
-            Every scanner-app action — bring-up, dispatch, onboarding, assignment, RFID, handover &amp; deactivation
-          </p>
-        </div>
+        <p className="text-xs text-slate-400 max-w-md">
+          Every scanner-app action — bring-up, dispatch, onboarding, assignment, RFID, handover &amp; deactivation
+        </p>
 
         <div className="flex items-center gap-3">
           <SearchInput
@@ -107,17 +111,22 @@ export default function ScannerProvisioningPage() {
             <Download className="w-4 h-4" />
             Export
           </Button>
-          <Button variant="primary" onClick={handleAdd}>
-            <Plus className="w-4 h-4" />
-            Add Entry
-          </Button>
+          {canWrite && (
+            <Button variant="primary" onClick={handleAdd}>
+              <Plus className="w-4 h-4" />
+              Add Entry
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Content */}
       <div className="flex flex-col flex-1 overflow-hidden p-5 gap-4">
         <FilterBar />
-        <ActionTable onEdit={handleEdit} onDelete={setDeleting} />
+        <ActionTable
+          onEdit={canWrite ? handleEdit : undefined}
+          onDelete={canWrite ? setDeleting : undefined}
+        />
       </div>
 
       {formOpen && (
@@ -128,6 +137,7 @@ export default function ScannerProvisioningPage() {
         onClose={() => setDeleting(null)}
         onConfirm={handleConfirmDelete}
       />
-    </main>
+      </main>
+    </AccessGuard>
   );
 }

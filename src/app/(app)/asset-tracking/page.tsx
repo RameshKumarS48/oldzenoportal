@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Download, List, Map } from "lucide-react";
 import { useAssetTrackingStore } from "@/store/asset-tracking";
+import { AccessGuard } from "@/components/ui/AccessGuard";
+import { Topbar } from "@/components/layout/Topbar";
 import { Button } from "@/components/ui/button";
 import { SearchInput, SegmentedControl } from "@/components/ui/FilterControls";
 import { FilterBar } from "@/components/asset-tracking/FilterBar";
@@ -60,8 +62,10 @@ export default function AssetTrackingPage() {
   }
 
   return (
-    <main className="flex flex-col h-full overflow-hidden">
-      {/* Topbar */}
+    <AccessGuard module="vehicle">
+      <Topbar title="Asset Tracking" />
+      <main className="flex flex-col flex-1 overflow-hidden">
+      {/* Page controls */}
       <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-200 bg-white shrink-0">
         <SegmentedControl
           value={view}
@@ -96,6 +100,7 @@ export default function AssetTrackingPage() {
           <MapPlaceholder className="flex-1" />
         )}
       </div>
-    </main>
+      </main>
+    </AccessGuard>
   );
 }

@@ -8,6 +8,7 @@ import { MapPlaceholder } from "@/components/asset-tracking/MapPlaceholder";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { ConnectivityBadge, ImmobilizationBadge } from "@/components/ui/StatusIndicator";
+import { useAccess } from "@/lib/access";
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -25,6 +26,7 @@ export default function VehicleDetailPage() {
   const router = useRouter();
   const vehicles = useAssetTrackingStore((s) => s.vehicles);
   const toggleImmobilization = useAssetTrackingStore((s) => s.toggleImmobilization);
+  const canWrite = useAccess().canWrite("vehicle");
 
   const vehicle = vehicles.find((v) => v.vin === decodeURIComponent(vin ?? ""));
 
@@ -80,9 +82,11 @@ export default function VehicleDetailPage() {
             </div>
           </div>
 
-          <Button variant="primary" onClick={() => setConfirmOpen(true)}>
-            {isImmobilized ? "Mobilize Vehicle" : "Immobilize Vehicle"}
-          </Button>
+          {canWrite && (
+            <Button variant="primary" onClick={() => setConfirmOpen(true)}>
+              {isImmobilized ? "Mobilize Vehicle" : "Immobilize Vehicle"}
+            </Button>
+          )}
         </div>
       </div>
 

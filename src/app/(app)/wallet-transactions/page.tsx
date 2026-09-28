@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { AccessGuard } from "@/components/ui/AccessGuard";
+import { Topbar } from "@/components/layout/Topbar";
 import { Wallet, Smartphone } from "lucide-react";
 import { WalletLedgerTable } from "@/components/wallet-transactions/WalletLedgerTable";
 import { RechargeRequestsTable } from "@/components/wallet-transactions/RechargeRequestsTable";
@@ -12,14 +14,15 @@ export default function WalletTransactionsPage() {
   const [view, setView] = useState<View>("ledger");
 
   return (
-    <main className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
+    <AccessGuard module="wallet_info">
+      <Topbar title="Wallet Transactions" />
+      <main className="flex flex-col flex-1 overflow-hidden">
+      {/* Page controls */}
       <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-200 bg-white shrink-0">
         <div className="flex items-center gap-2.5">
           {view === "ledger"
             ? <Wallet className="w-5 h-5 text-[#003B49]" />
             : <Smartphone className="w-5 h-5 text-[#00A651]" />}
-          <h1 className="text-lg font-semibold text-slate-800 tracking-tight">Wallet Transactions</h1>
         </div>
 
         {/* View switcher */}
@@ -41,6 +44,7 @@ export default function WalletTransactionsPage() {
       <div className="flex-1 overflow-y-auto bg-zeno-bg p-6">
         {view === "ledger" ? <WalletLedgerTable /> : <RechargeRequestsTable />}
       </div>
-    </main>
+      </main>
+    </AccessGuard>
   );
 }

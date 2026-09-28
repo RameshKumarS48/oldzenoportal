@@ -12,6 +12,7 @@ import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { useTamperingAlertsStore } from "@/store/tampering-alerts";
 import type { TamperingAlert, ViolationType, AlertStatus } from "@/store/tampering-alerts";
 import { useAuthStore } from "@/store/auth";
+import { useAccess } from "@/lib/access";
 import { cn } from "@/lib/utils";
 
 // ── Labels & styles ─────────────────────────────────────────────────────────
@@ -292,6 +293,7 @@ function NoteModal({
 
 export function TamperingAlertsView() {
   const user = useAuthStore((s) => s.user);
+  const canWrite = useAccess().canWrite("swap_info");
   const { alerts, approveAlert, rejectAlert, markInvestigating, sendNotification, toggleRfid, reopenAlert } =
     useTamperingAlertsStore();
 
@@ -498,7 +500,7 @@ export function TamperingAlertsView() {
                       <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1 flex-wrap">
                           {/* Pending actions */}
-                          {alert.status === "pending" && (
+                          {canWrite && alert.status === "pending" && (
                             <>
                               <button
                                 onClick={() => setApproveTarget(alert)}
@@ -522,7 +524,7 @@ export function TamperingAlertsView() {
                           )}
 
                           {/* Post-approval actions */}
-                          {alert.status === "approved" && (
+                          {canWrite && alert.status === "approved" && (
                             <>
                               {!alert.notificationSent && (
                                 <button
@@ -544,7 +546,7 @@ export function TamperingAlertsView() {
                           )}
 
                           {/* RFID re-enable */}
-                          {rfidActive && (
+                          {canWrite && rfidActive && (
                             <button
                               onClick={() => toggleRfid(alert.id, false)}
                               className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
@@ -554,7 +556,7 @@ export function TamperingAlertsView() {
                           )}
 
                           {/* Reopen */}
-                          {(alert.status === "rejected" || alert.status === "investigating") && (
+                          {canWrite && (alert.status === "rejected" || alert.status === "investigating") && (
                             <button
                               onClick={() => reopenAlert(alert.id)}
                               className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
