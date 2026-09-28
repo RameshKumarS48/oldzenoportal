@@ -8,6 +8,7 @@ import {
   useWalletTransactionsStore,
   rechargeStatus,
   RECHARGE_STATUS_META,
+  vehicleFor,
   type RechargeRequest,
   type RechargeStatus,
 } from "@/store/wallet-transactions";
@@ -36,15 +37,18 @@ function exportCSV(rows: RechargeRequest[]) {
   const headers = [
     "MPesa_ID", "Timestamp", "CheckoutRequestID", "MerchantRequestID", "UserID", "UserKey",
     "Amount", "OrderID", "PaymentType", "ResultCode", "ResultDescription", "MpesaReceiptNumber",
-    "PhoneNumber", "TransactionDate", "Balance", "ReferralUser", "TransactionKey", "StatusCount",
+    "PhoneNumber", "VIN", "IMEI", "TransactionDate", "Balance", "ReferralUser", "TransactionKey", "StatusCount",
     "InitialResponseCode", "InitialResponseDescription", "CustomerMessage",
   ];
-  const data = rows.map((r) => [
-    r.id, r.timestamp, r.checkoutRequestId, r.merchantRequestId, r.userId, r.userKey,
-    r.amountKES, r.orderId, r.paymentType, r.resultCode, r.resultDescription, r.mpesaReceiptNumber ?? "",
-    r.phone, r.transactionDate ?? "", r.balance ?? "", r.referralUser ?? "", r.transactionKey, r.statusCount,
-    r.initialResponseCode, r.initialResponseDescription, r.customerMessage,
-  ]);
+  const data = rows.map((r) => {
+    const v = vehicleFor(r.customerId);
+    return [
+      r.id, r.timestamp, r.checkoutRequestId, r.merchantRequestId, r.userId, r.userKey,
+      r.amountKES, r.orderId, r.paymentType, r.resultCode, r.resultDescription, r.mpesaReceiptNumber ?? "",
+      r.phone, v?.vin ?? "", v?.imei ?? "", r.transactionDate ?? "", r.balance ?? "", r.referralUser ?? "", r.transactionKey, r.statusCount,
+      r.initialResponseCode, r.initialResponseDescription, r.customerMessage,
+    ];
+  });
   const csv = [headers, ...data].map((row) => row.map((v) => `"${v}"`).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
@@ -67,9 +71,12 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
 }
 
 function RequestDetail({ r }: { r: RechargeRequest }) {
+  const vehicle = vehicleFor(r.customerId);
   return (
     <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 space-y-4">
       <div className="grid grid-cols-4 gap-4">
+        <DetailField label="VIN" value={vehicle?.vin ? <span className="font-mono">{vehicle.vin}</span> : "—"} />
+        <DetailField label="IMEI" value={vehicle?.imei ? <span className="font-mono">{vehicle.imei}</span> : "—"} />
         <DetailField label="M-Pesa ID" value={<span className="font-mono">{r.id}</span>} />
         <DetailField label="Checkout Request ID" value={<span className="font-mono">{r.checkoutRequestId}</span>} />
         <DetailField label="Merchant Request ID" value={<span className="font-mono">{r.merchantRequestId}</span>} />
@@ -109,7 +116,7 @@ export function RechargeRequestsTable() {
 
   const [search, setSearch]         = useState("");
   const [statusFilter, setStatus]   = useState<RechargeStatus | "">("");
-  const [dateFilter, setDate]       = useState("");
+  const [dateFilter, setDate]       = useState("7d");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [page, setPage]             = useState(1);
   const [perPage, setPerPage]       = useState(25);
@@ -132,12 +139,15 @@ export function RechargeRequestsTable() {
       if (cutoff && new Date(r.timestamp).getTime() < cutoff) return false;
       if (search) {
         const q = search.toLowerCase();
+        const v = vehicleFor(r.customerId);
         return (
           r.customerName.toLowerCase().includes(q) ||
           r.phone.toLowerCase().includes(q) ||
           r.id.toLowerCase().includes(q) ||
           (r.mpesaReceiptNumber?.toLowerCase().includes(q) ?? false) ||
-          r.orderId.toLowerCase().includes(q)
+          r.orderId.toLowerCase().includes(q) ||
+          (v?.vin.toLowerCase().includes(q) ?? false) ||
+          (v?.imei.includes(q) ?? false)
         );
       }
       return true;
@@ -179,7 +189,7 @@ export function RechargeRequestsTable() {
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            placeholder="Search customer, phone, receipt, order…"
+            placeholder="Search customer, phone, VIN, IMEI, receipt, order…"
             className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 focus:border-[#003B49] w-64"
           />
         </div>
@@ -218,10 +228,10 @@ export function RechargeRequestsTable() {
       {/* Table */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs min-w-[1120px]">
+          <table className="w-full text-xs min-w-[1320px]">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
-                {["Timestamp", "Customer", "Phone", "Amount", "M-Pesa Receipt", "Result", "Tries", "Status", "Action", ""].map((h) => (
+                {["Timestamp", "Customer", "Phone", "VIN", "IMEI", "Amount", "M-Pesa Receipt", "Result", "Tries", "Status", "Action", ""].map((h) => (
                   <th key={h} className={cn(
                     "px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap",
                     h === "Amount" ? "text-right" : "text-left"
@@ -232,7 +242,7 @@ export function RechargeRequestsTable() {
             <tbody className="divide-y divide-slate-100">
               {paginated.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="text-center py-16">
+                  <td colSpan={12} className="text-center py-16">
                     <PackageOpen className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="text-slate-400">No recharge requests match your filters</p>
                   </td>
@@ -242,6 +252,7 @@ export function RechargeRequestsTable() {
                 const expanded = expandedId === r.id;
                 const status = rechargeStatus(r);
                 const canRetry = status !== "success";
+                const vehicle = vehicleFor(r.customerId);
                 return (
                   <>
                     <tr
@@ -256,6 +267,8 @@ export function RechargeRequestsTable() {
                       <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{fmtDateTime(r.timestamp)}</td>
                       <td className="px-3 py-2.5 font-medium text-slate-700">{r.customerName}</td>
                       <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">{r.phone}</td>
+                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{vehicle?.vin ?? "—"}</td>
+                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{vehicle?.imei ?? "—"}</td>
                       <td className="px-3 py-2.5 text-right font-semibold text-slate-700 whitespace-nowrap">KES {r.amountKES.toLocaleString()}</td>
                       <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">{r.mpesaReceiptNumber ?? "—"}</td>
                       <td className="px-3 py-2.5 text-slate-500 max-w-[220px] truncate" title={r.resultDescription}>{r.resultDescription}</td>
@@ -286,7 +299,7 @@ export function RechargeRequestsTable() {
                     </tr>
                     {expanded && (
                       <tr key={`${r.id}-detail`}>
-                        <td colSpan={10} className="p-0">
+                        <td colSpan={12} className="p-0">
                           <RequestDetail r={r} />
                         </td>
                       </tr>

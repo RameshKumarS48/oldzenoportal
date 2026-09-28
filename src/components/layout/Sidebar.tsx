@@ -3,16 +3,28 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, ChevronRight, Grid3X3, ScanLine, ArrowLeftRight, Wallet, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, Grid3X3, ScanLine, ArrowLeftRight, Wallet, Users, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePermissions } from "@/lib/permissions";
+import { useAuthStore } from "@/store/auth";
 
 export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const { can } = usePermissions();
+  const logout = useAuthStore((s) => s.logout);
+
   const onAssets = pathname.startsWith("/asset-tracking");
   const onScanner = pathname.startsWith("/scanner-provisioning");
   const onSwaps = pathname.startsWith("/swap-transactions");
   const onWallet = pathname.startsWith("/wallet-transactions");
+  const onUsers = pathname.startsWith("/users");
+
+  const showAssets = can("vehicles", "view");
+  const showScanner = can("provisioning", "view");
+  const showSwaps = can("swap_stations", "view");
+  const showWallet = can("transactions", "view");
+  const showUsers = can("users", "view");
 
   return (
     <aside
@@ -53,86 +65,116 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 py-3 px-2 overflow-y-auto space-y-1">
-        <Link
-          href="/asset-tracking"
-          className={cn(
-            "relative flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm font-medium transition-colors",
-            onAssets
-              ? "bg-white/10 text-white"
-              : "text-white/55 hover:text-white hover:bg-white/[0.07]",
-            collapsed && "justify-center"
-          )}
-          style={{ fontFamily: "var(--font-display)" }}
-          title={collapsed ? "Asset Tracking" : undefined}
-        >
-          {onAssets && (
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-zeno-red rounded-r-full" />
-          )}
-          <Grid3X3 className="w-4 h-4 shrink-0" />
-          {!collapsed && "Asset Tracking"}
-        </Link>
+        {showAssets && (
+          <Link
+            href="/asset-tracking"
+            className={cn(
+              "relative flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm font-medium transition-colors",
+              onAssets
+                ? "bg-white/10 text-white"
+                : "text-white/55 hover:text-white hover:bg-white/[0.07]",
+              collapsed && "justify-center"
+            )}
+            style={{ fontFamily: "var(--font-display)" }}
+            title={collapsed ? "Asset Tracking" : undefined}
+          >
+            {onAssets && (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-zeno-red rounded-r-full" />
+            )}
+            <Grid3X3 className="w-4 h-4 shrink-0" />
+            {!collapsed && "Asset Tracking"}
+          </Link>
+        )}
 
-        <Link
-          href="/scanner-provisioning"
-          className={cn(
-            "relative flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm font-medium transition-colors",
-            onScanner
-              ? "bg-white/10 text-white"
-              : "text-white/55 hover:text-white hover:bg-white/[0.07]",
-            collapsed && "justify-center"
-          )}
-          style={{ fontFamily: "var(--font-display)" }}
-          title={collapsed ? "Scanner Provisioning Flow" : undefined}
-        >
-          {onScanner && (
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-zeno-red rounded-r-full" />
-          )}
-          <ScanLine className="w-4 h-4 shrink-0" />
-          {!collapsed && "Scanner Provisioning Flow"}
-        </Link>
+        {showScanner && (
+          <Link
+            href="/scanner-provisioning"
+            className={cn(
+              "relative flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm font-medium transition-colors",
+              onScanner
+                ? "bg-white/10 text-white"
+                : "text-white/55 hover:text-white hover:bg-white/[0.07]",
+              collapsed && "justify-center"
+            )}
+            style={{ fontFamily: "var(--font-display)" }}
+            title={collapsed ? "Scanner Provisioning Flow" : undefined}
+          >
+            {onScanner && (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-zeno-red rounded-r-full" />
+            )}
+            <ScanLine className="w-4 h-4 shrink-0" />
+            {!collapsed && "Scanner Provisioning Flow"}
+          </Link>
+        )}
 
-        <Link
-          href="/swap-transactions"
-          className={cn(
-            "relative flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm font-medium transition-colors",
-            onSwaps
-              ? "bg-white/10 text-white"
-              : "text-white/55 hover:text-white hover:bg-white/[0.07]",
-            collapsed && "justify-center"
-          )}
-          style={{ fontFamily: "var(--font-display)" }}
-          title={collapsed ? "Swap Transactions" : undefined}
-        >
-          {onSwaps && (
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-zeno-red rounded-r-full" />
-          )}
-          <ArrowLeftRight className="w-4 h-4 shrink-0" />
-          {!collapsed && "Swap Transactions"}
-        </Link>
+        {showSwaps && (
+          <Link
+            href="/swap-transactions"
+            className={cn(
+              "relative flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm font-medium transition-colors",
+              onSwaps
+                ? "bg-white/10 text-white"
+                : "text-white/55 hover:text-white hover:bg-white/[0.07]",
+              collapsed && "justify-center"
+            )}
+            style={{ fontFamily: "var(--font-display)" }}
+            title={collapsed ? "Swap Transactions" : undefined}
+          >
+            {onSwaps && (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-zeno-red rounded-r-full" />
+            )}
+            <ArrowLeftRight className="w-4 h-4 shrink-0" />
+            {!collapsed && "Swap Transactions"}
+          </Link>
+        )}
 
-        <Link
-          href="/wallet-transactions"
-          className={cn(
-            "relative flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm font-medium transition-colors",
-            onWallet
-              ? "bg-white/10 text-white"
-              : "text-white/55 hover:text-white hover:bg-white/[0.07]",
-            collapsed && "justify-center"
-          )}
-          style={{ fontFamily: "var(--font-display)" }}
-          title={collapsed ? "Wallet Transactions" : undefined}
-        >
-          {onWallet && (
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-zeno-red rounded-r-full" />
-          )}
-          <Wallet className="w-4 h-4 shrink-0" />
-          {!collapsed && "Wallet Transactions"}
-        </Link>
+        {showWallet && (
+          <Link
+            href="/wallet-transactions"
+            className={cn(
+              "relative flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm font-medium transition-colors",
+              onWallet
+                ? "bg-white/10 text-white"
+                : "text-white/55 hover:text-white hover:bg-white/[0.07]",
+              collapsed && "justify-center"
+            )}
+            style={{ fontFamily: "var(--font-display)" }}
+            title={collapsed ? "Wallet Transactions" : undefined}
+          >
+            {onWallet && (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-zeno-red rounded-r-full" />
+            )}
+            <Wallet className="w-4 h-4 shrink-0" />
+            {!collapsed && "Wallet Transactions"}
+          </Link>
+        )}
+
+        {showUsers && (
+          <Link
+            href="/users"
+            className={cn(
+              "relative flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm font-medium transition-colors",
+              onUsers
+                ? "bg-white/10 text-white"
+                : "text-white/55 hover:text-white hover:bg-white/[0.07]",
+              collapsed && "justify-center"
+            )}
+            style={{ fontFamily: "var(--font-display)" }}
+            title={collapsed ? "User Management" : undefined}
+          >
+            {onUsers && (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-zeno-red rounded-r-full" />
+            )}
+            <Users className="w-4 h-4 shrink-0" />
+            {!collapsed && "User Management"}
+          </Link>
+        )}
       </nav>
 
       {/* Logout */}
       <div className="px-2 pb-4 pt-2 border-t border-white/10 shrink-0">
         <button
+          onClick={logout}
           className={cn(
             "w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm font-medium text-white/55 hover:text-white hover:bg-white/[0.07] transition-colors",
             collapsed && "justify-center"

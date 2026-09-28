@@ -9,6 +9,7 @@ import {
   CATEGORY_META,
   LEDGER_STATUS_META,
   signedAmount,
+  vehicleFor,
   type WalletLedgerEntry,
   type LedgerCategory,
   type LedgerDirection,
@@ -34,14 +35,17 @@ function fmtKES(n: number) {
 
 function exportCSV(entries: WalletLedgerEntry[]) {
   const headers = [
-    "LedgerID", "OccurredAt", "Customer", "Phone", "Direction", "Category",
+    "LedgerID", "OccurredAt", "Customer", "Phone", "VIN", "IMEI", "Direction", "Category",
     "AmountKES", "SignedKES", "BalanceAfterKES", "Status", "Reference", "RechargeID", "Notes",
   ];
-  const rows = entries.map((e) => [
-    e.id, e.occurredAt, e.customerName, e.phone, e.direction, CATEGORY_META[e.category].label,
-    e.amountKES, signedAmount(e), e.balanceAfterKES, LEDGER_STATUS_META[e.status].label,
-    e.reference ?? "", e.rechargeId ?? "", e.notes ?? "",
-  ]);
+  const rows = entries.map((e) => {
+    const v = vehicleFor(e.customerId);
+    return [
+      e.id, e.occurredAt, e.customerName, e.phone, v?.vin ?? "", v?.imei ?? "", e.direction, CATEGORY_META[e.category].label,
+      e.amountKES, signedAmount(e), e.balanceAfterKES, LEDGER_STATUS_META[e.status].label,
+      e.reference ?? "", e.rechargeId ?? "", e.notes ?? "",
+    ];
+  });
   const csv = [headers, ...rows].map((row) => row.map((v) => `"${v}"`).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
@@ -64,11 +68,14 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
 }
 
 function EntryDetail({ entry }: { entry: WalletLedgerEntry }) {
+  const vehicle = vehicleFor(entry.customerId);
   return (
     <div className="px-6 py-4 bg-slate-50 border-t border-slate-100">
       <div className="grid grid-cols-4 gap-4">
         <DetailField label="Ledger ID" value={<span className="font-mono">{entry.id}</span>} />
         <DetailField label="Customer ID" value={<span className="font-mono">{entry.customerId}</span>} />
+        <DetailField label="VIN" value={vehicle?.vin ? <span className="font-mono">{vehicle.vin}</span> : "—"} />
+        <DetailField label="IMEI" value={vehicle?.imei ? <span className="font-mono">{vehicle.imei}</span> : "—"} />
         <DetailField label="Direction" value={entry.direction === "credit" ? "Credit (+)" : "Debit (−)"} />
         <DetailField label="Category" value={CATEGORY_META[entry.category].label} />
         <DetailField label="Amount" value={fmtKES(entry.amountKES)} />
@@ -110,7 +117,7 @@ export function WalletLedgerTable() {
   const [search, setSearch]         = useState("");
   const [dirFilter, setDir]         = useState<LedgerDirection | "">("");
   const [catFilter, setCat]         = useState<LedgerCategory | "">("");
-  const [dateFilter, setDate]       = useState("");
+  const [dateFilter, setDate]       = useState("7d");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [page, setPage]             = useState(1);
   const [perPage, setPerPage]       = useState(25);
@@ -134,11 +141,14 @@ export function WalletLedgerTable() {
       if (cutoff && new Date(e.occurredAt).getTime() < cutoff) return false;
       if (search) {
         const q = search.toLowerCase();
+        const v = vehicleFor(e.customerId);
         return (
           e.customerName.toLowerCase().includes(q) ||
           e.phone.toLowerCase().includes(q) ||
           e.id.toLowerCase().includes(q) ||
-          (e.reference?.toLowerCase().includes(q) ?? false)
+          (e.reference?.toLowerCase().includes(q) ?? false) ||
+          (v?.vin.toLowerCase().includes(q) ?? false) ||
+          (v?.imei.includes(q) ?? false)
         );
       }
       return true;
@@ -177,7 +187,7 @@ export function WalletLedgerTable() {
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            placeholder="Search customer, phone, ref…"
+            placeholder="Search customer, phone, VIN, IMEI, ref…"
             className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 focus:border-[#003B49] w-56"
           />
         </div>
@@ -226,10 +236,10 @@ export function WalletLedgerTable() {
       {/* Table */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs min-w-[980px]">
+          <table className="w-full text-xs min-w-[1180px]">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
-                {["Date", "Customer", "Phone", "Category", "Amount (KES)", "Balance After", "Status", ""].map((h) => (
+                {["Date", "Customer", "Phone", "VIN", "IMEI", "Category", "Amount (KES)", "Balance After", "Status", ""].map((h) => (
                   <th key={h} className={cn(
                     "px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap",
                     h === "Amount (KES)" || h === "Balance After" ? "text-right" : "text-left"
@@ -240,7 +250,7 @@ export function WalletLedgerTable() {
             <tbody className="divide-y divide-slate-100">
               {paginated.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="text-center py-16">
+                  <td colSpan={10} className="text-center py-16">
                     <PackageOpen className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="text-slate-400">No wallet transactions match your filters</p>
                   </td>
@@ -249,6 +259,7 @@ export function WalletLedgerTable() {
               {paginated.map((e) => {
                 const expanded = expandedId === e.id;
                 const isCredit = e.direction === "credit";
+                const vehicle = vehicleFor(e.customerId);
                 return (
                   <>
                     <tr
@@ -259,6 +270,8 @@ export function WalletLedgerTable() {
                       <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{fmtDateTime(e.occurredAt)}</td>
                       <td className="px-3 py-2.5 font-medium text-slate-700">{e.customerName}</td>
                       <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">{e.phone}</td>
+                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{vehicle?.vin ?? "—"}</td>
+                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{vehicle?.imei ?? "—"}</td>
                       <td className="px-3 py-2.5">
                         <span className={cn("px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap", CATEGORY_META[e.category].badge)}>
                           {CATEGORY_META[e.category].label}
@@ -284,7 +297,7 @@ export function WalletLedgerTable() {
                     </tr>
                     {expanded && (
                       <tr key={`${e.id}-detail`}>
-                        <td colSpan={8} className="p-0">
+                        <td colSpan={10} className="p-0">
                           <EntryDetail entry={e} />
                         </td>
                       </tr>

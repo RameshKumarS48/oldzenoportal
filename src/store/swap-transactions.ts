@@ -45,7 +45,7 @@ export interface SwapRecord {
   recovery?: SwapRecovery;
 }
 
-export type SwapStatus = "flagged" | "rfid_mismatch" | "skipped" | "recovered" | "ok";
+export type SwapStatus = "flagged" | "cross_station" | "rfid_mismatch" | "skipped" | "recovered" | "ok";
 
 // ── Derived helpers ──────────────────────────────────────────────────────────
 
@@ -57,14 +57,31 @@ export function isRecovered(r: SwapRecord): boolean {
   return /ORPHAN|RECOVERED/i.test(r.errorNote ?? "") || (r.recovery?.kwh ?? 0) > 0;
 }
 
-/** A swap that warrants a tampering review — flagged, rfid mismatch, or orphan recovery. */
+/**
+ * The distinct battery stations (`bs`) involved in a swap. A normal swap
+ * dispenses and collects at a single station, so this is one entry.
+ */
+export function distinctStations(r: SwapRecord): string[] {
+  return Array.from(new Set([r.dispenseStationId, r.collectStationId].filter(Boolean)));
+}
+
+/**
+ * A swap that touches two different battery stations. Per ops rule: one `bs`
+ * per swap is expected — a second station showing up is probably an alert.
+ */
+export function isCrossStation(r: SwapRecord): boolean {
+  return distinctStations(r).length >= 2;
+}
+
+/** A swap that warrants a tampering review — flagged, cross-station, rfid mismatch, or orphan recovery. */
 export function isTamperingCandidate(r: SwapRecord): boolean {
-  return r.flagged || hasRfidMismatch(r) || /ORPHAN/i.test(r.errorNote ?? "");
+  return r.flagged || isCrossStation(r) || hasRfidMismatch(r) || /ORPHAN/i.test(r.errorNote ?? "");
 }
 
 /** Single derived status for the records table. Order = severity. */
 export function swapStatus(r: SwapRecord): SwapStatus {
   if (r.flagged) return "flagged";
+  if (isCrossStation(r)) return "cross_station";
   if (hasRfidMismatch(r)) return "rfid_mismatch";
   if (r.skipped) return "skipped";
   if (isRecovered(r)) return "recovered";
@@ -73,6 +90,7 @@ export function swapStatus(r: SwapRecord): SwapStatus {
 
 export const SWAP_STATUS_META: Record<SwapStatus, { label: string; badge: string }> = {
   flagged:       { label: "Flagged",        badge: "bg-red-50 text-red-700" },
+  cross_station: { label: "Cross-Station",  badge: "bg-rose-100 text-rose-800" },
   rfid_mismatch: { label: "RFID Mismatch",  badge: "bg-orange-50 text-orange-700" },
   skipped:       { label: "Skipped",        badge: "bg-slate-100 text-slate-500" },
   recovered:     { label: "Recovered",      badge: "bg-amber-50 text-amber-700" },
@@ -84,7 +102,7 @@ export const SWAP_STATUS_META: Record<SwapStatus, { label: string; badge: string
 const MOCK_RECORDS: SwapRecord[] = [
   {
     id: "bs0021-20260326213618-237-04f0bda2983c80",
-    occurredAt: "2026-03-27T08:01:07+03:00",
+    occurredAt: "2026-08-31T08:01:07+03:00",
     customerName: "Stephen Njoroge",
     phone: "254-724172171",
     isCustomer: true,
@@ -97,8 +115,8 @@ const MOCK_RECORDS: SwapRecord[] = [
     ],
     dispenseStationId: "bs0021",
     collectStationId: "bs0008",
-    dispenseTimestamp: "2026-03-26T21:36:18+03:00",
-    collectTimestamp: "2026-03-27T08:00:16+03:00",
+    dispenseTimestamp: "2026-08-30T21:36:18+03:00",
+    collectTimestamp: "2026-08-31T08:00:16+03:00",
     collectSwapTransactionId: "bs0008-20260327080016-040-04f0bda2983c80",
     skipped: false,
     flagged: false,
@@ -106,7 +124,7 @@ const MOCK_RECORDS: SwapRecord[] = [
   },
   {
     id: "bs0011-20260327074638-011-047b9eca7c1390",
-    occurredAt: "2026-03-27T08:00:36+03:00",
+    occurredAt: "2026-08-31T08:00:36+03:00",
     customerName: "Rakesh Kumar",
     phone: "91-9467937034",
     isCustomer: true,
@@ -119,8 +137,8 @@ const MOCK_RECORDS: SwapRecord[] = [
     ],
     dispenseStationId: "bs0011",
     collectStationId: "bs0011",
-    dispenseTimestamp: "2026-03-27T07:46:38+03:00",
-    collectTimestamp: "2026-03-27T07:59:52+03:00",
+    dispenseTimestamp: "2026-08-31T07:46:38+03:00",
+    collectTimestamp: "2026-08-31T07:59:52+03:00",
     collectSwapTransactionId: "bs0011-20260327075952-671-047b9eca7c1390",
     skipped: false,
     flagged: false,
@@ -128,7 +146,7 @@ const MOCK_RECORDS: SwapRecord[] = [
   },
   {
     id: "bs0022-20260322140119-315-0481d7a2983c80",
-    occurredAt: "2026-03-24T13:54:12+03:00",
+    occurredAt: "2026-08-28T13:54:12+03:00",
     customerName: "Michael Spencer",
     phone: "254-706216840",
     isCustomer: true,
@@ -141,17 +159,17 @@ const MOCK_RECORDS: SwapRecord[] = [
     ],
     dispenseStationId: "bs0022",
     collectStationId: "bs0043",
-    dispenseTimestamp: "2026-03-22T14:01:19+03:00",
-    collectTimestamp: "2026-03-24T13:53:43+03:00",
+    dispenseTimestamp: "2026-08-26T14:01:19+03:00",
+    collectTimestamp: "2026-08-28T13:53:43+03:00",
     collectSwapTransactionId: "bs0043-20260324135343-925-0481d7a2983c80",
     skipped: false,
     flagged: false,
     manualIgnore: false,
-    multiday: "2026-03-22: 3.000  2026-03-23: 0.039",
+    multiday: "2026-08-26: 3.000  2026-08-27: 0.039",
   },
   {
     id: "bs0043-20260317160846-675-0481d7a2983c80",
-    occurredAt: "2026-03-22T14:01:52+03:00",
+    occurredAt: "2026-08-26T14:01:52+03:00",
     customerName: "Michael Spencer",
     phone: "254-706216840",
     isCustomer: true,
@@ -164,8 +182,8 @@ const MOCK_RECORDS: SwapRecord[] = [
     ],
     dispenseStationId: "bs0043",
     collectStationId: "bs0022",
-    dispenseTimestamp: "2026-03-17T16:08:46+03:00",
-    collectTimestamp: "2026-03-22T14:01:19+03:00",
+    dispenseTimestamp: "2026-08-21T16:08:46+03:00",
+    collectTimestamp: "2026-08-26T14:01:19+03:00",
     collectSwapTransactionId: "bs0022-20260322140119-315-0481d7a2983c80",
     skipped: false,
     flagged: false,
@@ -175,7 +193,7 @@ const MOCK_RECORDS: SwapRecord[] = [
   },
   {
     id: "bs0043-20260316142205-894-0481d7a2983c80",
-    occurredAt: "2026-03-17T16:09:20+03:00",
+    occurredAt: "2026-08-21T16:09:20+03:00",
     customerName: "Michael Spencer",
     phone: "254-706216840",
     isCustomer: true,
@@ -188,8 +206,8 @@ const MOCK_RECORDS: SwapRecord[] = [
     ],
     dispenseStationId: "bs0043",
     collectStationId: "bs0043",
-    dispenseTimestamp: "2026-03-16T14:22:05+03:00",
-    collectTimestamp: "2026-03-17T16:09:21+03:00",
+    dispenseTimestamp: "2026-08-20T14:22:05+03:00",
+    collectTimestamp: "2026-08-21T16:09:21+03:00",
     collectSwapTransactionId: "bs0043-20260317160846-675-0481d7a2983c80",
     skipped: false,
     flagged: false,
@@ -198,7 +216,7 @@ const MOCK_RECORDS: SwapRecord[] = [
   // ── Additional rows for filter/status variety ──────────────────────────────
   {
     id: "bs0005-20260326101245-118-04a1c2d3e4f590",
-    occurredAt: "2026-03-26T10:12:45+03:00",
+    occurredAt: "2026-08-30T10:12:45+03:00",
     customerName: "Zechariah Anita",
     phone: "254-711045221",
     isCustomer: true,
@@ -211,8 +229,8 @@ const MOCK_RECORDS: SwapRecord[] = [
     ],
     dispenseStationId: "bs0005",
     collectStationId: "bs0009",
-    dispenseTimestamp: "2026-03-26T09:55:02+03:00",
-    collectTimestamp: "2026-03-26T10:12:20+03:00",
+    dispenseTimestamp: "2026-08-30T09:55:02+03:00",
+    collectTimestamp: "2026-08-30T10:12:20+03:00",
     collectSwapTransactionId: "bs0009-20260326101220-402-04a1c2d3e4f590",
     skipped: false,
     flagged: true,
@@ -221,7 +239,7 @@ const MOCK_RECORDS: SwapRecord[] = [
   },
   {
     id: "bs0025-20260325184410-556-04bb11cc22dd90",
-    occurredAt: "2026-03-25T18:44:10+03:00",
+    occurredAt: "2026-08-29T18:44:10+03:00",
     customerName: "Erick Nganda",
     phone: "254-720998112",
     isCustomer: true,
@@ -234,8 +252,8 @@ const MOCK_RECORDS: SwapRecord[] = [
     ],
     dispenseStationId: "bs0025",
     collectStationId: "bs0026",
-    dispenseTimestamp: "2026-03-25T18:40:01+03:00",
-    collectTimestamp: "2026-03-25T18:44:00+03:00",
+    dispenseTimestamp: "2026-08-29T18:40:01+03:00",
+    collectTimestamp: "2026-08-29T18:44:00+03:00",
     collectSwapTransactionId: "bs0026-20260325184400-090-04bb11cc22dd90",
     skipped: false,
     flagged: true,
@@ -244,7 +262,7 @@ const MOCK_RECORDS: SwapRecord[] = [
   },
   {
     id: "bs0002-20260324090015-771-04cd33ee44ff90",
-    occurredAt: "2026-03-24T09:00:15+03:00",
+    occurredAt: "2026-08-28T09:00:15+03:00",
     customerName: "Moses Mwangi",
     phone: "254-733220145",
     isCustomer: true,
@@ -256,7 +274,7 @@ const MOCK_RECORDS: SwapRecord[] = [
     ],
     dispenseStationId: "bs0002",
     collectStationId: "",
-    dispenseTimestamp: "2026-03-24T08:59:40+03:00",
+    dispenseTimestamp: "2026-08-28T08:59:40+03:00",
     skipped: true,
     flagged: false,
     manualIgnore: false,
@@ -264,7 +282,7 @@ const MOCK_RECORDS: SwapRecord[] = [
   },
   {
     id: "bs0009-20260323161130-233-04ee55aa66bb90",
-    occurredAt: "2026-03-23T16:11:30+03:00",
+    occurredAt: "2026-08-27T16:11:30+03:00",
     customerName: "Nickson Mwiti",
     phone: "254-701556789",
     isCustomer: true,
@@ -277,8 +295,8 @@ const MOCK_RECORDS: SwapRecord[] = [
     ],
     dispenseStationId: "bs0009",
     collectStationId: "bs0009",
-    dispenseTimestamp: "2026-03-23T15:58:12+03:00",
-    collectTimestamp: "2026-03-23T16:11:05+03:00",
+    dispenseTimestamp: "2026-08-27T15:58:12+03:00",
+    collectTimestamp: "2026-08-27T16:11:05+03:00",
     collectSwapTransactionId: "bs0009-20260323161105-611-04ee55aa66bb90",
     skipped: false,
     flagged: false,
@@ -297,6 +315,8 @@ export const useSwapTransactionsStore = create<SwapTransactionsState>()(
     () => ({
       records: MOCK_RECORDS,
     }),
-    { name: "zeno-swap-transactions" }
+    // v1: seed dates shifted into the recent window so the default "last 7 days"
+    // filter shows data. Bump version so already-persisted clients re-seed.
+    { name: "zeno-swap-transactions", version: 1, migrate: () => ({ records: MOCK_RECORDS }) }
   )
 );

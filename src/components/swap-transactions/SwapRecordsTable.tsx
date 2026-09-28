@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Download, ArrowRight, ChevronDown, ChevronUp, PackageOpen } from "lucide-react";
+import { Search, Download, ArrowRight, ChevronDown, ChevronUp, PackageOpen, AlertTriangle } from "lucide-react";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { Pagination } from "@/components/ui/Pagination";
 import {
   useSwapTransactionsStore,
   swapStatus,
   hasRfidMismatch,
+  isCrossStation,
   isTamperingCandidate,
   SWAP_STATUS_META,
   type SwapRecord,
@@ -144,6 +145,7 @@ function RecordDetail({ record }: { record: SwapRecord }) {
 const STATUS_OPTIONS: [SwapStatus | "", string][] = [
   ["", "All Status"],
   ["flagged", "Flagged"],
+  ["cross_station", "Cross-Station"],
   ["rfid_mismatch", "RFID Mismatch"],
   ["skipped", "Skipped"],
   ["recovered", "Recovered"],
@@ -157,7 +159,7 @@ export function SwapRecordsTable() {
   const [stationFilter, setStation]   = useState("");
   const [rfidFilter, setRfid]         = useState("");
   const [statusFilter, setStatus]     = useState("");
-  const [dateFilter, setDate]         = useState("");
+  const [dateFilter, setDate]         = useState("7d");
   const [expandedId, setExpandedId]   = useState<string | null>(null);
   const [page, setPage]               = useState(1);
   const [perPage, setPerPage]         = useState(25);
@@ -211,6 +213,7 @@ export function SwapRecordsTable() {
   const totalSwaps = records.length;
   const totalKWh = records.reduce((s, r) => s + r.totalKWh, 0);
   const flaggedCount = records.filter(isTamperingCandidate).length;
+  const crossStationCount = records.filter(isCrossStation).length;
   const skippedCount = records.filter((r) => r.skipped).length;
 
   const clearFilters = () => {
@@ -220,10 +223,11 @@ export function SwapRecordsTable() {
   return (
     <div className="space-y-4">
       {/* Summary */}
-      <StatGrid>
+      <StatGrid cols={5}>
         <StatCard label="Total Swaps" value={totalSwaps} />
         <StatCard label="Total Energy (kWh)" value={totalKWh.toFixed(1)} valueColor="text-emerald-600" />
         <StatCard label="Flagged / Tampering" value={flaggedCount} valueColor={flaggedCount > 0 ? "text-red-600" : undefined} />
+        <StatCard label="Cross-Station Alerts" value={crossStationCount} valueColor={crossStationCount > 0 ? "text-rose-700" : undefined} />
         <StatCard label="Skipped" value={skippedCount} valueColor={skippedCount > 0 ? "text-amber-600" : undefined} />
       </StatGrid>
 
@@ -292,10 +296,10 @@ export function SwapRecordsTable() {
       {/* Table */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs min-w-[1100px]">
+          <table className="w-full text-xs min-w-[1200px]">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
-                {["Date", "Customer", "Phone", "Batteries (bins)", "Billed kWh", "Stations", "RFID Mismatch", "Flagged", "Status", ""].map((h) => (
+                {["Date", "Customer", "Phone", "Batteries (bins)", "Billed kWh", "Billed Amount", "Stations", "RFID Mismatch", "Flagged", "Status", ""].map((h) => (
                   <th key={h} className="text-left px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -303,7 +307,7 @@ export function SwapRecordsTable() {
             <tbody className="divide-y divide-slate-100">
               {paginated.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="text-center py-16">
+                  <td colSpan={11} className="text-center py-16">
                     <PackageOpen className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="text-slate-400">No swap transactions match your filters</p>
                   </td>
@@ -313,6 +317,7 @@ export function SwapRecordsTable() {
                 const expanded = expandedId === r.id;
                 const status = swapStatus(r);
                 const rfidBad = hasRfidMismatch(r);
+                const crossStation = isCrossStation(r);
                 return (
                   <>
                     <tr
@@ -333,12 +338,23 @@ export function SwapRecordsTable() {
                         ))}
                       </td>
                       <td className="px-3 py-2.5 text-right font-semibold text-slate-700">{totalBilledKWh(r).toFixed(3)}</td>
-                      <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1 font-mono text-[11px]">
+                      <td className="px-3 py-2.5 text-right font-semibold text-slate-700 whitespace-nowrap">
+                        {r.totalPoints.toFixed(2)}
+                        <span className="text-[10px] text-slate-400 font-normal ml-0.5">pts</span>
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <span className={cn(
+                          "inline-flex items-center gap-1 font-mono text-[11px]",
+                          crossStation ? "text-rose-700 font-semibold" : "text-slate-500"
+                        )}>
+                          {crossStation && <AlertTriangle className="w-3 h-3 text-rose-600" />}
                           {r.dispenseStationId || "—"}
-                          <ArrowRight className="w-3 h-3 text-slate-300" />
+                          <ArrowRight className={cn("w-3 h-3", crossStation ? "text-rose-400" : "text-slate-300")} />
                           {r.collectStationId || "—"}
                         </span>
+                        {crossStation && (
+                          <span className="block text-[10px] text-rose-600 font-semibold mt-0.5">2 stations — review</span>
+                        )}
                       </td>
                       <td className="px-3 py-2.5">
                         {rfidBad
@@ -362,7 +378,7 @@ export function SwapRecordsTable() {
 
                     {expanded && (
                       <tr key={`${r.id}-detail`}>
-                        <td colSpan={10} className="p-0">
+                        <td colSpan={11} className="p-0">
                           <RecordDetail record={r} />
                         </td>
                       </tr>

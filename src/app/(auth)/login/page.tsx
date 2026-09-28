@@ -25,7 +25,7 @@ export default function LoginPage() {
     if (!result.success) {
       setError(result.error ?? "Sign in failed");
     } else {
-      router.push("/dashboard");
+      router.push("/asset-tracking");
     }
   };
 
@@ -36,7 +36,7 @@ export default function LoginPage() {
           <div className="w-12 h-12 rounded-2xl bg-green-500 flex items-center justify-center mb-4 shadow-lg shadow-green-200">
             <Zap className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Zeno Dashboard</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Zeno</h1>
           <p className="text-sm text-slate-500 mt-1">Sign in to your account</p>
         </div>
 

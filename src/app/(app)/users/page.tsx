@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Pencil, Trash2, UserIcon, Mail, Copy, Check, Clock, X } from "lucide-react";
-import { AdminGuard } from "@/components/ui/AdminGuard";
+import { UsersGuard } from "@/components/ui/AdminGuard";
 import { Topbar } from "@/components/layout/Topbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,20 +23,20 @@ import { cn } from "@/lib/utils";
 
 function getDefaultPermissionsForRole(role: UserRole): RolePermission[] {
   const id =
-    role === "zeno_super_admin" ? "r-superadmin" :
-    role === "zeno_admin" || role === "partner_super_admin" ? "r-admin" :
-    role === "zeno_support" ? "r-support" :
-    "r-user";
+    role === "zeno_super_admin"    ? "r-superadmin" :
+    role === "zeno_admin"          ? "r-internal-user" :
+    role === "zeno_support"        ? "r-internal-viewer" :
+    role === "partner_super_admin" ? "r-external-admin" :
+    "r-external-user";
   return (SYSTEM_ROLES.find((r) => r.id === id)?.permissions ?? []).map((p) => ({ ...p, actions: [...p.actions] }));
 }
 
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
-  { value: "zeno_super_admin",    label: "Zeno Super Admin" },
-  { value: "zeno_admin",          label: "Zeno Admin" },
-  { value: "zeno_user",           label: "Zeno User" },
-  { value: "zeno_support",        label: "Support Agent" },
-  { value: "partner_super_admin", label: "Partner Super Admin" },
-  { value: "partner_user",        label: "Partner User" },
+  { value: "zeno_super_admin",    label: "Super Admin" },
+  { value: "zeno_admin",          label: "Internal User" },
+  { value: "zeno_support",        label: "Internal Viewer" },
+  { value: "partner_super_admin", label: "External Admin" },
+  { value: "partner_user",        label: "External User" },
 ];
 
 const STATUS_OPTIONS = [
@@ -47,10 +47,9 @@ const STATUS_OPTIONS = [
 const ROLE_BADGE: Record<UserRole, string> = {
   zeno_super_admin:    "bg-[#FF3B06]/10 text-[#FF3B06]",
   zeno_admin:          "bg-[#003B49]/10 text-[#003B49]",
-  zeno_user:           "bg-indigo-50 text-indigo-700",
   zeno_support:        "bg-violet-50 text-violet-700",
-  partner_super_admin: "bg-purple-50 text-purple-700",
-  partner_user:        "bg-violet-50 text-violet-700",
+  partner_super_admin: "bg-cyan-50 text-cyan-700",
+  partner_user:        "bg-indigo-50 text-indigo-700",
 };
 
 export default function UsersPage() {
@@ -60,14 +59,14 @@ export default function UsersPage() {
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteStep, setInviteStep] = useState<"details" | "permissions">("details");
-  const [inviteForm, setInviteForm] = useState<{ email: string; role: UserRole; partnerId: string }>({ email: "", role: "zeno_user", partnerId: "" });
+  const [inviteForm, setInviteForm] = useState<{ email: string; role: UserRole; partnerId: string }>({ email: "", role: "zeno_support", partnerId: "" });
   const [customPerms, setCustomPerms] = useState<RolePermission[]>([]);
   const [inviteLink, setInviteLink] = useState<{ token: string; email: string } | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
   const [inviteError, setInviteError] = useState("");
 
   const [editUser, setEditUser] = useState<AppUser | null>(null);
-  const [editForm, setEditForm] = useState<{ name: string; email: string; role: UserRole; status: AppUser["status"] }>({ name: "", email: "", role: "zeno_user", status: "active" });
+  const [editForm, setEditForm] = useState<{ name: string; email: string; role: UserRole; status: AppUser["status"] }>({ name: "", email: "", role: "zeno_support", status: "active" });
   const [deleteConfirm, setDeleteConfirm] = useState<AppUser | null>(null);
   const [revokeConfirm, setRevokeConfirm] = useState<PendingInvite | null>(null);
 
@@ -93,7 +92,7 @@ export default function UsersPage() {
     setInviteStep("details");
     setCustomPerms([]);
     setInviteError("");
-    setInviteForm({ email: "", role: "zeno_user", partnerId: "" });
+    setInviteForm({ email: "", role: "zeno_support", partnerId: "" });
   };
 
   const handleNextStep = () => {
@@ -128,7 +127,7 @@ export default function UsersPage() {
   };
 
   return (
-    <AdminGuard>
+    <UsersGuard>
       <Topbar
         title="Users & Permissions"
         actions={
@@ -328,6 +327,6 @@ export default function UsersPage() {
           <Button variant="danger" className="flex-1" onClick={() => { if (revokeConfirm) revokeInvite(revokeConfirm.token); setRevokeConfirm(null); }}>Revoke</Button>
         </div>
       </Modal>
-    </AdminGuard>
+    </UsersGuard>
   );
 }

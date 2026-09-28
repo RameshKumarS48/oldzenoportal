@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import { Pagination } from "@/components/ui/Pagination";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { useTamperingAlertsStore } from "@/store/tampering-alerts";
 import type { TamperingAlert, ViolationType, AlertStatus } from "@/store/tampering-alerts";
@@ -298,12 +299,14 @@ export function TamperingAlertsView() {
   const [statusFilter, setStatusFilter]   = useState("");
   const [violationFilter, setViolFilter]  = useState("");
   const [offenceFilter, setOffenceFilter] = useState("");
-  const [dateFilter, setDateFilter]       = useState("");
+  const [dateFilter, setDateFilter]       = useState("7d");
   const [expandedId, setExpandedId]       = useState<string | null>(null);
   const [approveTarget, setApproveTarget] = useState<TamperingAlert | null>(null);
   const [rejectTarget, setRejectTarget]   = useState<TamperingAlert | null>(null);
   const [investTarget, setInvestTarget]   = useState<TamperingAlert | null>(null);
   const [now] = useState(() => Date.now());
+  const [page, setPage]                   = useState(1);
+  const [perPage, setPerPage]             = useState(25);
 
   const filtered = useMemo(() => {
     const cutoff =
@@ -329,6 +332,20 @@ export function TamperingAlertsView() {
       return true;
     });
   }, [alerts, search, statusFilter, violationFilter, offenceFilter, dateFilter, now]);
+
+  // Reset to the first page whenever the filter set changes (adjust state during
+  // render — React's recommended alternative to a setState-in-effect).
+  const filterKey = `${search}|${statusFilter}|${violationFilter}|${offenceFilter}|${dateFilter}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey);
+    setPage(1);
+  }
+
+  const paginated = useMemo(() => {
+    const start = (page - 1) * perPage;
+    return filtered.slice(start, start + perPage);
+  }, [filtered, page, perPage]);
 
   const pending        = alerts.filter((a) => a.status === "pending").length;
   const approvedWeek    = alerts.filter((a) => a.status === "approved" && new Date(a.reviewedAt ?? "").getTime() >= startOfWeek().getTime()).length;
@@ -415,7 +432,7 @@ export function TamperingAlertsView() {
                   </td>
                 </tr>
               )}
-              {filtered.map((alert) => {
+              {paginated.map((alert) => {
                 const expanded = expandedId === alert.id;
                 const rfidActive = alert.rfidDisabled && !alert.rfidReenabledAt;
                 return (
@@ -572,6 +589,7 @@ export function TamperingAlertsView() {
             </tbody>
           </table>
         </div>
+        <Pagination total={filtered.length} page={page} perPage={perPage} onPage={setPage} onPerPage={setPerPage} />
       </div>
 
       {/* Approve Modal */}
