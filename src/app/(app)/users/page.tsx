@@ -2,13 +2,12 @@
 
 import { useMemo, useState } from "react";
 import {
-  Plus, Pencil, Trash2, User as UserIcon, Mail, Copy, Check, Clock, X, RotateCcw, Search,
+  Plus, Pencil, Trash2, Mail, Copy, Check, Clock, X, RotateCcw, Search, ChevronDown,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { AccessGuard } from "@/components/ui/AccessGuard";
 import { Topbar } from "@/components/layout/Topbar";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { Pagination } from "@/components/ui/Pagination";
 import { InviteUserModal } from "@/components/users/InviteUserModal";
@@ -22,17 +21,29 @@ import { ROLE_LABELS } from "@/lib/mock/users";
 import type { AppUser, UserRole } from "@/lib/mock/users";
 import { cn } from "@/lib/utils";
 
-const ROLE_BADGE: Record<UserRole, string> = {
-  zeno_super_admin:    "bg-[#FF3B06]/10 text-[#FF3B06]",
-  zeno_admin:          "bg-[#003B49]/10 text-[#003B49]",
-  zeno_support:        "bg-violet-50 text-violet-700",
-  partner_super_admin: "bg-cyan-50 text-cyan-700",
-  partner_user:        "bg-indigo-50 text-indigo-700",
-};
-
-const CONTROL =
-  "text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-600 " +
-  "focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 focus:border-[#003B49]";
+/** Pill-shaped filter control, matching the approved design. */
+function FilterSelect({
+  value, onChange, label, children,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={label}
+        className="appearance-none rounded-full border border-slate-200 bg-white pl-4 pr-9 py-2 text-sm text-slate-600 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 focus:border-[#003B49]"
+      >
+        {children}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+    </div>
+  );
+}
 
 export default function UsersPage() {
   const currentUser = useAuthStore((s) => s.user);
@@ -82,179 +93,176 @@ export default function UsersPage() {
     setTimeout(() => setLinkCopied(false), 2000);
   };
 
+  const th = "text-left px-5 py-3.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap";
+
   return (
     <AccessGuard module="user_management">
       <Topbar title="User Management" />
 
-      <main className="flex-1 overflow-y-auto bg-zeno-bg p-6 space-y-4">
-        {/* Filters + invite */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex-1 min-w-[280px] bg-white rounded-xl border border-slate-200 px-4 py-2.5 flex items-center gap-3 flex-wrap">
+      <main className="flex-1 overflow-y-auto bg-[#F1F3F4] p-6 space-y-4">
+        {/* Filters, then the one action that creates something */}
+        <div className="flex items-start gap-4 flex-wrap">
+          <div className="flex-1 min-w-[320px] bg-white rounded-xl border border-slate-200 px-4 py-3 flex items-center gap-3 flex-wrap">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                placeholder="Search name or email…"
-                className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 focus:border-[#003B49] w-52"
+                placeholder="Search name or email"
+                aria-label="Search users"
+                className="w-56 rounded-full border border-slate-200 bg-white pl-11 pr-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 focus:border-[#003B49]"
               />
             </div>
 
-            <select
+            <FilterSelect
               value={partnerFilter}
-              onChange={(e) => { setPartnerFilter(e.target.value); setPage(1); }}
-              className={cn(CONTROL, "text-xs py-1.5")}
-              aria-label="Filter by partner"
+              onChange={(v) => { setPartnerFilter(v); setPage(1); }}
+              label="Filter by partner"
             >
               <option value="">All Partners</option>
               {tenants.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-            </select>
+            </FilterSelect>
 
-            <select
+            <FilterSelect
               value={roleFilter}
-              onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
-              className={cn(CONTROL, "text-xs py-1.5")}
-              aria-label="Filter by role"
+              onChange={(v) => { setRoleFilter(v); setPage(1); }}
+              label="Filter by role"
             >
               <option value="">All Roles</option>
               {(Object.keys(ROLE_LABELS) as UserRole[]).map((r) => (
                 <option key={r} value={r}>{ROLE_LABELS[r]}</option>
               ))}
-            </select>
+            </FilterSelect>
 
             {hasFilters && (
               <button
                 onClick={clearFilters}
-                className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                className="flex items-center gap-2 px-2 py-2 text-sm text-slate-500 hover:text-slate-700 transition-colors rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#003B49]/30"
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Clear
+                <RotateCcw className="w-4 h-4" /> Clear
               </button>
             )}
 
-            <span className="ml-auto text-xs text-slate-400">
+            <span className="ml-auto text-xs text-slate-400 tabular-nums">
               {filtered.length} user{filtered.length === 1 ? "" : "s"}
             </span>
           </div>
 
-          <Button onClick={() => setInviteOpen(true)} className="shrink-0">
+          <button
+            onClick={() => setInviteOpen(true)}
+            className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-[#167C3C] px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#12662F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#167C3C]/40 focus-visible:ring-offset-2"
+          >
             <Plus className="w-4 h-4" /> Invite User
-          </Button>
+          </button>
         </div>
 
-        {/* Table */}
+        {/* Roster */}
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[900px]">
-              <thead className="border-b border-slate-200">
-                <tr>
+            <table className="w-full text-sm min-w-[880px]">
+              <thead>
+                <tr className="border-b border-slate-100">
                   {["Name", "Email", "Role", "Partner", "Status", "Created", "Actions"].map((h) => (
-                    <th
-                      key={h}
-                      className="text-left px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap"
-                    >
-                      {h}
-                    </th>
+                    <th key={h} className={cn(th, h === "Actions" && "w-px")}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {paginated.length === 0 && invites.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="text-center py-12 text-slate-400">
-                      No users match your filters
+                    <td colSpan={7} className="px-5 py-16 text-center text-slate-400">
+                      No users match these filters. Clear them, or invite someone new.
                     </td>
                   </tr>
                 )}
 
-                {paginated.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-50 transition-colors group">
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                          <UserIcon className="w-4 h-4 text-slate-400" />
+                {paginated.map((u) => {
+                  const isSelf = u.id === currentUser?.id;
+                  return (
+                    <tr key={u.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="px-5 py-4 font-semibold text-slate-800 whitespace-nowrap">{u.name}</td>
+                      <td className="px-5 py-4 text-slate-500">{u.email}</td>
+                      <td className="px-5 py-4 text-slate-600 whitespace-nowrap">{ROLE_LABELS[u.role]}</td>
+                      <td className="px-5 py-4 text-slate-500 whitespace-nowrap">
+                        {tenantLabel(tenants, u.partnerId)}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={cn(
+                            "inline-flex rounded-full border px-3 py-1 text-xs font-medium",
+                            u.status === "active"
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                              : "border-amber-200 bg-amber-50 text-amber-700"
+                          )}
+                        >
+                          {u.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-slate-500 whitespace-nowrap tabular-nums">
+                        {format(new Date(u.createdAt), "d MMM yyyy")}
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setEditUser(u)}
+                            aria-label={`Edit ${u.name}`}
+                            title="Edit user"
+                            className="grid place-items-center w-9 h-9 rounded-full bg-blue-50 text-blue-500 transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteTarget(u)}
+                            disabled={isSelf}
+                            aria-label={`Delete ${u.name}`}
+                            title={isSelf ? "You can't delete your own account" : "Delete user"}
+                            className="grid place-items-center w-9 h-9 rounded-full bg-red-50 text-red-500 transition-colors hover:bg-red-100 disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-                        <span className="font-medium text-slate-800">{u.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 text-slate-600">{u.email}</td>
-                    <td className="px-5 py-3.5">
-                      <span className={cn("px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap", ROLE_BADGE[u.role])}>
-                        {ROLE_LABELS[u.role]}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-slate-500 text-xs">
-                      {tenantLabel(tenants, u.partnerId)}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <Badge variant={u.status === "active" ? "success" : "warning"}>{u.status}</Badge>
-                    </td>
-                    <td className="px-5 py-3.5 text-slate-500 text-xs whitespace-nowrap">
-                      {format(new Date(u.createdAt), "d MMM yyyy")}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => setEditUser(u)}
-                          title="Edit user"
-                          className="p-1.5 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 transition-colors"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget(u)}
-                          disabled={u.id === currentUser?.id}
-                          title={u.id === currentUser?.id ? "You can't delete your own account" : "Delete user"}
-                          className="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
 
-                {/* Pending invites sit below the roster — they aren't accounts yet. */}
+                {/* Invited, but not an account yet */}
                 {invites.map((inv) => (
-                  <tr key={inv.token} className="bg-amber-50/30 hover:bg-amber-50/60 transition-colors">
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-                          <Mail className="w-4 h-4 text-amber-500" />
-                        </div>
-                        <span className="font-medium text-slate-700">{inv.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 text-slate-600">{inv.email}</td>
-                    <td className="px-5 py-3.5">
-                      <span className={cn("px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap", ROLE_BADGE[inv.role])}>
-                        {ROLE_LABELS[inv.role]}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-slate-500 text-xs">
+                  <tr key={inv.token} className="bg-amber-50/40 hover:bg-amber-50/70 transition-colors">
+                    <td className="px-5 py-4 font-semibold text-slate-700 whitespace-nowrap">{inv.name}</td>
+                    <td className="px-5 py-4 text-slate-500">{inv.email}</td>
+                    <td className="px-5 py-4 text-slate-600 whitespace-nowrap">{ROLE_LABELS[inv.role]}</td>
+                    <td className="px-5 py-4 text-slate-500 whitespace-nowrap">
                       {tenantLabel(tenants, inv.partnerId)}
                     </td>
-                    <td className="px-5 py-3.5"><Badge variant="warning">Pending</Badge></td>
-                    <td className="px-5 py-3.5 text-slate-400 text-xs">
-                      <span className="flex items-center gap-1 whitespace-nowrap">
-                        <Clock className="w-3 h-3" />
+                    <td className="px-5 py-4">
+                      <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+                        invited
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-slate-400 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5" />
                         Expires {formatDistanceToNow(new Date(inv.expiresAt), { addSuffix: true })}
                       </span>
                     </td>
-                    <td className="px-5 py-3.5">
+                    <td className="px-5 py-4">
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => { setInviteLink(inv); setLinkCopied(false); }}
+                          aria-label={`Show invite link for ${inv.email}`}
                           title="Show invite link"
-                          className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+                          className="grid place-items-center w-9 h-9 rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
                         >
-                          <Copy className="w-3.5 h-3.5" />
+                          <Copy className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => setRevokeTarget(inv)}
+                          aria-label={`Revoke invite for ${inv.email}`}
                           title="Revoke invite"
-                          className="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                          className="grid place-items-center w-9 h-9 rounded-full bg-red-50 text-red-500 transition-colors hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
                         >
-                          <X className="w-3.5 h-3.5" />
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
@@ -291,31 +299,32 @@ export default function UsersPage() {
         }}
       />
 
-      {/* No mail service — the invite link is handed over manually. */}
+      {/* No mail service is wired up, so the invite link is handed over by hand. */}
       <Modal
         open={!!inviteLink}
         onClose={() => { setInviteLink(null); setLinkCopied(false); }}
-        title="Invite Link Generated"
+        title="Invite link ready"
       >
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
-            Share this link with <strong>{inviteLink?.email}</strong>. It expires in 7 days.
+            Send this to <strong>{inviteLink?.email}</strong>. It stops working in 7 days.
           </p>
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center gap-2">
             <p className="text-xs text-slate-600 font-mono flex-1 break-all">{inviteUrl}</p>
             <button
               onClick={handleCopyLink}
+              aria-label="Copy invite link"
               className="shrink-0 p-2 rounded-lg hover:bg-slate-200 text-slate-500 transition-colors"
             >
               {linkCopied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
             </button>
           </div>
-          {linkCopied && <p className="text-xs text-green-600 text-center">Link copied!</p>}
+          {linkCopied && <p className="text-xs text-green-600 text-center">Copied</p>}
           <a
-            href={`mailto:${inviteLink?.email}?subject=${encodeURIComponent("You've been invited to Zeno")}&body=${encodeURIComponent(`Hi,\n\nYou've been invited to join Zeno.\n\nClick the link below to create your account:\n${inviteUrl}\n\nThis link expires in 7 days.`)}`}
+            href={`mailto:${inviteLink?.email}?subject=${encodeURIComponent("You've been invited to Zeno")}&body=${encodeURIComponent(`Hi,\n\nYou've been invited to join Zeno.\n\nOpen this link to create your account:\n${inviteUrl}\n\nIt stops working in 7 days.`)}`}
             className="flex items-center justify-center gap-2 w-full px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors"
           >
-            <Mail className="w-4 h-4" /> Open in Email Client
+            <Mail className="w-4 h-4" /> Open in email client
           </a>
           <Button className="w-full" onClick={() => { setInviteLink(null); setLinkCopied(false); }}>
             Done
@@ -323,10 +332,10 @@ export default function UsersPage() {
         </div>
       </Modal>
 
-      <Modal open={!!revokeTarget} onClose={() => setRevokeTarget(null)} title="Revoke Invite">
+      <Modal open={!!revokeTarget} onClose={() => setRevokeTarget(null)} title="Revoke invite">
         <p className="text-sm text-slate-600 mb-5">
-          Revoke the invite for <strong>{revokeTarget?.email}</strong>? The link stops working
-          immediately.
+          Revoke the invite for <strong>{revokeTarget?.email}</strong>? Their link stops working
+          straight away.
         </p>
         <div className="flex gap-3">
           <Button variant="outline" className="flex-1" onClick={() => setRevokeTarget(null)}>Cancel</Button>
@@ -335,7 +344,7 @@ export default function UsersPage() {
             className="flex-1"
             onClick={() => { if (revokeTarget) revokeInvite(revokeTarget.token); setRevokeTarget(null); }}
           >
-            Revoke
+            Revoke invite
           </Button>
         </div>
       </Modal>

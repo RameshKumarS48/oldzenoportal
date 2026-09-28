@@ -1,33 +1,34 @@
 "use client";
 
-import { Bike, ScanLine, ArrowLeftRight, Wallet, Users } from "lucide-react";
+import { Car, ScanLine, ArrowLeftRight, Wallet, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  levelFor,
-  MODULE_LABELS,
-  ACCESS_LEVEL_LABELS,
-  ACCESS_LEVEL_BADGE,
-} from "@/lib/access";
-import type { AccessModule } from "@/lib/access";
+import { levelFor, MODULE_LABELS, ACCESS_LEVEL_LABELS } from "@/lib/access";
+import type { AccessModule, AccessLevel } from "@/lib/access";
 import type { UserRole } from "@/lib/mock/users";
 import { ROLE_LABELS } from "@/lib/mock/users";
 
 const MODULE_ICONS: Record<AccessModule, LucideIcon> = {
-  vehicle:         Bike,
+  vehicle:         Car,
   scanner:         ScanLine,
   swap_info:       ArrowLeftRight,
   wallet_info:     Wallet,
   user_management: Users,
 };
 
-/** The four data modules are always shown; User Management only where granted. */
+/** Level reads as a state chip: granted is green, withheld recedes. */
+const LEVEL_CHIP: Record<AccessLevel, string> = {
+  read_write: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  read_only:  "border-slate-300 bg-white text-slate-600",
+  none:       "border-slate-200 bg-transparent text-slate-400",
+};
+
 const CORE_MODULES: AccessModule[] = ["vehicle", "scanner", "swap_info", "wallet_info"];
 
 /**
- * Read-only rendering of what a role can reach. Access is fixed by role and not
- * editable per user, so this is a summary rather than a control — it exists to
- * tell whoever is sending an invite exactly what they're handing over.
+ * What a role can reach, rendered read-only. Access follows the role and isn't
+ * editable per person, so this is a statement of fact for whoever is sending the
+ * invite — not a set of controls.
  */
 export function PermissionSummary({ role }: { role: UserRole }) {
   const modules: AccessModule[] = [
@@ -36,34 +37,34 @@ export function PermissionSummary({ role }: { role: UserRole }) {
   ];
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-slate-500 leading-relaxed">
-        Permissions for <strong className="text-slate-700">{ROLE_LABELS[role]}</strong>. The user
-        will receive exactly these access rights based on their role.
+    <div className="space-y-5">
+      <p className="text-sm leading-relaxed text-slate-600">
+        Permissions for <span className="font-semibold text-slate-800">{ROLE_LABELS[role]}</span>.
+        The user will receive exactly these access rights based on their role.
       </p>
 
-      <div className="space-y-2">
+      <ul className="space-y-1">
         {modules.map((module) => {
           const Icon = MODULE_ICONS[module];
           const level = levelFor(role, module);
           return (
-            <div key={module} className="flex items-center gap-3 py-1.5">
-              <Icon className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="text-sm font-medium text-slate-700 flex-1">
+            <li key={module} className="flex items-center gap-3 py-2">
+              <Icon className="w-[18px] h-[18px] text-slate-500 shrink-0" />
+              <span className="flex-1 text-[15px] font-semibold text-slate-800">
                 {MODULE_LABELS[module]}
               </span>
               <span
                 className={cn(
-                  "px-3 py-1 rounded-md border text-xs font-semibold shrink-0",
-                  ACCESS_LEVEL_BADGE[level]
+                  "shrink-0 rounded-md border px-3 py-1.5 text-[13px] font-medium",
+                  LEVEL_CHIP[level]
                 )}
               >
                 {ACCESS_LEVEL_LABELS[level]}
               </span>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </div>
   );
 }

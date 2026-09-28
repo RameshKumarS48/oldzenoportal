@@ -2,7 +2,7 @@
 
 import { AlertTriangle } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
-import { Button } from "@/components/ui/button";
+import { DIALOG_PANEL, DialogHeading } from "@/components/users/InviteUserModal";
 import type { AppUser } from "@/lib/mock/users";
 
 export function DeleteUserModal({
@@ -15,22 +15,36 @@ export function DeleteUserModal({
   onConfirm: () => void;
 }) {
   return (
-    <Modal open={!!user} onClose={onClose} title="Delete User">
-      <div className="space-y-5">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0">
-            <AlertTriangle className="w-5 h-5 text-red-500" />
-          </div>
-          <p className="text-sm text-slate-600 leading-relaxed pt-2">
-            Are you sure you want to delete <strong>{user?.name}</strong> (
-            <strong>{user?.email}</strong>)? This action is permanent. The user cannot be
-            recovered.
-          </p>
-        </div>
+    <Modal
+      open={!!user}
+      onClose={onClose}
+      className={DIALOG_PANEL}
+      title={
+        <DialogHeading icon={AlertTriangle} tint="bg-[#FBE3DC] text-[#C4340A]">
+          Delete User
+        </DialogHeading>
+      }
+    >
+      <div className="space-y-6">
+        <p className="text-[15px] leading-relaxed text-slate-700">
+          Are you sure you want to delete <strong className="font-semibold">{user?.name}</strong>{" "}
+          (<strong className="font-semibold">{user?.email}</strong>)? This action is permanent.
+          The user cannot be recovered.
+        </p>
 
-        <div className="flex gap-3">
-          <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
-          <Button variant="danger" className="flex-1" onClick={onConfirm}>Delete</Button>
+        <div className="flex items-center justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="rounded-lg bg-[#E0491F] px-8 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#C4340A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0491F]/40 focus-visible:ring-offset-2"
+          >
+            Delete
+          </button>
         </div>
       </div>
     </Modal>
