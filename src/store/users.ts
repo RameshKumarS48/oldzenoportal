@@ -137,6 +137,12 @@ export const useUsersStore = create<UsersState>()(
       revokeInvite: (token) =>
         set((s) => ({ invites: s.invites.filter((i) => i.token !== token) })),
     }),
-    { name: "zeno-users" }
+    {
+      name: "zeno-users",
+      // Bump whenever SEED_USERS changes so existing browsers re-seed instead of
+      // rehydrating a stale roster and silently missing the new accounts.
+      version: 2,
+      migrate: () => ({ users: SEED_USERS, invites: [] }),
+    }
   )
 );
