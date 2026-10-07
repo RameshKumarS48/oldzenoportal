@@ -7,9 +7,10 @@
  * `_ro` (read) and `_rw` (write) are *separate* grants: a read-write role holds
  * both. Grants are fixed per role and are not editable per user.
  *
- * The four data modules line up 1:1 with dome's four data tabs, and
- * `user_management` with the fifth, so nav gating, route guards and the invite
- * dialog's permission summary all read from this one table.
+ * The four data modules cover dome's data tabs and `user_management` the last
+ * one, so nav gating, route guards and the invite dialog's permission summary
+ * all read from this one table. A module may gate more than one tab: Swap Audit
+ * and Swap Transactions are two views of the same data and share `swap_info`.
  */
 
 import { useAuthStore } from "@/store/auth";
@@ -151,11 +152,16 @@ export function canWrite(role: UserRole | string | undefined, module: AccessModu
 
 // ── Routes ───────────────────────────────────────────────────────────────────
 
-/** Dome's five tabs, in sidebar order, each tied to the module that gates it. */
+/**
+ * Dome's tabs, in sidebar order, each tied to the module that gates it. More
+ * routes than modules: Swap Audit is a second view of swap data and rides on
+ * `swap_info` rather than splitting the five-module model.
+ */
 export const ROUTE_MODULES: { prefix: string; module: AccessModule }[] = [
   { prefix: "/asset-tracking",       module: "vehicle" },
   { prefix: "/scanner-provisioning", module: "scanner" },
   { prefix: "/swap-transactions",    module: "swap_info" },
+  { prefix: "/swap-audit",           module: "swap_info" },
   { prefix: "/wallet-transactions",  module: "wallet_info" },
   { prefix: "/users",                module: "user_management" },
 ];

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  ChevronLeft, ChevronRight, Grid3X3, ScanLine, ArrowLeftRight, Wallet, Users, LogOut,
+  ChevronLeft, ChevronRight, Grid3X3, ScanLine, ArrowLeftRight, ScanSearch, Wallet, Users, LogOut,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,11 +12,16 @@ import { useAccess } from "@/lib/access";
 import type { AccessModule } from "@/lib/access";
 import { useAuthStore } from "@/store/auth";
 
-/** Dome's five tabs, in order, each gated by the module that governs it. */
+/**
+ * Dome's tabs, in order, each gated by the module that governs it. Swap Audit
+ * is the session-level view behind Swap Transactions, so it shares `swap_info`
+ * rather than introducing a sixth module.
+ */
 const NAV: { href: string; label: string; icon: LucideIcon; module: AccessModule }[] = [
   { href: "/asset-tracking",       label: "Asset Tracking",            icon: Grid3X3,        module: "vehicle" },
   { href: "/scanner-provisioning", label: "Scanner Provisioning Flow", icon: ScanLine,       module: "scanner" },
   { href: "/swap-transactions",    label: "Swap Transactions",         icon: ArrowLeftRight, module: "swap_info" },
+  { href: "/swap-audit",           label: "Swap Audit",                icon: ScanSearch,     module: "swap_info" },
   { href: "/wallet-transactions",  label: "Wallet Transactions",       icon: Wallet,         module: "wallet_info" },
   { href: "/users",                label: "User Management",           icon: Users,          module: "user_management" },
 ];

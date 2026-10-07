@@ -22,6 +22,11 @@
   --color-status-gps: #FB923C;      /* GPS offline */
   --color-status-cloud: #FACC15;    /* Cloud offline */
   --color-status-idle: #94A3B8;     /* unknown / no signal */
+
+  /* ── Typography ─────────────────────────────────────────────
+     `font-mono` is the face for anything that has to line up in a
+     column: serial numbers, RFIDs, VINs, phone numbers, clocks. */
+  --font-mono: var(--font-geist-mono), ui-monospace, Menlo, Consolas, monospace;
 }
 
 @variant dark (&:where(.dark, .dark *));
@@ -64,6 +69,9 @@ body {
 .dark main .bg-white { background-color: var(--card-bg) !important; }
 .dark main .bg-slate-50 { background-color: var(--muted) !important; }
 .dark main .bg-\[#F6F7F8\] { background-color: var(--muted) !important; }
+/* Same hex as the line above, reached through the brand token. Without this a
+   page canvas written as bg-zeno-bg stays light while its text goes pale. */
+.dark main .bg-zeno-bg { background-color: var(--background) !important; }
 .dark main .border-slate-200 { border-color: var(--border) !important; }
 .dark main .border-slate-100 { border-color: var(--border) !important; }
 .dark main .text-slate-800 { color: var(--foreground) !important; }
