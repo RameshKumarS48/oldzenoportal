@@ -1,7 +1,7 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
-import { Search, Download, ChevronDown, ChevronUp, PackageOpen, AlertTriangle } from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { Search, Download, ChevronRight, PackageOpen, AlertTriangle } from "lucide-react";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { Pagination } from "@/components/ui/Pagination";
 import { toast } from "@/store/toast";
@@ -11,7 +11,7 @@ import {
   type SwapTxn, type VerdictStatus,
 } from "@/lib/mock/swap-audit";
 import { VERDICT_META } from "./tokens";
-import { SessionDetail } from "./SessionDetail";
+import { SessionDrawer } from "./SessionDrawer";
 
 // ── CSV export (mirrors the wallet / swap-records pattern) ───────────────────
 
@@ -50,13 +50,13 @@ const VERDICT_CARDS: { verdict: VerdictStatus | ""; label: string; value: number
   { verdict: "NO SWAP",       label: "No swap",       value: VERDICT_TOTALS["NO SWAP"] },
 ];
 
-/** The sessions of 6 Oct 2026, one row each, opened for the evidence behind the verdict. */
+/** The sessions of 6 Oct 2026, one row each, opened in a drawer for the evidence behind the verdict. */
 export function SwapAuditTable() {
   const [search, setSearch] = useState("");
   const [station, setStation] = useState("");
   const [scenario, setScenario] = useState("");
   const [verdict, setVerdict] = useState<VerdictStatus | "">("");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
 
@@ -78,6 +78,20 @@ export function SwapAuditTable() {
 
   // Batteries the stations are short across the day — the number the fraud costs.
   const short = SWAP_TXNS.reduce((s, t) => s + (t.verdict.bal < 0 ? -t.verdict.bal : 0), 0);
+
+  // The row that opened the drawer gets focus back when it closes.
+  const openerRef = useRef<HTMLTableRowElement | null>(null);
+  const openTxn = openId ? SWAP_TXNS.find((t) => t.id === openId) ?? null : null;
+
+  const openRow = (id: string, row: HTMLTableRowElement) => {
+    openerRef.current = row;
+    setOpenId(id);
+  };
+
+  const closeDrawer = useCallback(() => {
+    setOpenId(null);
+    openerRef.current?.focus();
+  }, []);
 
   // The cards and the dropdown both go through here, so they can't disagree.
   const selectVerdict = (v: VerdictStatus | "") => { setVerdict(v); setPage(1); };
@@ -207,67 +221,61 @@ export function SwapAuditTable() {
                 </tr>
               )}
               {paginated.map((t) => {
-                const expanded = expandedId === t.id;
+                const selected = openId === t.id;
                 const v = t.verdict;
                 const meta = VERDICT_META[v.status];
                 const faked = v.status === "NON-COMPLIANT";
                 return (
-                  <Fragment key={t.id}>
-                    <tr
-                      className={cn(
-                        "hover:bg-slate-50 transition-colors cursor-pointer",
-                        expanded && "bg-slate-50"
-                      )}
-                      onClick={() => setExpandedId(expanded ? null : t.id)}
-                    >
-                      <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">6 Oct, {fmtClock(t.startMinute)}</td>
-                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{t.id}</td>
-                      <td className="px-3 py-2.5 font-medium text-slate-700 whitespace-nowrap">{t.cust.name}</td>
-                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{t.cust.phone}</td>
-                      <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">
-                        {t.station.name}
-                        <span className="block font-mono text-[10px] text-slate-400">{t.station.id}</span>
-                      </td>
-                      <td className="px-3 py-2.5 text-slate-600">
-                        <span className="inline-flex items-center gap-1">
-                          {faked && <AlertTriangle className="w-3 h-3 text-red-500 shrink-0" />}
-                          {t.sc.name}
-                        </span>
-                      </td>
-                      {/* Recorded vs confirmed: the gap between them is the fraud. */}
-                      <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                        <span className={cn("font-semibold", v.Pc < v.Rc ? "text-red-600" : "text-slate-700")}>
-                          {v.Pc}
-                        </span>
-                        <span className="text-slate-400"> / {v.Rc}</span>
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-semibold text-slate-700">{v.Dn}</td>
-                      <td className={cn(
-                        "px-3 py-2.5 text-right font-semibold whitespace-nowrap",
-                        v.bal !== 0 ? "text-red-600" : "text-slate-400"
-                      )}>
-                        {v.bal > 0 ? `+${v.bal}` : v.bal}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <span className={cn("px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap", meta.badge)}>
-                          {meta.label}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5 text-right">
-                        {expanded
-                          ? <ChevronUp className="w-4 h-4 text-slate-400 inline" />
-                          : <ChevronDown className="w-4 h-4 text-slate-400 inline" />}
-                      </td>
-                    </tr>
-
-                    {expanded && (
-                      <tr key={`${t.id}-detail`}>
-                        <td colSpan={11} className="p-0">
-                          <SessionDetail txn={t} />
-                        </td>
-                      </tr>
+                  <tr
+                    key={t.id}
+                    tabIndex={0}
+                    aria-haspopup="dialog"
+                    className={cn(
+                      "hover:bg-slate-50 transition-colors cursor-pointer",
+                      selected && "bg-zeno-teal/5 dark:bg-(--sidebar-text)/10"
                     )}
-                  </Fragment>
+                    onClick={(e) => openRow(t.id, e.currentTarget)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openRow(t.id, e.currentTarget); }
+                    }}
+                  >
+                    <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">6 Oct, {fmtClock(t.startMinute)}</td>
+                    <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{t.id}</td>
+                    <td className="px-3 py-2.5 font-medium text-slate-700 whitespace-nowrap">{t.cust.name}</td>
+                    <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{t.cust.phone}</td>
+                    <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">
+                      {t.station.name}
+                      <span className="block font-mono text-[10px] text-slate-400">{t.station.id}</span>
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-600">
+                      <span className="inline-flex items-center gap-1">
+                        {faked && <AlertTriangle className="w-3 h-3 text-red-500 shrink-0" />}
+                        {t.sc.name}
+                      </span>
+                    </td>
+                    {/* Recorded vs confirmed: the gap between them is the fraud. */}
+                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                      <span className={cn("font-semibold", v.Pc < v.Rc ? "text-red-600" : "text-slate-700")}>
+                        {v.Pc}
+                      </span>
+                      <span className="text-slate-400"> / {v.Rc}</span>
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-semibold text-slate-700">{v.Dn}</td>
+                    <td className={cn(
+                      "px-3 py-2.5 text-right font-semibold whitespace-nowrap",
+                      v.bal !== 0 ? "text-red-600" : "text-slate-400"
+                    )}>
+                      {v.bal > 0 ? `+${v.bal}` : v.bal}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <span className={cn("px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap", meta.badge)}>
+                        {meta.label}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      <ChevronRight className="w-4 h-4 text-slate-400 inline" />
+                    </td>
+                  </tr>
                 );
               })}
             </tbody>
@@ -275,6 +283,8 @@ export function SwapAuditTable() {
         </div>
         <Pagination total={filtered.length} page={page} perPage={perPage} onPage={setPage} onPerPage={setPerPage} />
       </div>
+
+      <SessionDrawer txn={openTxn} onClose={closeDrawer} />
     </div>
   );
 }
