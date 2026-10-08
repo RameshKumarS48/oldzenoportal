@@ -3,16 +3,20 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Play, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Card } from "@/components/ui/card";
 import {
   detectionText, fmtClock, fmtClockSec, fmtRel, slotLabel, stepLabel,
   type Step, type SwapTxn,
 } from "@/lib/mock/swap-audit";
-import { stepToken, FLAG_BADGE, SUBLAB } from "./tokens";
+import { stepToken, SUBLAB, SECTION } from "./tokens";
 import { SlotStrip } from "./SlotStrip";
 
 const REPLAY_MS = 1100;
 
-function DetailField({ label, value }: { label: string; value: React.ReactNode }) {
+/** StatCard's number style (ui/stat-card.tsx), for the card's three headline values. */
+const FIGURE = "text-[20px] leading-none font-bold tabular-nums mt-1.5";
+
+export function DetailField({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
       <p className={SUBLAB}>{label}</p>
@@ -22,9 +26,9 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
 }
 
 /**
- * Everything behind one row: who swapped, what the station counted, the slots
- * before and after, where each battery went, and the raw log. Opened by
- * clicking the row, same as every other table in dome.
+ * Everything behind one row, read top to bottom: what happened and why, the
+ * slots before and after, the raw log, then the IDs for reference. The drawer
+ * header carries who, where and when.
  */
 export function SessionDetail({ txn }: { txn: SwapTxn }) {
   const v = txn.verdict;
@@ -78,82 +82,99 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
     .filter((s) => s.type === "dispense")
     .map((s) => ({ sn: s.bat?.sn ?? "–", note: `from ${slotLabel(s.slot!)} · ${s.bat?.soc ?? 0}%` }));
 
+  // space-y-8: section headings share the field-label style, so 32px above each
+  // (vs 8px below, 16px between field rows) is what keeps them reading as headings.
   return (
-    <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 space-y-4">
-      {/* Session-level fields */}
-      <div className="grid grid-cols-4 gap-4">
-        <DetailField label="Swap Txn ID" value={<span className="font-mono">{txn.id}</span>} />
-        <DetailField label="Customer ID" value={<span className="font-mono">{txn.cust.id}</span>} />
-        <DetailField label="RFID" value={<span className="font-mono">{txn.cust.rfid}</span>} />
-        <DetailField label="Vehicle" value={<span className="font-mono">{txn.vehicle}</span>} />
-        <DetailField label="Station" value={<>{txn.station.name} · <span className="font-mono">{txn.station.id}</span></>} />
-        <DetailField label="Started" value={<span className="font-mono">{fmtClock(txn.startMinute)} IST</span>} />
-        <DetailField label="Duration" value={<span className="font-mono">{txn.endT}s</span>} />
-        <DetailField label="Scenario" value={txn.sc.name} />
-        <div className="col-span-2">
-          <DetailField
-            label="Checked out before swap"
-            value={<span className="font-mono">{txn.checkedOut.join(", ")}</span>}
+    <div className="px-6 py-4 bg-slate-50 space-y-8">
+      <section>
+        <h3 className={SECTION}>What happened</h3>
+        <div className="space-y-4">
+          <div>
+            <p className="text-base font-semibold text-slate-700">{txn.sc.name}</p>
+            <p className="mt-0.5 text-sm text-slate-700">{txn.sc.description}</p>
+          </div>
+
+          <Card>
+            {/* The table row's Collects / Dispensed / Balance, same values and colours.
+                border-l, not divide-x: globals.css only re-colours border-slate-200 in dark mode. */}
+            <div className="grid grid-cols-3 border-b border-slate-200">
+              <div className="px-5 py-2.5">
+                <p className={SUBLAB}>Collects</p>
+                <p className={FIGURE} style={{ fontFamily: "var(--font-display)" }}>
+                  <span className={v.Pc < v.Rc ? "text-red-600" : "text-slate-700"}>{v.Pc}</span>
+                  <span className="text-slate-400"> / {v.Rc}</span>
+                </p>
+              </div>
+              <div className="px-5 py-2.5 border-l border-slate-200">
+                <p className={SUBLAB}>Dispensed</p>
+                <p className={cn(FIGURE, "text-slate-700")} style={{ fontFamily: "var(--font-display)" }}>{v.Dn}</p>
+              </div>
+              <div className="px-5 py-2.5 border-l border-slate-200">
+                <p className={SUBLAB}>Balance</p>
+                <p
+                  className={cn(FIGURE, v.bal !== 0 ? "text-red-600" : "text-slate-400")}
+                  style={{ fontFamily: "var(--font-display)" }}
+                >
+                  {v.bal > 0 ? `+${v.bal}` : v.bal}
+                </p>
+              </div>
+            </div>
+
+            {/* Fixed thirds with the strip's px-5, so label / serial / note sit under
+                Collects / Dispensed / Balance and never resize between sessions. */}
+            <div className="pb-2">
+              <table className="w-full table-fixed text-[11px]">
+                <colgroup>
+                  <col className="w-1/3" />
+                  <col className="w-1/3" />
+                  <col className="w-1/3" />
+                </colgroup>
+                <MovementGroup label="Checked out before swap" items={[{ sn: txn.checkedOut.join(", "), note: "" }]} first spanNote />
+                <MovementGroup label={`Confirmed collected (${confirmed.length})`} items={confirmed} />
+                <MovementGroup label={`Recorded, but no battery (${unconfirmed.length})`} items={unconfirmed} bad />
+                <MovementGroup label={`Dispensed to ${txn.cust.name.split(" ")[0]} (${dispensed.length})`} items={dispensed} />
+              </table>
+            </div>
+          </Card>
+        </div>
+      </section>
+
+      <section>
+        <h3 className={SECTION}>Station before → after</h3>
+        {/* Slots, with a step-through so the moment of the fake is visible */}
+        <div>
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <StepBtn onClick={() => jump(Math.max(0, k - 1))} disabled={k === 0}>
+              <ChevronLeft className="w-3 h-3" /> Step
+            </StepBtn>
+            <button
+              type="button"
+              onClick={() => { if (playing) { setPlaying(false); return; } setStep(0); setPlaying(true); }}
+              disabled={n === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold bg-[#003B49] text-white hover:bg-[#00505f] transition-colors disabled:opacity-40"
+            >
+              {playing ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+              {playing ? "Pause" : "Replay"}
+            </button>
+            <StepBtn onClick={() => jump(k + 1)} disabled={k >= n}>
+              Step <ChevronRight className="w-3 h-3" />
+            </StepBtn>
+            <span className="text-[11px] text-slate-400 tabular-nums">{k} of {n} steps applied</span>
+          </div>
+
+          <SlotStrip
+            before={txn.before}
+            state={state}
+            marks={marks}
+            liveLabel={liveLabel}
+            now={!atEnd && current ? nowText(current) : undefined}
+            nowClass={!atEnd && current ? stepToken(current).text : undefined}
           />
         </div>
-        <div className="col-span-2">
-          <DetailField label="What this is" value={txn.sc.description} />
-        </div>
-      </div>
+      </section>
 
-      {/* Why the verdict came out that way */}
-      <div>
-        <p className={cn(SUBLAB, "mb-2")}>Why this verdict</p>
-        <div className="flex flex-wrap gap-1.5">
-          {v.flags.map((f, i) => (
-            <span key={i} className={cn("px-2 py-0.5 rounded text-[11px] font-medium", FLAG_BADGE[f.k])}>
-              {f.t}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Slots, with a step-through so the moment of the fake is visible */}
-      <div>
-        <div className="flex items-center gap-2 mb-2 flex-wrap">
-          <StepBtn onClick={() => jump(Math.max(0, k - 1))} disabled={k === 0}>
-            <ChevronLeft className="w-3 h-3" /> Step
-          </StepBtn>
-          <button
-            type="button"
-            onClick={() => { if (playing) { setPlaying(false); return; } setStep(0); setPlaying(true); }}
-            disabled={n === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold bg-[#003B49] text-white hover:bg-[#00505f] transition-colors disabled:opacity-40"
-          >
-            {playing ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-            {playing ? "Pause" : "Replay"}
-          </button>
-          <StepBtn onClick={() => jump(k + 1)} disabled={k >= n}>
-            Step <ChevronRight className="w-3 h-3" />
-          </StepBtn>
-          <span className="text-[11px] text-slate-400 tabular-nums">{k} of {n} steps applied</span>
-        </div>
-
-        <SlotStrip
-          before={txn.before}
-          state={state}
-          marks={marks}
-          liveLabel={liveLabel}
-          now={!atEnd && current ? nowText(current) : undefined}
-          nowClass={!atEnd && current ? stepToken(current).text : undefined}
-        />
-      </div>
-
-      {/* Battery movement */}
-      <div className="grid grid-cols-3 gap-4">
-        <MovementList label={`Confirmed collected (${confirmed.length})`} items={confirmed} />
-        <MovementList label={`Recorded, but no battery (${unconfirmed.length})`} items={unconfirmed} bad />
-        <MovementList label={`Dispensed to ${txn.cust.name.split(" ")[0]} (${dispensed.length})`} items={dispensed} />
-      </div>
-
-      {/* Event log */}
-      <div>
-        <p className={cn(SUBLAB, "mb-2")}>Event log</p>
+      <section>
+        <h3 className={SECTION}>Event log</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-[11px] min-w-[760px]">
             <thead>
@@ -191,7 +212,21 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
+
+      <section>
+        <h3 className={SECTION}>Reference</h3>
+        <div className="grid grid-cols-4 gap-4">
+          <DetailField label="Swap Txn ID" value={<span className="font-mono">{txn.id}</span>} />
+          <DetailField label="Customer ID" value={<span className="font-mono">{txn.cust.id}</span>} />
+          <DetailField label="Phone" value={<span className="font-mono">{txn.cust.phone}</span>} />
+          <DetailField label="RFID" value={<span className="font-mono">{txn.cust.rfid}</span>} />
+          <DetailField label="Vehicle" value={<span className="font-mono">{txn.vehicle}</span>} />
+          <DetailField label="Station" value={<>{txn.station.name} · <span className="font-mono">{txn.station.id}</span></>} />
+          <DetailField label="Started" value={<span className="font-mono">{fmtClock(txn.startMinute)} IST</span>} />
+          <DetailField label="Duration" value={<span className="font-mono">{txn.endT}s</span>} />
+        </div>
+      </section>
     </div>
   );
 }
@@ -209,23 +244,44 @@ export function StepBtn({ children, onClick, disabled }: { children: React.React
   );
 }
 
-function MovementList({ label, items, bad }: { label: string; items: { sn: string; note: string }[]; bad?: boolean }) {
+/**
+ * One group as table rows: its label on the first line only, then serial and
+ * note per battery ("None" when empty). Groups are split by a thin rule.
+ */
+function MovementGroup({
+  label, items, bad, first, spanNote,
+}: {
+  label: string;
+  items: { sn: string; note: string }[];
+  bad?: boolean;
+  first?: boolean;
+  /** The serial takes the note column too (Checked out before swap has no note). */
+  spanNote?: boolean;
+}) {
+  const labelCell = (show: boolean) => (
+    <td className={cn(SUBLAB, "px-5 py-2 align-top", bad && items.length > 0 && "text-red-500")}>
+      {show ? label : null}
+    </td>
+  );
   return (
-    <div>
-      <p className={cn(SUBLAB, bad && items.length > 0 && "text-red-500")}>{label}</p>
-      <div className="mt-1.5 space-y-1">
-        {items.length === 0 ? (
-          <p className="text-[11px] text-slate-400">None</p>
-        ) : (
-          items.map((it, i) => (
-            <div key={`${it.sn}-${i}`} className="flex items-baseline justify-between gap-2 rounded bg-white border border-slate-200 px-2 py-1">
-              <span className="font-mono text-[11px] font-semibold text-slate-700">{it.sn}</span>
-              <span className="text-[10px] text-slate-400 text-right">{it.note}</span>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
+    <tbody className={cn(!first && "border-t border-slate-100")}>
+      {items.length === 0 ? (
+        <tr>
+          {labelCell(true)}
+          <td colSpan={2} className="px-5 py-2 text-slate-400">None</td>
+        </tr>
+      ) : (
+        items.map((it, i) => (
+          <tr key={`${it.sn}-${i}`}>
+            {labelCell(i === 0)}
+            <td colSpan={spanNote ? 2 : 1} className="px-5 py-2 align-top font-mono font-semibold text-slate-700 break-all">
+              {it.sn}
+            </td>
+            {!spanNote && <td className="px-5 py-2 align-top text-[10px] text-slate-400">{it.note}</td>}
+          </tr>
+        ))
+      )}
+    </tbody>
   );
 }
 

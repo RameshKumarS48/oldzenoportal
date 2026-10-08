@@ -90,3 +90,6 @@ export const SLOT_LEGEND: { label: string; dot: string }[] = [
 
 /** The small uppercase caption dome puts above a sub-section of a detail row. */
 export const SUBLAB = "text-[10px] font-bold text-slate-400 uppercase tracking-wider";
+
+/** A drawer section heading: the SUBLAB caption style, spaced like SUBLAB captions. */
+export const SECTION = `${SUBLAB} mb-2`;

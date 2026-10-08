@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, ChevronUp, ChevronDown } from "lucide-react";
+import { X, ChevronUp, ChevronDown, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { SwapTxn } from "@/lib/mock/swap-audit";
-import { SessionDetail, StepBtn } from "./SessionDetail";
+import { toast } from "@/store/toast";
+import { fmtClock, type SwapTxn } from "@/lib/mock/swap-audit";
+import { VERDICT_META } from "./tokens";
+import { DetailField, SessionDetail, StepBtn } from "./SessionDetail";
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -32,11 +34,24 @@ export function SessionDrawer({
   const [shown, setShown] = useState(txn);
   if (txn && txn !== shown) setShown(txn);
 
+  // Copy the swap ID: green check and "Copied", as Users' invite-link copy does.
+  const [copied, setCopied] = useState(false);
+  const copyId = async () => {
+    if (!shown) return;
+    try {
+      await navigator.clipboard.writeText(shown.id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Couldn't copy the swap ID", "Your browser blocked clipboard access. Select the ID and copy it manually.");
+    }
+  };
+
   const backdropRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
 
-  // Focus lands on the title so screen readers announce which session opened.
+  // Focus lands on the title (the customer) so screen readers announce it.
   useEffect(() => {
     if (open) titleRef.current?.focus();
   }, [open]);
@@ -123,36 +138,75 @@ export function SessionDrawer({
           open ? "translate-x-0" : "translate-x-full"
         )}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-          <h2
-            id="session-drawer-title"
-            ref={titleRef}
-            tabIndex={-1}
-            aria-live="polite"
-            className="font-semibold text-slate-800 focus:outline-none"
-          >
-            Swap session · {shown?.id}
-          </h2>
-          <div className="flex items-center gap-4">
-            <div ref={navRef} className="flex items-center gap-2">
-              <span data-nav="prev">
-                <StepBtn onClick={() => step("prev")} disabled={!onPrev}>
-                  <ChevronUp className="w-3 h-3" /> Previous
-                </StepBtn>
-              </span>
-              <span data-nav="next">
-                <StepBtn onClick={() => step("next")} disabled={!onNext}>
-                  Next <ChevronDown className="w-3 h-3" />
-                </StepBtn>
-              </span>
-              {position > 0 && (
-                <span className="text-[11px] text-slate-400 tabular-nums">{position} of {total}</span>
-              )}
+        {/* Who and the verdict, then where, when and which swap in the detail grid's label style. */}
+        <div className="px-6 py-4 border-b border-slate-200 space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            {shown && (
+              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                <h2
+                  id="session-drawer-title"
+                  ref={titleRef}
+                  tabIndex={-1}
+                  aria-live="polite"
+                  className="font-medium text-slate-700 focus:outline-none"
+                >
+                  {shown.cust.name}
+                </h2>
+                <span className={cn("px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap", VERDICT_META[shown.verdict.status].badge)}>
+                  {VERDICT_META[shown.verdict.status].label}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center gap-4 shrink-0">
+              <div ref={navRef} className="flex items-center gap-2">
+                <span data-nav="prev">
+                  <StepBtn onClick={() => step("prev")} disabled={!onPrev}>
+                    <ChevronUp className="w-3 h-3" /> Previous
+                  </StepBtn>
+                </span>
+                <span data-nav="next">
+                  <StepBtn onClick={() => step("next")} disabled={!onNext}>
+                    Next <ChevronDown className="w-3 h-3" />
+                  </StepBtn>
+                </span>
+                {position > 0 && (
+                  <span className="text-[11px] text-slate-400 tabular-nums">{position} of {total}</span>
+                )}
+              </div>
+              <button onClick={onClose} aria-label="Close" className="p-1 rounded-lg hover:bg-slate-100">
+                <X className="w-4 h-4 text-slate-500" />
+              </button>
             </div>
-            <button onClick={onClose} aria-label="Close" className="p-1 rounded-lg hover:bg-slate-100">
-              <X className="w-4 h-4 text-slate-500" />
-            </button>
           </div>
+
+          {/* Same 4-column grid as Reference, so the columns line up below. */}
+          {shown && (
+            <div className="grid grid-cols-4 gap-4">
+              <DetailField
+                label="Station"
+                value={<>{shown.station.name}<span className="block font-mono text-[10px] text-slate-400">{shown.station.id}</span></>}
+              />
+              <DetailField label="Time" value={`6 Oct, ${fmtClock(shown.startMinute)}`} />
+              <DetailField
+                label="Swap Txn ID"
+                value={
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="font-mono">{shown.id}</span>
+                    <button
+                      type="button"
+                      onClick={copyId}
+                      title="Copy ID"
+                      aria-label="Copy ID"
+                      className="rounded text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                    </button>
+                    <span aria-live="polite" className="text-xs text-green-600">{copied ? "Copied" : ""}</span>
+                  </span>
+                }
+              />
+            </div>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain bg-slate-50">
