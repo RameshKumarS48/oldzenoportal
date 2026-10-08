@@ -100,11 +100,7 @@ export function SwapAuditTable() {
               type="button"
               aria-pressed={selected}
               onClick={() => selectVerdict(selected ? "" : c.verdict)}
-              className={cn(
-                "text-left rounded-lg cursor-pointer focus:outline-none",
-                "focus-visible:ring-2 focus-visible:ring-zeno-red focus-visible:ring-offset-2",
-                "dark:focus-visible:ring-offset-(color:--background)"
-              )}
+              className="text-left rounded-lg cursor-pointer"
             >
               {/* zeno-teal is near-invisible on dark cards (1.4:1), so dark mode switches
                   to --sidebar-text, the sidebar's light teal (7.3:1). The hover border
