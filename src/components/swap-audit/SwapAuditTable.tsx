@@ -41,6 +41,15 @@ const CONTROL =
   "text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-600 " +
   "focus:outline-none focus:ring-2 focus:ring-[#003B49]/20";
 
+/** Summary cards that double as the Verdict filter. "" is Sessions, i.e. All Verdicts. */
+const VERDICT_CARDS: { verdict: VerdictStatus | ""; label: string; value: number; valueColor?: string }[] = [
+  { verdict: "",              label: "Sessions",      value: SWAP_TXNS.length },
+  { verdict: "COMPLIANT",     label: "Compliant",     value: VERDICT_TOTALS.COMPLIANT,        valueColor: "text-emerald-600" },
+  { verdict: "NON-COMPLIANT", label: "Non-compliant", value: VERDICT_TOTALS["NON-COMPLIANT"], valueColor: "text-red-600" },
+  { verdict: "REVIEW",        label: "Needs review",  value: VERDICT_TOTALS.REVIEW,           valueColor: "text-amber-600" },
+  { verdict: "NO SWAP",       label: "No swap",       value: VERDICT_TOTALS["NO SWAP"] },
+];
+
 /** The sessions of 6 Oct 2026, one row each, opened for the evidence behind the verdict. */
 export function SwapAuditTable() {
   const [search, setSearch] = useState("");
@@ -70,6 +79,9 @@ export function SwapAuditTable() {
   // Batteries the stations are short across the day — the number the fraud costs.
   const short = SWAP_TXNS.reduce((s, t) => s + (t.verdict.bal < 0 ? -t.verdict.bal : 0), 0);
 
+  // The cards and the dropdown both go through here, so they can't disagree.
+  const selectVerdict = (v: VerdictStatus | "") => { setVerdict(v); setPage(1); };
+
   const clearFilters = () => {
     setSearch(""); setStation(""); setScenario(""); setVerdict(""); setPage(1);
   };
@@ -78,13 +90,40 @@ export function SwapAuditTable() {
 
   return (
     <div className="space-y-4">
-      {/* Summary */}
+      {/* Summary: the session cards filter by verdict; clicking the selected one returns to All. */}
       <StatGrid cols={6}>
-        <StatCard label="Sessions" value={SWAP_TXNS.length} />
-        <StatCard label="Compliant" value={VERDICT_TOTALS.COMPLIANT} valueColor="text-emerald-600" />
-        <StatCard label="Non-compliant" value={VERDICT_TOTALS["NON-COMPLIANT"]} valueColor="text-red-600" />
-        <StatCard label="Needs review" value={VERDICT_TOTALS.REVIEW} valueColor="text-amber-600" />
-        <StatCard label="No swap" value={VERDICT_TOTALS["NO SWAP"]} />
+        {VERDICT_CARDS.map((c) => {
+          const selected = verdict === c.verdict;
+          return (
+            <button
+              key={c.label}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => selectVerdict(selected ? "" : c.verdict)}
+              className={cn(
+                "text-left rounded-lg cursor-pointer focus:outline-none",
+                "focus-visible:ring-2 focus-visible:ring-zeno-red focus-visible:ring-offset-2",
+                "dark:focus-visible:ring-offset-(color:--background)"
+              )}
+            >
+              {/* zeno-teal is near-invisible on dark cards (1.4:1), so dark mode switches
+                  to --sidebar-text, the sidebar's light teal (7.3:1). The hover border
+                  needs `[.dark_&]` + `!` to outrank globals.css's `.dark main .border-slate-200`. */}
+              <StatCard
+                label={c.label}
+                value={c.value}
+                valueColor={c.valueColor}
+                className={cn(
+                  "transition-colors",
+                  selected
+                    ? "border-zeno-teal bg-zeno-teal/5 dark:border-(color:--sidebar-text) dark:bg-(--sidebar-text)/10"
+                    : "hover:border-zeno-teal/50 hover:bg-zeno-teal/5 [.dark_&]:hover:border-(color:--sidebar-text)/50!"
+                )}
+              />
+            </button>
+          );
+        })}
+        {/* Counts batteries, not sessions, so it has no verdict to filter by. */}
         <StatCard label="Batteries short" value={short} valueColor={short > 0 ? "text-red-600" : undefined} />
       </StatGrid>
 
@@ -112,7 +151,7 @@ export function SwapAuditTable() {
 
         <select
           value={verdict}
-          onChange={(e) => { setVerdict(e.target.value as VerdictStatus | ""); setPage(1); }}
+          onChange={(e) => selectVerdict(e.target.value as VerdictStatus | "")}
           className={CONTROL}
         >
           <option value="">All Verdicts</option>
