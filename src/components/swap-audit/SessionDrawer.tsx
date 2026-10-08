@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { X, ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SwapTxn } from "@/lib/mock/swap-audit";
-import { SessionDetail } from "./SessionDetail";
+import { SessionDetail, StepBtn } from "./SessionDetail";
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -14,7 +14,18 @@ const FOCUSABLE =
  * Styled after AddWidgetDrawer. Rendered in place rather than portalled: it has
  * to stay inside <main> to pick up globals.css's dark-mode overrides.
  */
-export function SessionDrawer({ txn, onClose }: { txn: SwapTxn | null; onClose: () => void }) {
+export function SessionDrawer({
+  txn, position, total, onPrev, onNext, onClose,
+}: {
+  txn: SwapTxn | null;
+  /** 1-based place of `txn` in the filtered list; 0 when it isn't in it. */
+  position: number;
+  total: number;
+  /** Omitted at either end of the list, which disables that button. */
+  onPrev?: () => void;
+  onNext?: () => void;
+  onClose: () => void;
+}) {
   const open = txn !== null;
 
   // Keep the last session on screen while the panel slides out.
@@ -27,12 +38,39 @@ export function SessionDrawer({ txn, onClose }: { txn: SwapTxn | null; onClose: 
 
   // Focus lands on the title so screen readers announce which session opened.
   useEffect(() => {
+    if (open) titleRef.current?.focus();
+  }, [open]);
+
+  // Esc closes; up and down step through the list, except where the arrows
+  // already mean something (a field or dropdown) or a modifier is held.
+  useEffect(() => {
     if (!open) return;
-    titleRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { onClose(); return; }
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if ((e.target as HTMLElement).closest("input, select, textarea, [contenteditable='true']")) return;
+      e.preventDefault();
+      (e.key === "ArrowUp" ? onPrev : onNext)?.();
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, onClose, onPrev, onNext]);
+
+  // Reaching either end disables the button that got you there; hand focus to
+  // the other one rather than letting it fall out of the drawer.
+  const navRef = useRef<HTMLDivElement>(null);
+  const refocusRef = useRef<"prev" | "next" | null>(null);
+  const step = (dir: "prev" | "next") => {
+    const atEnd = dir === "prev" ? position - 1 <= 1 : position + 1 >= total;
+    if (atEnd) refocusRef.current = dir === "prev" ? "next" : "prev";
+    (dir === "prev" ? onPrev : onNext)?.();
+  };
+  useEffect(() => {
+    const target = refocusRef.current;
+    refocusRef.current = null;
+    if (target) navRef.current?.querySelector<HTMLElement>(`[data-nav="${target}"] button`)?.focus();
+  }, [position]);
 
   // A wheel over the backdrop must not scroll the table behind it. React's
   // onWheel is passive, so this needs a real listener to preventDefault.
@@ -90,13 +128,31 @@ export function SessionDrawer({ txn, onClose }: { txn: SwapTxn | null; onClose: 
             id="session-drawer-title"
             ref={titleRef}
             tabIndex={-1}
+            aria-live="polite"
             className="font-semibold text-slate-800 focus:outline-none"
           >
             Swap session · {shown?.id}
           </h2>
-          <button onClick={onClose} aria-label="Close" className="p-1 rounded-lg hover:bg-slate-100">
-            <X className="w-4 h-4 text-slate-500" />
-          </button>
+          <div className="flex items-center gap-4">
+            <div ref={navRef} className="flex items-center gap-2">
+              <span data-nav="prev">
+                <StepBtn onClick={() => step("prev")} disabled={!onPrev}>
+                  <ChevronUp className="w-3 h-3" /> Previous
+                </StepBtn>
+              </span>
+              <span data-nav="next">
+                <StepBtn onClick={() => step("next")} disabled={!onNext}>
+                  Next <ChevronDown className="w-3 h-3" />
+                </StepBtn>
+              </span>
+              {position > 0 && (
+                <span className="text-[11px] text-slate-400 tabular-nums">{position} of {total}</span>
+              )}
+            </div>
+            <button onClick={onClose} aria-label="Close" className="p-1 rounded-lg hover:bg-slate-100">
+              <X className="w-4 h-4 text-slate-500" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain bg-slate-50">

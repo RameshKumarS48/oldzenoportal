@@ -196,7 +196,7 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
   );
 }
 
-function StepBtn({ children, onClick, disabled }: { children: React.ReactNode; onClick: () => void; disabled?: boolean }) {
+export function StepBtn({ children, onClick, disabled }: { children: React.ReactNode; onClick: () => void; disabled?: boolean }) {
   return (
     <button
       type="button"

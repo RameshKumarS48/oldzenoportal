@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { ScanSearch } from "lucide-react";
 import { AccessGuard } from "@/components/ui/AccessGuard";
 import { Topbar } from "@/components/layout/Topbar";
@@ -23,7 +24,10 @@ export default function SwapAuditPage() {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto bg-zeno-bg p-6">
-          <SwapAuditTable />
+          {/* The table reads ?txn= from the URL, which Next requires inside Suspense. */}
+          <Suspense fallback={null}>
+            <SwapAuditTable />
+          </Suspense>
         </div>
       </main>
     </AccessGuard>

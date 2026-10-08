@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search, Download, ChevronRight, PackageOpen, AlertTriangle } from "lucide-react";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { Pagination } from "@/components/ui/Pagination";
@@ -37,6 +38,20 @@ function exportCSV(rows: SwapTxn[]) {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Writes ?txn= straight to the history API. Next 16 syncs useSearchParams with
+ * pushState/replaceState, so this needs no navigation and no server round trip.
+ */
+function writeTxnParam(id: string | null, mode: "push" | "replace") {
+  const params = new URLSearchParams(window.location.search);
+  if (id) params.set("txn", id);
+  else params.delete("txn");
+  const qs = params.toString();
+  const url = qs ? `?${qs}` : window.location.pathname;
+  if (mode === "push") window.history.pushState(null, "", url);
+  else window.history.replaceState(null, "", url);
+}
+
 const CONTROL =
   "text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-600 " +
   "focus:outline-none focus:ring-2 focus:ring-[#003B49]/20";
@@ -56,7 +71,6 @@ export function SwapAuditTable() {
   const [station, setStation] = useState("");
   const [scenario, setScenario] = useState("");
   const [verdict, setVerdict] = useState<VerdictStatus | "">("");
-  const [openId, setOpenId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
 
@@ -79,19 +93,64 @@ export function SwapAuditTable() {
   // Batteries the stations are short across the day — the number the fraud costs.
   const short = SWAP_TXNS.reduce((s, t) => s + (t.verdict.bal < 0 ? -t.verdict.bal : 0), 0);
 
-  // The row that opened the drawer gets focus back when it closes.
-  const openerRef = useRef<HTMLTableRowElement | null>(null);
+  // The open swap lives in the URL, so a link reopens it and Back closes it.
+  const openId = useSearchParams().get("txn");
   const openTxn = openId ? SWAP_TXNS.find((t) => t.id === openId) ?? null : null;
+  const openIndex = openTxn ? filtered.findIndex((t) => t.id === openTxn.id) : -1;
 
-  const openRow = (id: string, row: HTMLTableRowElement) => {
-    openerRef.current = row;
-    setOpenId(id);
+  // True when this visit pushed the ?txn= entry, so closing can pop it instead
+  // of stacking a duplicate. A shared link arrives without one.
+  const pushedRef = useRef(false);
+
+  const openRow = (id: string) => {
+    writeTxnParam(id, "push");
+    pushedRef.current = true;
+  };
+
+  // Previous/Next replace the entry, so one Back still closes the drawer.
+  const goTo = (i: number) => {
+    const t = filtered[i];
+    if (t) writeTxnParam(t.id, "replace");
   };
 
   const closeDrawer = useCallback(() => {
-    setOpenId(null);
-    openerRef.current?.focus();
+    if (pushedRef.current) {
+      pushedRef.current = false;
+      window.history.back();
+    } else {
+      writeTxnParam(null, "replace");
+    }
   }, []);
+
+  // Keep the open swap's row on the visible page, for links and Previous/Next.
+  // Adjusted during render, React's pattern for state that follows other state.
+  const [pagedFor, setPagedFor] = useState(-1);
+  if (openIndex !== pagedFor) {
+    setPagedFor(openIndex);
+    if (openIndex >= 0) setPage(Math.floor(openIndex / perPage) + 1);
+  }
+
+  // However the drawer closes (X, Esc, backdrop, browser Back), focus returns
+  // to the row of the swap that was last shown.
+  const lastShownRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (openTxn) {
+      lastShownRef.current = openTxn.id;
+      return;
+    }
+    const id = lastShownRef.current;
+    lastShownRef.current = null;
+    if (id) document.querySelector<HTMLElement>(`tr[data-txn="${id}"]`)?.focus();
+  }, [openTxn]);
+
+  // A link to an unknown swap: say so once, then drop it from the URL.
+  const warnedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!openId || openTxn || warnedRef.current === openId) return;
+    warnedRef.current = openId;
+    toast.error("Swap not found", `No swap session matches ${openId}.`);
+    writeTxnParam(null, "replace");
+  }, [openId, openTxn]);
 
   // The cards and the dropdown both go through here, so they can't disagree.
   const selectVerdict = (v: VerdictStatus | "") => { setVerdict(v); setPage(1); };
@@ -228,15 +287,16 @@ export function SwapAuditTable() {
                 return (
                   <tr
                     key={t.id}
+                    data-txn={t.id}
                     tabIndex={0}
                     aria-haspopup="dialog"
                     className={cn(
                       "hover:bg-slate-50 transition-colors cursor-pointer",
                       selected && "bg-zeno-teal/5 dark:bg-(--sidebar-text)/10"
                     )}
-                    onClick={(e) => openRow(t.id, e.currentTarget)}
+                    onClick={() => openRow(t.id)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openRow(t.id, e.currentTarget); }
+                      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openRow(t.id); }
                     }}
                   >
                     <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">6 Oct, {fmtClock(t.startMinute)}</td>
@@ -284,7 +344,14 @@ export function SwapAuditTable() {
         <Pagination total={filtered.length} page={page} perPage={perPage} onPage={setPage} onPerPage={setPerPage} />
       </div>
 
-      <SessionDrawer txn={openTxn} onClose={closeDrawer} />
+      <SessionDrawer
+        txn={openTxn}
+        position={openIndex + 1}
+        total={filtered.length}
+        onPrev={openIndex > 0 ? () => goTo(openIndex - 1) : undefined}
+        onNext={openIndex >= 0 && openIndex < filtered.length - 1 ? () => goTo(openIndex + 1) : undefined}
+        onClose={closeDrawer}
+      />
     </div>
   );
 }
