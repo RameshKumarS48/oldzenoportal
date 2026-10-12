@@ -169,11 +169,13 @@ export interface SwapTxn {
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
 // Nairobi sites, named as the rest of the app names them.
+// The same codes these sites carry in the app's station list (kpi-infra.ts),
+// in the upper-case BS0000 form Tampering Alerts uses.
 export const STATIONS: Station[] = [
-  { id: "STN-NBO-014", name: "Extra Miles, Eastleigh" },
-  { id: "STN-NBO-021", name: "M Square, Kilimani" },
-  { id: "STN-NBO-033", name: "Pop Up Mall, Parklands" },
-  { id: "STN-NBO-047", name: "Headquarters Inn, Langata" },
+  { id: "BS0017", name: "Extra Miles, Eastleigh" },
+  { id: "BS0021", name: "M Square, Kilimani" },
+  { id: "BS0022", name: "Pop Up Mall, Parklands" },
+  { id: "BS0030", name: "Headquarters Inn, Langata" },
 ];
 
 // Kenyan names. Each list keeps its old length: the PRNG draws the same
