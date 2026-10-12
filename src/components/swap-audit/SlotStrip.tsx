@@ -26,6 +26,13 @@ const stepSlots = (s: Step): number[] => (s.type === "poll" ? s.slots ?? [] : [s
 const sameBattery = (a: Battery | null, b: Battery | null) =>
   a === null || b === null ? a === b : a.sn === b.sn && a.kind === b.kind;
 
+/** Which legend entry a slot's battery belongs to. Dispensed is decided by the caller. */
+function stateKey(bat: Battery | null): LegendKey {
+  if (!bat) return "empty";
+  if (bat.kind === "phantom" || bat.kind === "foreign" || bat.origin) return "bad";
+  return bat.kind === "depleted" ? "depleted" : "charged";
+}
+
 /** The hover title a slot has always had, now also naming the slot state. */
 function slotTitle(slot: number, bat: Battery | null): string {
   if (!bat) return `Slot ${slot} · empty`;
@@ -67,12 +74,7 @@ export function SlotStrip({
   // Only the legend entries something on screen is actually drawn in.
   const shown = new Set<LegendKey>();
   for (const row of [before, state]) {
-    for (const bat of row) {
-      if (!bat) shown.add("empty");
-      else if (bat.kind === "phantom" || bat.kind === "foreign" || bat.origin) shown.add("bad");
-      else if (bat.kind === "depleted") shown.add("depleted");
-      else shown.add("charged");
-    }
+    for (const bat of row) shown.add(stateKey(bat));
   }
   if (state.some((bat, i) => !bat && before[i])) shown.add("dispensed");
 
@@ -227,7 +229,7 @@ function Slot({
           dispensed ? "border-blue-500" : "border-slate-300"
         )}
       >
-        <Head slot={slot} mark={dispensed ? undefined : mark} tone={tone?.text} steps={steps} />
+        <Head slot={slot} dot={dispensed ? "dispensed" : "empty"} mark={dispensed ? undefined : mark} tone={tone?.text} steps={steps} />
         <p className={cn("text-[10px]", dispensed ? "text-blue-700" : "text-slate-400")}>
           {dispensed ? "Dispensed" : "Empty"}
         </p>
@@ -243,7 +245,7 @@ function Slot({
         className={cn(SLOT_H, "rounded-lg p-1.5 flex flex-col gap-1", m.card)}
         style={{ background: HATCH("rgba(220,38,38,0.12)") }}
       >
-        <Head slot={slot} mark={mark} tone={tone?.text} steps={steps} />
+        <Head slot={slot} dot="bad" mark={mark} tone={tone?.text} steps={steps} />
         <span className={cn("self-start rounded px-1 py-0.5 text-[9px] font-bold", m.badge)}>{m.label}</span>
         <p className="font-mono text-[10px] text-slate-400 line-through">{bat.sn ?? "S/N not read"}</p>
         <p className="text-[9px] font-semibold text-red-600">
@@ -258,7 +260,7 @@ function Slot({
 
   return (
     <div title={slotTitle(slot, bat)} className={cn(SLOT_H, "rounded-lg p-1.5 flex flex-col gap-1", m.card)}>
-      <Head slot={slot} mark={mark} tone={tone?.text} steps={steps} />
+      <Head slot={slot} dot={stateKey(bat)} mark={mark} tone={tone?.text} steps={steps} />
       <span className={cn("self-start rounded px-1 py-0.5 text-[9px] font-bold whitespace-nowrap", m.badge)}>{m.label}</span>
       <p className="font-mono text-[10px] text-slate-600 break-all leading-tight">{bat.sn}</p>
       {suspect && <p className="text-[9px] font-bold text-red-600 leading-tight">{suspect}</p>}
@@ -267,12 +269,18 @@ function Slot({
   );
 }
 
-/** Slot number, the event-log steps that touched it, and the event tag. */
-function Head({ slot, mark, tone, steps }: { slot: number; mark?: Step; tone?: string; steps?: number[] }) {
+/**
+ * Slot number, its legend dot, the event-log steps that touched it, and the
+ * event tag. The dot is decorative: the chip or word below says the same.
+ */
+function Head({
+  slot, dot, mark, tone, steps,
+}: { slot: number; dot: LegendKey; mark?: Step; tone?: string; steps?: number[] }) {
   return (
     <div className="flex items-baseline justify-between gap-x-1 flex-wrap">
       <span className="inline-flex items-baseline gap-1">
         <span className="text-[10px] font-bold text-slate-500">{slotLabel(slot)}</span>
+        <span aria-hidden="true" className={cn("w-2 h-2 rounded-sm self-center", DOT[dot])} />
         {steps && steps.length > 0 && (
           <span className={SUBLAB}>{steps.join(", ")}</span>
         )}
