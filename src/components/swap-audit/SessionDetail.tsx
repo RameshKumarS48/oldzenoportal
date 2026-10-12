@@ -167,12 +167,19 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
               value={<span className="font-mono">{txn.checkedOut.join(", ")}</span>}
             />
           </div>
-          <DetailField label="Swap Txn ID" value={<span className="font-mono">{txn.id}</span>} />
+          <DetailField label="Swap Txn ID" value={<CopyButton value={txn.id} label="Swap Txn ID" className="font-mono" />} />
           <DetailField
             label="Customer ID"
             value={<CopyButton value={txn.cust.id} label="Customer ID" className="font-mono" />}
           />
-          <DetailField label="Phone" value={<span className="font-mono">{txn.cust.phone}</span>} />
+          <DetailField
+            label="Phone"
+            value={
+              <CopyButton value={txn.cust.phone.replace(/\s/g, "")} label="Phone" className="font-mono">
+                {txn.cust.phone}
+              </CopyButton>
+            }
+          />
           <DetailField
             label="RFID"
             value={<CopyButton value={txn.cust.rfid} label="RFID" className="font-mono" />}
@@ -181,7 +188,16 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
             label="Vehicle"
             value={<CopyButton value={txn.vehicle} label="Vehicle" className="font-mono" />}
           />
-          <DetailField label="Station" value={<><span className="font-mono">{txn.station.id}</span> · {txn.station.name}</>} />
+          <DetailField
+            label="Station"
+            value={
+              <>
+                <CopyButton value={txn.station.id} label="Station code" className="font-mono" />
+                <span className="mx-2.5">·</span>
+                {txn.station.name}
+              </>
+            }
+          />
           <DetailField label="Started" value={<span className="font-mono">{fmtClock(txn.startMinute)}</span>} />
           <DetailField label="Duration" value={<span className="font-mono">{txn.endT}s</span>} />
         </div>
