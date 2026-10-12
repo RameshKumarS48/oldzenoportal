@@ -143,7 +143,7 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
                       ) : s.bat?.sn ? (
                         <span className="inline-flex items-center gap-1.5">
                           {s.bat.sn}
-                          <CopyButton value={s.bat.sn} label={`battery serial ${s.bat.sn}`} />
+                          <CopyButton value={s.bat.sn} label={`Battery serial ${s.bat.sn}`} />
                         </span>
                       ) : (
                         "–"
@@ -173,7 +173,7 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
           <DetailField label="Swap Txn ID" value={<span className="font-mono">{txn.id}</span>} />
           <DetailField
             label="Customer ID"
-            value={<span className="inline-flex items-center gap-1.5 font-mono">{txn.cust.id}<CopyButton value={txn.cust.id} label="customer ID" /></span>}
+            value={<span className="inline-flex items-center gap-1.5 font-mono">{txn.cust.id}<CopyButton value={txn.cust.id} label="Customer ID" /></span>}
           />
           <DetailField label="Phone" value={<span className="font-mono">{txn.cust.phone}</span>} />
           <DetailField
@@ -182,7 +182,7 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
           />
           <DetailField
             label="Vehicle"
-            value={<span className="inline-flex items-center gap-1.5 font-mono">{txn.vehicle}<CopyButton value={txn.vehicle} label="vehicle" /></span>}
+            value={<span className="inline-flex items-center gap-1.5 font-mono">{txn.vehicle}<CopyButton value={txn.vehicle} label="Vehicle" /></span>}
           />
           <DetailField label="Station" value={<><span className="font-mono">{txn.station.id}</span> · {txn.station.name}</>} />
           <DetailField label="Started" value={<span className="font-mono">{fmtClock(txn.startMinute)}</span>} />

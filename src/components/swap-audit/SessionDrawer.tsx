@@ -175,7 +175,7 @@ export function SessionDrawer({
                   <>
                     <span className="inline-flex items-center gap-1.5 font-mono">
                       {shown.station.id}
-                      <CopyButton value={shown.station.id} label="station ID" />
+                      <CopyButton value={shown.station.id} label="Station code" />
                     </span>
                     <span className="block text-[10px] text-slate-400">{shown.station.name}</span>
                   </>
@@ -197,7 +197,7 @@ export function SessionDrawer({
                 value={
                   <span className="inline-flex items-center gap-1.5 font-mono">
                     {shown.cust.phone}
-                    <CopyButton value={shown.cust.phone.replace(/\s/g, "")} label="phone" />
+                    <CopyButton value={shown.cust.phone.replace(/\s/g, "")} label="Phone" />
                   </span>
                 }
               />

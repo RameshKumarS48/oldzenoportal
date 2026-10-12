@@ -465,7 +465,7 @@ export function TamperingAlertsView() {
                       <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">
                         <span className="inline-flex items-center gap-1.5">
                           {alert.id}
-                          <CopyButton value={alert.id} label="alert ID" reveal />
+                          <CopyButton value={alert.id} label="Alert ID" reveal />
                         </span>
                         {rfidActive && <Ban className="w-3 h-3 text-red-500 inline ml-1.5" />}
                       </td>
@@ -474,26 +474,27 @@ export function TamperingAlertsView() {
                         {/* The vehicle shows its last 8 characters but copies in full. */}
                         <p className="text-slate-400 text-[11px] inline-flex items-center gap-1.5">
                           {alert.customerId}
-                          <CopyButton value={alert.customerId} label="customer ID" reveal />
+                          <CopyButton value={alert.customerId} label="Customer ID" reveal />
                           <span>·</span>
                           {alert.vehicleId.slice(-8)}
-                          <CopyButton value={alert.vehicleId} label="vehicle ID" reveal />
+                          <CopyButton value={alert.vehicleId} label="Vehicle ID" reveal />
                         </p>
                       </td>
                       <td className="px-3 py-2.5 text-slate-500">
                         {alert.batteryIds.map((b) => (
                           <p key={b} className="font-mono text-[10px] flex items-center gap-1.5">
                             {b}
-                            <CopyButton value={b} label={`battery ID ${b}`} reveal />
+                            <CopyButton value={b} label={`Battery ID ${b}`} reveal />
                           </p>
                         ))}
                       </td>
-                      <td className="px-3 py-2.5 text-slate-600 max-w-[140px]">
-                        <p className="truncate">{alert.swapStationName.split(",")[0].trim()}</p>
-                        <p className="text-slate-400 text-[10px] flex items-center gap-1.5">
+                      {/* Station code leads, in the primary text style; the name sits under it, quieter. */}
+                      <td className="px-3 py-2.5 max-w-[140px]">
+                        <p className="flex items-center gap-1.5 font-mono text-slate-700">
                           {alert.swapStationId}
-                          <CopyButton value={alert.swapStationId} label="station ID" reveal />
+                          <CopyButton value={alert.swapStationId} label="Station code" reveal />
                         </p>
+                        <p className="truncate text-slate-400 text-[10px]">{alert.swapStationName.split(",")[0].trim()}</p>
                       </td>
                       <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap text-[11px]">
                         {new Date(alert.detectedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}

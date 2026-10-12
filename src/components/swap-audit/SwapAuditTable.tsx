@@ -284,14 +284,14 @@ export function SwapAuditTable() {
                       {/* Copied without spaces, the form phone and M-Pesa fields expect. */}
                       <span className="inline-flex items-center gap-1.5">
                         {t.cust.phone}
-                        <CopyButton value={t.cust.phone.replace(/\s/g, "")} label="phone" reveal />
+                        <CopyButton value={t.cust.phone.replace(/\s/g, "")} label="Phone" reveal />
                       </span>
                     </td>
                     {/* Station ID leads, in the table's ID style; the name sits under it, quieter. */}
                     <td className="px-3 py-2.5 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-slate-500">
+                      <span className="inline-flex items-center gap-1.5 font-mono text-slate-700">
                         {t.station.id}
-                        <CopyButton value={t.station.id} label="station ID" reveal />
+                        <CopyButton value={t.station.id} label="Station code" reveal />
                       </span>
                       <span className="block text-[10px] text-slate-400">{t.station.name}</span>
                     </td>

@@ -5,6 +5,7 @@ import { Search, Download, ArrowRight, ChevronDown, ChevronUp, PackageOpen, Aler
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { toast } from "@/store/toast";
 import { Pagination } from "@/components/ui/Pagination";
+import { CopyButton } from "@/components/ui/CopyButton";
 import {
   useSwapTransactionsStore,
   swapStatus,
@@ -83,8 +84,23 @@ function RecordDetail({ record }: { record: SwapRecord }) {
         <DetailField label="Total Points" value={record.totalPoints.toFixed(2)} />
         <DetailField label="Dispense Timestamp" value={fmtTs(record.dispenseTimestamp)} />
         <DetailField label="Collect Timestamp" value={fmtTs(record.collectTimestamp)} />
-        <DetailField label="Dispense Swap Txn ID" value={<span className="font-mono">{record.id}</span>} />
-        <DetailField label="Collect Swap Txn ID" value={<span className="font-mono">{record.collectSwapTransactionId ?? "–"}</span>} />
+        <DetailField
+          label="Dispense Swap Txn ID"
+          value={<span className="inline-flex items-center gap-1.5 font-mono">{record.id}<CopyButton value={record.id} label="Dispense Swap Txn ID" /></span>}
+        />
+        <DetailField
+          label="Collect Swap Txn ID"
+          value={
+            record.collectSwapTransactionId ? (
+              <span className="inline-flex items-center gap-1.5 font-mono">
+                {record.collectSwapTransactionId}
+                <CopyButton value={record.collectSwapTransactionId} label="Collect Swap Txn ID" />
+              </span>
+            ) : (
+              <span className="font-mono">–</span>
+            )
+          }
+        />
         <DetailField label="Multiday Split" value={record.multiday ?? "–"} />
         <DetailField label="Manual Ignore" value={record.manualIgnore ? "Yes" : "No"} />
       </div>
@@ -104,7 +120,9 @@ function RecordDetail({ record }: { record: SwapRecord }) {
             <tbody className="divide-y divide-slate-200">
               {record.batteries.map((b) => (
                 <tr key={b.bin}>
-                  <td className="py-1.5 pr-4 font-mono text-slate-700 whitespace-nowrap">{b.bin}</td>
+                  <td className="py-1.5 pr-4 font-mono text-slate-700 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1.5">{b.bin}<CopyButton value={b.bin} label={`Bin ${b.bin}`} /></span>
+                  </td>
                   <td className="py-1.5 pr-4 text-slate-600">{b.billedKWh.toFixed(6)}</td>
                   <td className="py-1.5 pr-4">
                     {b.rfidMismatch
@@ -115,7 +133,16 @@ function RecordDetail({ record }: { record: SwapRecord }) {
                   <td className="py-1.5 pr-4 text-slate-600">{b.ahDischarged ?? "–"}</td>
                   <td className="py-1.5 pr-4 text-slate-600">{b.ahCharged ?? "–"}</td>
                   <td className="py-1.5 pr-4 text-slate-600">{b.ahRegen ?? "–"}</td>
-                  <td className="py-1.5 pr-4 font-mono text-slate-500 whitespace-nowrap">{b.rfidTagUid ?? "–"}</td>
+                  <td className="py-1.5 pr-4 font-mono text-slate-500 whitespace-nowrap">
+                    {b.rfidTagUid ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        {b.rfidTagUid}
+                        <CopyButton value={b.rfidTagUid} label={`RFID Tag UID ${b.rfidTagUid}`} />
+                      </span>
+                    ) : (
+                      "–"
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -330,7 +357,7 @@ export function SwapRecordsTable() {
                   <Fragment key={r.id}>
                     <tr
                       className={cn(
-                        "hover:bg-slate-50 transition-colors cursor-pointer",
+                        "group hover:bg-slate-50 transition-colors cursor-pointer",
                         expanded && "bg-slate-50",
                         isTamperingCandidate(r) && "bg-red-50/30"
                       )}
@@ -338,10 +365,18 @@ export function SwapRecordsTable() {
                     >
                       <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{fmtDateTime(r.occurredAt)}</td>
                       <td className="px-3 py-2.5 font-medium text-slate-700">{r.customerName}</td>
-                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">{r.phone}</td>
+                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">
+                        <span className="inline-flex items-center gap-1.5">
+                          {r.phone}
+                          <CopyButton value={r.phone.replace(/\s/g, "")} label="Phone" reveal />
+                        </span>
+                      </td>
                       <td className="px-3 py-2.5 text-slate-500">
                         {r.batteries.map((b) => (
-                          <p key={b.bin} className="font-mono text-[10px]">{b.bin}</p>
+                          <p key={b.bin} className="font-mono text-[10px] flex items-center gap-1.5">
+                            {b.bin}
+                            <CopyButton value={b.bin} label={`Bin ${b.bin}`} reveal />
+                          </p>
                         ))}
                       </td>
                       <td className="px-3 py-2.5 text-right font-semibold text-slate-700">{totalBilledKWh(r).toFixed(3)}</td>
@@ -356,8 +391,10 @@ export function SwapRecordsTable() {
                         )}>
                           {crossStation && <AlertTriangle className="w-3 h-3 text-rose-600" />}
                           {r.dispenseStationId || "–"}
+                          {r.dispenseStationId && <CopyButton value={r.dispenseStationId} label="Dispense station code" reveal />}
                           <ArrowRight className={cn("w-3 h-3", crossStation ? "text-rose-400" : "text-slate-300")} />
                           {r.collectStationId || "–"}
+                          {r.collectStationId && <CopyButton value={r.collectStationId} label="Collect station code" reveal />}
                         </span>
                         {crossStation && (
                           <span className="block text-[10px] text-rose-600 font-semibold mt-0.5">2 stations, review</span>
