@@ -19,6 +19,7 @@ import type { TamperingAlert, ViolationType, AlertStatus } from "@/store/tamperi
 import { useAuthStore } from "@/store/auth";
 import { useAccess } from "@/lib/access";
 import { cn } from "@/lib/utils";
+import { DateRangeFilter, inEatRange, type DayRange } from "./DateRangeFilter";
 import { SWAP_TXNS } from "@/lib/mock/swap-audit";
 
 /** Swap Audit's session IDs: an alert opens its session there only when it is one of these. */
@@ -335,7 +336,14 @@ export function TamperingAlertsView() {
   const [statusFilter, setStatusFilter]   = useState(() => params.get("status") ?? "");
   const [violationFilter, setViolFilter]  = useState(() => params.get("violation") ?? "");
   const [offenceFilter, setOffenceFilter] = useState(() => params.get("offence") ?? "");
-  const [dateFilter, setDateFilter]       = useState(() => params.get("date") ?? "");
+  const [dateRange, setDateRange]         = useState<DayRange | null>(() => {
+    const from = params.get("from"), to = params.get("to");
+    return from && to ? { from, to } : null;
+  });
+  const [dateFilter, setDateFilter]       = useState(() => {
+    const d = params.get("date") ?? "";
+    return d === "custom" && !(params.get("from") && params.get("to")) ? "" : d;
+  });
   // Returning from Swap Audit opens the alert's Trail.
   const [expandedId, setExpandedId]       = useState<string | null>(() => params.get("focus"));
   const [approveTarget, setApproveTarget] = useState<TamperingAlert | null>(null);
@@ -365,6 +373,7 @@ export function TamperingAlertsView() {
       if (violationFilter && a.violationType   !== violationFilter)       return false;
       if (offenceFilter   && String(a.offenceCount) !== offenceFilter)    return false;
       if (cutoff          && new Date(a.detectedAt).getTime() < cutoff)   return false;
+      if (dateFilter === "custom" && dateRange && !inEatRange(a.detectedAt, dateRange)) return false;
       if (search) {
         const q = search.toLowerCase();
         return (
@@ -377,11 +386,11 @@ export function TamperingAlertsView() {
       }
       return true;
     });
-  }, [alerts, search, statusFilter, violationFilter, offenceFilter, dateFilter, now]);
+  }, [alerts, search, statusFilter, violationFilter, offenceFilter, dateFilter, dateRange, now]);
 
   // Reset to the first page whenever the filter set changes (adjust state during
   // render: React's recommended alternative to a setState-in-effect).
-  const filterKey = `${search}|${statusFilter}|${violationFilter}|${offenceFilter}|${dateFilter}`;
+  const filterKey = `${search}|${statusFilter}|${violationFilter}|${offenceFilter}|${dateFilter}|${dateRange?.from}|${dateRange?.to}`;
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
   if (filterKey !== prevFilterKey) {
     setPrevFilterKey(filterKey);
@@ -429,7 +438,7 @@ export function TamperingAlertsView() {
 
   // "Show it": drop every filter, then land on the alert as on return.
   const showMissing = () => {
-    setSearch(""); setStatusFilter(""); setViolFilter(""); setOffenceFilter(""); setDateFilter("");
+    setSearch(""); setStatusFilter(""); setViolFilter(""); setOffenceFilter(""); setDateFilter(""); setDateRange(null);
     setMissingId(null);
     setExpandedId(focusId);
     setRevealTick((t) => t + 1);
@@ -447,6 +456,7 @@ export function TamperingAlertsView() {
     if (violationFilter) back.set("violation", violationFilter);
     if (offenceFilter) back.set("offence", offenceFilter);
     if (dateFilter) back.set("date", dateFilter);
+    if (dateFilter === "custom" && dateRange) { back.set("from", dateRange.from); back.set("to", dateRange.to); }
     if (pathname === "/swap-transactions") back.set("view", "tampering");
     back.set("page", String(page));
     back.set("per", String(perPage));
@@ -472,7 +482,7 @@ export function TamperingAlertsView() {
   const totalDebited   = alerts.filter((a) => a.penaltyApplied).reduce((s, a) => s + (a.penaltyAmountKES ?? 0), 0);
   const rfidDisabled   = alerts.filter((a) => a.rfidDisabled && !a.rfidReenabledAt).length;
 
-  const clearFilters = () => { setSearch(""); setStatusFilter(""); setViolFilter(""); setOffenceFilter(""); setDateFilter(""); };
+  const clearFilters = () => { setSearch(""); setStatusFilter(""); setViolFilter(""); setOffenceFilter(""); setDateFilter(""); setDateRange(null); };
 
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4">
@@ -514,9 +524,6 @@ export function TamperingAlertsView() {
           ["Offence", offenceFilter, setOffenceFilter, [
             ["", "All Offences"], ["1", "1st"], ["2", "2nd"], ["3", "3rd"], ["4", "4th+"],
           ]],
-          ["Date", dateFilter, setDateFilter, [
-            ["", "All Time"], ["today", "Today"], ["7d", "Last 7 days"], ["30d", "Last 30 days"],
-          ]],
         ] as [string, string, (v: string) => void, [string, string][]][]).map(([label, val, setter, opts]) => (
           <select
             key={label} value={val} onChange={(e) => setter(e.target.value)}
@@ -525,6 +532,13 @@ export function TamperingAlertsView() {
             {opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         ))}
+
+        <DateRangeFilter
+          value={dateFilter}
+          range={dateRange}
+          onChange={(v, r) => { setDateFilter(v); setDateRange(r); }}
+          className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/20 text-slate-600"
+        />
 
         {(search || statusFilter || violationFilter || offenceFilter || dateFilter) && (
           <button onClick={clearFilters} className="text-xs text-slate-400 hover:text-slate-600">Clear</button>

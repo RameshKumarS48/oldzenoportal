@@ -17,6 +17,7 @@ import {
   type SwapStatus,
 } from "@/store/swap-transactions";
 import { cn } from "@/lib/utils";
+import { DateRangeFilter, inEatRange, type DayRange } from "./DateRangeFilter";
 
 // ── Formatting ────────────────────────────────────────────────────────────────
 
@@ -182,6 +183,7 @@ export function SwapRecordsTable() {
   const [rfidFilter, setRfid]         = useState("");
   const [statusFilter, setStatus]     = useState("");
   const [dateFilter, setDate]         = useState("");
+  const [dateRange, setDateRange]     = useState<DayRange | null>(null);
   const [expandedId, setExpandedId]   = useState<string | null>(null);
   const [page, setPage]               = useState(1);
   const [perPage, setPerPage]         = useState(25);
@@ -213,6 +215,7 @@ export function SwapRecordsTable() {
       if (rfidFilter === "no" && hasRfidMismatch(r)) return false;
       if (statusFilter && swapStatus(r) !== statusFilter) return false;
       if (cutoff && new Date(r.occurredAt).getTime() < cutoff) return false;
+      if (dateFilter === "custom" && dateRange && !inEatRange(r.occurredAt, dateRange)) return false;
       if (search) {
         const q = search.toLowerCase();
         return (
@@ -224,7 +227,7 @@ export function SwapRecordsTable() {
       }
       return true;
     });
-  }, [sorted, search, stationFilter, rfidFilter, statusFilter, dateFilter, now]);
+  }, [sorted, search, stationFilter, rfidFilter, statusFilter, dateFilter, dateRange, now]);
 
   const paginated = useMemo(() => {
     const start = (page - 1) * perPage;
@@ -239,7 +242,7 @@ export function SwapRecordsTable() {
   const skippedCount = records.filter((r) => r.skipped).length;
 
   const clearFilters = () => {
-    setSearch(""); setStation(""); setRfid(""); setStatus(""); setDate(""); setPage(1);
+    setSearch(""); setStation(""); setRfid(""); setStatus(""); setDate(""); setDateRange(null); setPage(1);
   };
 
   return (
@@ -292,16 +295,12 @@ export function SwapRecordsTable() {
           {STATUS_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
 
-        <select
+        <DateRangeFilter
           value={dateFilter}
-          onChange={(e) => { setDate(e.target.value); setPage(1); }}
+          range={dateRange}
+          onChange={(v, r) => { setDate(v); setDateRange(r); setPage(1); }}
           className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 text-slate-600"
-        >
-          <option value="">All Time</option>
-          <option value="today">Today</option>
-          <option value="7d">Last 7 days</option>
-          <option value="30d">Last 30 days</option>
-        </select>
+        />
 
         {(search || stationFilter || rfidFilter || statusFilter || dateFilter) && (
           <button onClick={clearFilters} className="text-xs text-slate-400 hover:text-slate-600">Clear</button>
