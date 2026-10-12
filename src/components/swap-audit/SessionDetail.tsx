@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Play, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Card } from "@/components/ui/card";
 import {
   detectionText, fmtClock, fmtClockSec, slotLabel, stepLabel,
   type Step, type SwapTxn,
@@ -13,8 +12,6 @@ import { SlotStrip } from "./SlotStrip";
 
 const REPLAY_MS = 1100;
 
-/** StatCard's number style (ui/stat-card.tsx), for the card's three headline values. */
-const FIGURE = "text-[20px] leading-none font-bold tabular-nums mt-1.5";
 
 export function DetailField({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -26,12 +23,11 @@ export function DetailField({ label, value }: { label: string; value: React.Reac
 }
 
 /**
- * Everything behind one row, read top to bottom: what happened and why, the
- * slots before and after, the raw log, then the IDs for reference. The drawer
- * header carries who, where and when.
+ * Everything behind one row, read top to bottom: the slots before and after,
+ * the raw log, then the IDs for reference. The drawer header carries who,
+ * where and when.
  */
 export function SessionDetail({ txn }: { txn: SwapTxn }) {
-  const v = txn.verdict;
   const n = txn.steps.length;
 
   /** null = every step applied (the end state); otherwise steps applied so far. */
@@ -67,79 +63,10 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
   const jump = (to: number) => { setPlaying(false); setStep(to >= n ? null : to); };
 
 
-  // Battery movement
-  const pollSlots = txn.steps.find((s) => s.type === "poll")?.slots ?? [];
-  const collects = txn.steps.filter((s) => s.type === "collect");
-  const confirmed = collects
-    .filter((s) => s.bat && !pollSlots.includes(s.slot!))
-    .map((s) => ({ sn: s.bat!.sn!, note: `${slotLabel(s.slot!)} · ${detectionText(s).text}` }));
-  const unconfirmed = collects
-    .filter((s) => !s.bat || pollSlots.includes(s.slot!))
-    .map((s) => ({
-      sn: s.bat?.sn ?? "S/N not read",
-      note: `${slotLabel(s.slot!)} · ${s.bat ? "found empty by poll" : "empty at door close"}`,
-    }));
-  const dispensed = txn.steps
-    .filter((s) => s.type === "dispense")
-    .map((s) => ({ sn: s.bat?.sn ?? "–", note: `from ${slotLabel(s.slot!)} · ${s.bat?.soc ?? 0}%` }));
-
   // space-y-8: section headings share the field-label style, so 32px above each
   // (vs 8px below, 16px between field rows) is what keeps them reading as headings.
   return (
     <div className="px-6 py-4 bg-slate-50 space-y-8">
-      <section>
-        <h3 className={SECTION}>What happened</h3>
-        <div className="space-y-4">
-          <div>
-            <p className="text-base font-semibold text-slate-700">{txn.sc.name}</p>
-            <p className="mt-0.5 text-sm text-slate-700">{txn.sc.description}</p>
-          </div>
-
-          <Card>
-            {/* The table row's Collects / Dispensed / Balance, same values and colours.
-                border-l, not divide-x: globals.css only re-colours border-slate-200 in dark mode. */}
-            <div className="grid grid-cols-3 border-b border-slate-200">
-              <div className="px-5 py-2.5">
-                <p className={SUBLAB}>Collects</p>
-                <p className={FIGURE} style={{ fontFamily: "var(--font-display)" }}>
-                  <span className={v.Pc < v.Rc ? "text-red-600" : "text-slate-700"}>{v.Pc}</span>
-                  <span className="text-slate-400"> / {v.Rc}</span>
-                </p>
-              </div>
-              <div className="px-5 py-2.5 border-l border-slate-200">
-                <p className={SUBLAB}>Dispensed</p>
-                <p className={cn(FIGURE, "text-slate-700")} style={{ fontFamily: "var(--font-display)" }}>{v.Dn}</p>
-              </div>
-              <div className="px-5 py-2.5 border-l border-slate-200">
-                <p className={SUBLAB}>Balance</p>
-                <p
-                  className={cn(FIGURE, v.bal !== 0 ? "text-red-600" : "text-slate-400")}
-                  style={{ fontFamily: "var(--font-display)" }}
-                >
-                  {v.bal > 0 ? `+${v.bal}` : v.bal}
-                </p>
-              </div>
-            </div>
-
-            {/* Fixed thirds with the strip's px-5, so label / serial / note sit under
-                Collects / Dispensed / Balance and never resize between sessions. */}
-            <div className="pb-2">
-              <table className="w-full table-fixed text-[11px]">
-                <colgroup>
-                  <col className="w-1/3" />
-                  <col className="w-1/3" />
-                  <col className="w-1/3" />
-                </colgroup>
-                <MovementGroup label="Checked out before swap" items={[{ sn: txn.checkedOut.join(", "), note: "" }]} first spanNote />
-                <MovementGroup label={`Confirmed collected (${confirmed.length})`} items={confirmed} />
-                <MovementGroup label={`Recorded, but no battery (${unconfirmed.length})`} items={unconfirmed} bad />
-                <MovementGroup label={`Dispensed to ${txn.cust.name.split(" ")[0]} (${dispensed.length})`} items={dispensed} />
-              </table>
-            </div>
-          </Card>
-        </div>
-      </section>
-
       <section>
         <h3 className={SECTION}>Station before → after</h3>
         {/* Opens on the end of the session; the step controls sit centred underneath. */}
@@ -219,6 +146,12 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
       <section>
         <h3 className={SECTION}>Reference</h3>
         <div className="grid grid-cols-4 gap-4">
+          <div className="col-span-2">
+            <DetailField
+              label="Checked out before swap"
+              value={<span className="font-mono">{txn.checkedOut.join(", ")}</span>}
+            />
+          </div>
           <DetailField label="Swap Txn ID" value={<span className="font-mono">{txn.id}</span>} />
           <DetailField label="Customer ID" value={<span className="font-mono">{txn.cust.id}</span>} />
           <DetailField label="Phone" value={<span className="font-mono">{txn.cust.phone}</span>} />
@@ -243,47 +176,6 @@ export function StepBtn({ children, onClick, disabled }: { children: React.React
     >
       {children}
     </button>
-  );
-}
-
-/**
- * One group as table rows: its label on the first line only, then serial and
- * note per battery ("None" when empty). Groups are split by a thin rule.
- */
-function MovementGroup({
-  label, items, bad, first, spanNote,
-}: {
-  label: string;
-  items: { sn: string; note: string }[];
-  bad?: boolean;
-  first?: boolean;
-  /** The serial takes the note column too (Checked out before swap has no note). */
-  spanNote?: boolean;
-}) {
-  const labelCell = (show: boolean) => (
-    <td className={cn(SUBLAB, "px-5 py-2 align-top", bad && items.length > 0 && "text-red-500")}>
-      {show ? label : null}
-    </td>
-  );
-  return (
-    <tbody className={cn(!first && "border-t border-slate-100")}>
-      {items.length === 0 ? (
-        <tr>
-          {labelCell(true)}
-          <td colSpan={2} className="px-5 py-2 text-slate-400">None</td>
-        </tr>
-      ) : (
-        items.map((it, i) => (
-          <tr key={`${it.sn}-${i}`}>
-            {labelCell(i === 0)}
-            <td colSpan={spanNote ? 2 : 1} className="px-5 py-2 align-top font-mono font-semibold text-slate-700 break-all">
-              {it.sn}
-            </td>
-            {!spanNote && <td className="px-5 py-2 align-top text-[10px] text-slate-400">{it.note}</td>}
-          </tr>
-        ))
-      )}
-    </tbody>
   );
 }
 
