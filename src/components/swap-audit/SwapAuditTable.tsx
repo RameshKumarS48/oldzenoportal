@@ -230,7 +230,7 @@ export function SwapAuditTable() {
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
                 {[
-                  "Time", "Swap Txn ID", "Customer", "Phone", "Station", "Scenario",
+                  "Time (EAT)", "Swap Txn ID", "Customer", "Phone", "Station", "Scenario",
                   "Collects", "Dispensed", "Balance", "Verdict", "",
                 ].map((h) => (
                   <th

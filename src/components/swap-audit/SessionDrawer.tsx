@@ -186,7 +186,8 @@ export function SessionDrawer({
                 label="Station"
                 value={<><span className="font-mono">{shown.station.id}</span><span className="block text-[10px] text-slate-400">{shown.station.name}</span></>}
               />
-              <DetailField label="Time" value={`6 Oct, ${fmtClock(shown.startMinute)}`} />
+              {/* Times are station-local. Every station is in Nairobi, so that is EAT. */}
+              <DetailField label="Time" value={`6 Oct, ${fmtClock(shown.startMinute)} EAT`} />
               <DetailField
                 label="Swap Txn ID"
                 value={

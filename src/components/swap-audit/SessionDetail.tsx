@@ -115,7 +115,7 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
           <table className="w-full text-[11px] min-w-[760px]">
             <thead>
               <tr className="text-left text-slate-400">
-                {["#", "Time", "Event", "Slot", "S/N read", "SoC", "Detection"].map((h) => (
+                {["#", "Time (EAT)", "Event", "Slot", "S/N read", "SoC", "Detection"].map((h) => (
                   <th key={h} className="pb-1.5 pr-4 font-semibold whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -165,7 +165,7 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
           <DetailField label="RFID" value={<span className="font-mono">{txn.cust.rfid}</span>} />
           <DetailField label="Vehicle" value={<span className="font-mono">{txn.vehicle}</span>} />
           <DetailField label="Station" value={<><span className="font-mono">{txn.station.id}</span> · {txn.station.name}</>} />
-          <DetailField label="Started" value={<span className="font-mono">{fmtClock(txn.startMinute)} EAT</span>} />
+          <DetailField label="Started" value={<span className="font-mono">{fmtClock(txn.startMinute)}</span>} />
           <DetailField label="Duration" value={<span className="font-mono">{txn.endT}s</span>} />
         </div>
       </section>
