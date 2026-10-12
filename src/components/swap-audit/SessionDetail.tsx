@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Play, Pause } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Play, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   detectionText, fmtClock, fmtClockSec, slotLabel, stepLabel,
@@ -58,7 +58,8 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
   }
 
   const hasPoll = txn.steps.some((s) => s.type === "poll");
-  const liveLabel = atEnd ? (hasPoll ? "After poll" : "After") : k === 0 ? "At start" : `After step ${k}`;
+  // Step 0 shows only the Before row, so it needs no label here.
+  const liveLabel = atEnd ? (hasPoll ? "After poll" : "After") : `After step ${k}`;
 
   const jump = (to: number) => { setPlaying(false); setStep(to >= n ? null : to); };
 
@@ -81,6 +82,9 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
           startMinute={txn.startMinute}
           footer={
             <div className="flex items-center gap-2 flex-wrap">
+              <StepBtn onClick={() => jump(0)} disabled={k === 0}>
+                <ChevronsLeft className="w-3 h-3" /> Start
+              </StepBtn>
               <StepBtn onClick={() => jump(Math.max(0, k - 1))} disabled={k === 0}>
                 <ChevronLeft className="w-3 h-3" /> Step
               </StepBtn>
@@ -95,6 +99,9 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
               </button>
               <StepBtn onClick={() => jump(k + 1)} disabled={k >= n}>
                 Step <ChevronRight className="w-3 h-3" />
+              </StepBtn>
+              <StepBtn onClick={() => jump(n)} disabled={atEnd}>
+                End <ChevronsRight className="w-3 h-3" />
               </StepBtn>
               <span className="min-w-[90px] text-[11px] text-slate-400 tabular-nums">Step {k} of {n}</span>
             </div>

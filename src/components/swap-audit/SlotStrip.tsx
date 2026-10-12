@@ -3,7 +3,7 @@
 import { Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  fmtClockSec, slotLabel, stepLabel,
+  fmtClock, fmtClockSec, fmtRel, slotLabel, stepLabel,
   type Battery, type SlotState, type Step,
 } from "@/lib/mock/swap-audit";
 import { SLOT_META, SLOT_LEGEND, stepToken, slotTag, SUBLAB, type LegendKey } from "./tokens";
@@ -89,15 +89,24 @@ export function SlotStrip({
       <div className="overflow-x-auto pb-3">
         <div className="min-w-[820px] space-y-2">
           <Row label="Before" startMinute={startMinute} state={before} before={before} marks={new Map()} isBefore />
-          <Row
-            label={liveLabel}
-            event={event}
-            startMinute={startMinute}
-            state={state}
-            before={before}
-            marks={marks}
-            badges={badges}
-          />
+          {applied === 0 ? (
+            // Step 0 has nothing to compare yet. Same caption and slot-row height
+            // as a real row, so the controls below never move.
+            <div>
+              <p className={cn(SUBLAB, "mb-1 h-5 flex items-center whitespace-nowrap")}>Step forward to see what changed</p>
+              <div className={SLOT_H} aria-hidden="true" />
+            </div>
+          ) : (
+            <Row
+              label={liveLabel}
+              event={event}
+              startMinute={startMinute}
+              state={state}
+              before={before}
+              marks={marks}
+              badges={badges}
+            />
+          )}
         </div>
       </div>
       {footer && <div className="mt-6 flex justify-center">{footer}</div>}
@@ -122,9 +131,9 @@ function Row({
       {/* Fixed h-5 whether it holds a label or the full event caption. */}
       <p className="mb-1 h-5 flex items-center gap-2 whitespace-nowrap">
         <span className={SUBLAB}>{label}</span>
-        {/* With no event yet (Before, At start), the time is the session start: the RFID tap. */}
+        {/* Before shows the session start. It is stored to the minute, so no padded :00. */}
         {startMinute !== undefined &&
-          (event ? <EventCaption event={event} startMinute={startMinute} /> : <ClockTime startMinute={startMinute} t={0} />)}
+          (event ? <EventCaption event={event} startMinute={startMinute} /> : <ClockTime text={fmtClock(startMinute)} />)}
       </p>
       <div className="grid grid-cols-10 gap-1.5">
         {state.map((bat, i) => (
@@ -143,25 +152,26 @@ function Row({
   );
 }
 
-/**
- * The event-log time, the event's own tag, then slot and serial, in that order
- * of weight.
- */
-function ClockTime({ startMinute, t }: { startMinute: number; t: number }) {
+function ClockTime({ text }: { text: string }) {
   return (
-    <span className="mr-1 inline-flex items-center gap-1 font-mono text-sm font-semibold text-slate-800">
+    <span className="inline-flex items-center gap-1 font-mono text-sm font-semibold text-slate-800">
       <Clock className="w-3.5 h-3.5" />
-      {fmtClockSec(startMinute, t)}
+      {text}
     </span>
   );
 }
 
+/**
+ * The event-log clock time and its offset from the RFID tap, then the event's
+ * own tag, then slot and serial, in that order of weight.
+ */
 function EventCaption({ event, startMinute }: { event: Step; startMinute: number }) {
   const where = event.type === "poll" ? (event.slots ?? []).map(slotLabel).join(", ") : slotLabel(event.slot!);
   const sn = event.type === "poll" ? `expected ${(event.expected ?? []).join(", ")}` : event.bat?.sn ?? "–";
   return (
     <>
-      <ClockTime startMinute={startMinute} t={event.t} />
+      <ClockTime text={fmtClockSec(startMinute, event.t)} />
+      <span className="mr-1 font-mono text-[10px] text-slate-400">{fmtRel(event.t)}</span>
       <span className={cn("px-1.5 py-0.5 rounded text-[9.5px] font-bold tracking-wider whitespace-nowrap", stepToken(event).badge)}>
         {stepLabel(event)}
       </span>
