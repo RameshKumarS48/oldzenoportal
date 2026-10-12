@@ -93,7 +93,7 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
                 type="button"
                 onClick={() => { if (playing) { setPlaying(false); return; } setStep(0); setPlaying(true); }}
                 disabled={n === 0}
-                className="inline-flex min-w-[90px] items-center justify-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold bg-[#003B49] text-white hover:bg-[#00505f] transition-colors disabled:opacity-40"
+                className="inline-flex min-w-[90px] items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40"
               >
                 {playing ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
                 {playing ? "Pause" : "Replay"}

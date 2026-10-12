@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, ChevronUp, ChevronDown } from "lucide-react";
+import Link from "next/link";
+import { X, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { fmtClock, type SwapTxn } from "@/lib/mock/swap-audit";
@@ -17,7 +18,7 @@ const FOCUSABLE =
  * to stay inside <main> to pick up globals.css's dark-mode overrides.
  */
 export function SessionDrawer({
-  txn, position, total, onPrev, onNext, onClose, backLink,
+  txn, position, total, onPrev, onNext, onClose, alertNav,
 }: {
   txn: SwapTxn | null;
   /** 1-based place of `txn` in the filtered list; 0 when it isn't in it. */
@@ -27,8 +28,8 @@ export function SessionDrawer({
   onPrev?: () => void;
   onNext?: () => void;
   onClose: () => void;
-  /** "Back to alert", above the customer name in the fixed header. */
-  backLink?: React.ReactNode;
+  /** Set only when Swap Audit was opened from a Tampering Alert. */
+  alertNav?: { id: string; violation: string; status: string; pending: boolean; href: string } | null;
 }) {
   const open = txn !== null;
 
@@ -129,8 +130,6 @@ export function SessionDrawer({
       >
         {/* Who and the verdict, then where, when and which swap in the detail grid's label style. */}
         <div className="px-6 py-4 border-b border-slate-200 space-y-3">
-          {/* Part of the fixed header, so it stays in view while the body scrolls. */}
-          {open && backLink && <div>{backLink}</div>}
           <div className="flex items-start justify-between gap-4">
             {shown && (
               <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -203,6 +202,25 @@ export function SessionDrawer({
         <div className="flex-1 overflow-y-auto overscroll-contain bg-slate-50">
           {shown && <SessionDetail key={shown.id} txn={shown} />}
         </div>
+
+        {/* A row of its own under the body, not laid over it, so it hides nothing. */}
+        {open && alertNav && (
+          <div className="shrink-0 flex items-center justify-between gap-4 px-6 py-3 border-t border-slate-200 bg-white">
+            <span className="flex items-center gap-3 flex-wrap text-[11px] text-slate-400">
+              <span className="font-mono">{alertNav.id}</span>
+              <span>{alertNav.violation}</span>
+              {alertNav.status && <span>{alertNav.status}</span>}
+            </span>
+            <Link
+              href={alertNav.href}
+              aria-label={alertNav.pending ? `Return to alert ${alertNav.id} to decide` : `Back to alert ${alertNav.id}`}
+              className="inline-flex shrink-0 items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold bg-zeno-teal text-white hover:bg-zeno-teal-hover transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              {alertNav.pending ? "Return to alert to decide" : `Back to alert ${alertNav.id}`}
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );

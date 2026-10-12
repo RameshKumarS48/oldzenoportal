@@ -49,7 +49,7 @@ const STATUS_COLORS: Record<AlertStatus, string> = {
   investigating:"bg-blue-50 text-blue-700 border border-blue-200",
 };
 
-const STATUS_LABELS: Record<AlertStatus, string> = {
+export const STATUS_LABELS: Record<AlertStatus, string> = {
   pending:      "Pending",
   approved:     "Approved",
   rejected:     "Rejected",
@@ -168,7 +168,7 @@ function AuditTrail({ alert, swapAuditHref }: { alert: TamperingAlert; swapAudit
 
       {/* Navigation only, for every alert whatever its status. Styled as the Swap
           Audit drawer's Previous/Next buttons. */}
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3">
         <Link
           href={swapAuditHref}
           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors"

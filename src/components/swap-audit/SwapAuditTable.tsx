@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useTamperingAlertsStore } from "@/store/tampering-alerts";
+import { STATUS_LABELS } from "@/components/swap-transactions/TamperingAlertsView";
 import { Search, Download, ChevronRight, PackageOpen, AlertTriangle, ArrowLeft } from "lucide-react";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { Pagination } from "@/components/ui/Pagination";
@@ -82,8 +84,12 @@ interface AlertOrigin {
  * The small way back to the Tampering Alert that opened this page, with its
  * violation. Navigation only: no review actions here.
  */
+/** The alerts page to return to, told which alert to scroll to, select and focus. */
+const backHref = (origin: AlertOrigin) =>
+  `${origin.ret}${origin.ret.includes("?") ? "&" : "?"}focus=${encodeURIComponent(origin.alert)}`;
+
 export function BackToAlert({ origin }: { origin: AlertOrigin }) {
-  const href = `${origin.ret}${origin.ret.includes("?") ? "&" : "?"}focus=${encodeURIComponent(origin.alert)}`;
+  const href = backHref(origin);
   return (
     <span className="inline-flex items-center gap-2 flex-wrap">
       <Link
@@ -160,6 +166,19 @@ export function SwapAuditTable() {
         }
       : null;
   const openTxn = openId ? SWAP_TXNS.find((t) => t.id === openId) ?? null : null;
+
+  // The alert's status, read live from Tampering Alerts, so it is current even
+  // if the alert was decided in another tab.
+  const alertStatus = useTamperingAlertsStore((st) => st.alerts.find((a) => a.id === origin?.alert)?.status);
+  const alertNav = origin
+    ? {
+        id: origin.alert,
+        violation: origin.violation,
+        status: alertStatus ? STATUS_LABELS[alertStatus] : "",
+        pending: alertStatus === "pending",
+        href: backHref(origin),
+      }
+    : null;
   const openIndex = openTxn ? filtered.findIndex((t) => t.id === openTxn.id) : -1;
 
   // True when this visit pushed the ?txn= entry, so closing can pop it instead
@@ -390,7 +409,7 @@ export function SwapAuditTable() {
         onPrev={openIndex > 0 ? () => goTo(openIndex - 1) : undefined}
         onNext={openIndex >= 0 && openIndex < filtered.length - 1 ? () => goTo(openIndex + 1) : undefined}
         onClose={closeDrawer}
-        backLink={origin && <BackToAlert origin={origin} />}
+        alertNav={alertNav}
       />
     </div>
   );
