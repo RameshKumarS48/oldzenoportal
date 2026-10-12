@@ -34,8 +34,8 @@ function slotTitle(slot: number, bat: Battery | null): string {
 
 /**
  * The station's ten slots, before the session and at the chosen point in it.
- * Slots nothing touched and that read the same in both rows shrink to a number
- * and a dot, so the eye goes to the slots that changed. Reading the two rows
+ * Empty slots nothing touched shrink to a number and a dot; every battery slot
+ * shows its chip, serial and SoC. Reading the two rows
  * against each other is how a faked collect becomes visible: the station's
  * record fills a slot that is physically empty.
  */
@@ -61,7 +61,8 @@ export function SlotStrip({
     for (const slot of stepSlots(s)) badges.set(slot, [...(badges.get(slot) ?? []), i + 1]);
   });
 
-  const compact = (i: number) => !badges.has(i + 1) && sameBattery(before[i], state[i]);
+  // Only empty slots shrink: a battery slot always shows its chip, serial and SoC.
+  const compact = (i: number) => !badges.has(i + 1) && sameBattery(before[i], state[i]) && !state[i];
 
   // Only the legend entries something on screen is actually drawn in.
   const shown = new Set<LegendKey>();
@@ -133,7 +134,7 @@ function Row({
       <div className="grid grid-cols-10 gap-1.5">
         {state.map((bat, i) =>
           compact(i) ? (
-            <CompactSlot key={i} slot={i + 1} bat={bat} />
+            <CompactSlot key={i} slot={i + 1} />
           ) : (
             <Slot
               key={i}
@@ -179,26 +180,23 @@ function EventCaption({ event, startMinute }: { event: Step; startMinute: number
 }
 
 /**
- * A slot nothing changed: its box and border as before, but only the number
- * and dot, pinned to the top. Focusable so keyboard users reach the same
- * detail the hover title gives.
+ * An empty slot nothing touched: its dashed box, but only the number and the
+ * outlined Empty dot, pinned to the top. Focusable so keyboard users reach the
+ * same detail the hover title gives.
  */
-function CompactSlot({ slot, bat }: { slot: number; bat: Battery | null }) {
-  const tip = slotTitle(slot, bat);
+function CompactSlot({ slot }: { slot: number }) {
+  const tip = slotTitle(slot, null);
   return (
     <div
       tabIndex={0}
       role="img"
       title={tip}
       aria-label={tip}
-      className={cn(
-        SLOT_H, "rounded-lg p-1.5 flex items-start",
-        bat ? SLOT_META.charged.card : "border border-dashed border-slate-300"
-      )}
+      className={cn(SLOT_H, "rounded-lg p-1.5 flex items-start border border-dashed border-slate-300")}
     >
       <span className="flex items-center gap-1.5">
         <span className="text-[10px] font-bold text-slate-500">{slotLabel(slot)}</span>
-        <span className={cn("w-2 h-2 rounded-sm", bat ? DOT.charged : DOT.empty)} />
+        <span className={cn("w-2 h-2 rounded-sm", DOT.empty)} />
       </span>
     </div>
   );
