@@ -90,7 +90,7 @@ export function SlotStrip({
       {/* pb-3 keeps the sideways scrollbar below the After row, not over its last line. */}
       <div className="overflow-x-auto pb-3">
         <div className="min-w-[820px] space-y-2">
-          <Row label="Before" state={before} before={before} marks={new Map()} compact={compact} isBefore />
+          <Row label="Before" startMinute={startMinute} state={before} before={before} marks={new Map()} compact={compact} isBefore />
           <Row
             label={liveLabel}
             event={event}
@@ -126,7 +126,9 @@ function Row({
       {/* Fixed h-5 whether it holds a label or the full event caption. */}
       <p className="mb-1 h-5 flex items-center gap-2 whitespace-nowrap">
         <span className={SUBLAB}>{label}</span>
-        {event && startMinute !== undefined && <EventCaption event={event} startMinute={startMinute} />}
+        {/* With no event yet (Before, At start), the time is the session start: the RFID tap. */}
+        {startMinute !== undefined &&
+          (event ? <EventCaption event={event} startMinute={startMinute} /> : <ClockTime startMinute={startMinute} t={0} />)}
       </p>
       <div className="grid grid-cols-10 gap-1.5">
         {state.map((bat, i) =>
@@ -153,15 +155,21 @@ function Row({
  * The event-log time, the event's own tag, then slot and serial, in that order
  * of weight.
  */
+function ClockTime({ startMinute, t }: { startMinute: number; t: number }) {
+  return (
+    <span className="mr-1 inline-flex items-center gap-1 font-mono text-sm font-semibold text-slate-800">
+      <Clock className="w-3.5 h-3.5" />
+      {fmtClockSec(startMinute, t)}
+    </span>
+  );
+}
+
 function EventCaption({ event, startMinute }: { event: Step; startMinute: number }) {
   const where = event.type === "poll" ? (event.slots ?? []).map(slotLabel).join(", ") : slotLabel(event.slot!);
   const sn = event.type === "poll" ? `expected ${(event.expected ?? []).join(", ")}` : event.bat?.sn ?? "–";
   return (
     <>
-      <span className="mr-1 inline-flex items-center gap-1 font-mono text-sm font-semibold text-slate-800">
-        <Clock className="w-3.5 h-3.5" />
-        {fmtClockSec(startMinute, event.t)}
-      </span>
+      <ClockTime startMinute={startMinute} t={event.t} />
       <span className={cn("px-1.5 py-0.5 rounded text-[9.5px] font-bold tracking-wider whitespace-nowrap", stepToken(event).badge)}>
         {stepLabel(event)}
       </span>
