@@ -56,13 +56,13 @@ const CONTROL =
   "text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-600 " +
   "focus:outline-none focus:ring-2 focus:ring-[#003B49]/20";
 
-/** Summary cards that double as the Verdict filter. "" is Sessions, i.e. All Verdicts. */
-const VERDICT_CARDS: { verdict: VerdictStatus | ""; label: string; value: number; valueColor?: string }[] = [
-  { verdict: "",              label: "Sessions",      value: SWAP_TXNS.length },
-  { verdict: "COMPLIANT",     label: "Compliant",     value: VERDICT_TOTALS.COMPLIANT,        valueColor: "text-emerald-600" },
-  { verdict: "NON-COMPLIANT", label: "Non-compliant", value: VERDICT_TOTALS["NON-COMPLIANT"], valueColor: "text-red-600" },
-  { verdict: "REVIEW",        label: "Needs review",  value: VERDICT_TOTALS.REVIEW,           valueColor: "text-amber-600" },
-  { verdict: "NO SWAP",       label: "No swap",       value: VERDICT_TOTALS["NO SWAP"] },
+/** The day's session counts by verdict. Display only; the Verdict dropdown filters. */
+const VERDICT_CARDS: { label: string; value: number; valueColor?: string }[] = [
+  { label: "Sessions",      value: SWAP_TXNS.length },
+  { label: "Compliant",     value: VERDICT_TOTALS.COMPLIANT,        valueColor: "text-emerald-600" },
+  { label: "Non-compliant", value: VERDICT_TOTALS["NON-COMPLIANT"], valueColor: "text-red-600" },
+  { label: "Needs review",  value: VERDICT_TOTALS.REVIEW,           valueColor: "text-amber-600" },
+  { label: "No swap",       value: VERDICT_TOTALS["NO SWAP"] },
 ];
 
 /** The sessions of 6 Oct 2026, one row each, opened in a drawer for the evidence behind the verdict. */
@@ -152,7 +152,7 @@ export function SwapAuditTable() {
     writeTxnParam(null, "replace");
   }, [openId, openTxn]);
 
-  // The cards and the dropdown both go through here, so they can't disagree.
+  // A verdict change always returns to page 1.
   const selectVerdict = (v: VerdictStatus | "") => { setVerdict(v); setPage(1); };
 
   const clearFilters = () => {
@@ -163,36 +163,11 @@ export function SwapAuditTable() {
 
   return (
     <div className="space-y-4">
-      {/* Summary: the session cards filter by verdict; clicking the selected one returns to All. */}
+      {/* Summary */}
       <StatGrid cols={6}>
-        {VERDICT_CARDS.map((c) => {
-          const selected = verdict === c.verdict;
-          return (
-            <button
-              key={c.label}
-              type="button"
-              aria-pressed={selected}
-              onClick={() => selectVerdict(selected ? "" : c.verdict)}
-              className="text-left rounded-lg cursor-pointer"
-            >
-              {/* zeno-teal is near-invisible on dark cards (1.4:1), so dark mode switches
-                  to --sidebar-text, the sidebar's light teal (7.3:1). The hover border
-                  needs `[.dark_&]` + `!` to outrank globals.css's `.dark main .border-slate-200`. */}
-              <StatCard
-                label={c.label}
-                value={c.value}
-                valueColor={c.valueColor}
-                className={cn(
-                  "transition-colors",
-                  selected
-                    ? "border-zeno-teal bg-zeno-teal/5 dark:border-(color:--sidebar-text) dark:bg-(--sidebar-text)/10"
-                    : "hover:border-zeno-teal/50 hover:bg-zeno-teal/5 [.dark_&]:hover:border-(color:--sidebar-text)/50!"
-                )}
-              />
-            </button>
-          );
-        })}
-        {/* Counts batteries, not sessions, so it has no verdict to filter by. */}
+        {VERDICT_CARDS.map((c) => (
+          <StatCard key={c.label} label={c.label} value={c.value} valueColor={c.valueColor} />
+        ))}
         <StatCard label="Batteries short" value={short} valueColor={short > 0 ? "text-red-600" : undefined} />
       </StatGrid>
 
