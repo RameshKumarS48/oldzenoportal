@@ -173,10 +173,7 @@ export function SessionDrawer({
                 label="Station"
                 value={
                   <>
-                    <span className="inline-flex items-center gap-1.5 font-mono">
-                      {shown.station.id}
-                      <CopyButton value={shown.station.id} label="Station code" />
-                    </span>
+                    <CopyButton value={shown.station.id} label="Station code" onWhite className="font-mono" />
                     <span className="block text-[10px] text-slate-400">{shown.station.name}</span>
                   </>
                 }
@@ -186,19 +183,15 @@ export function SessionDrawer({
               <DetailField
                 label="Swap Txn ID"
                 value={
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="font-mono">{shown.id}</span>
-                    <CopyButton value={shown.id} label="Swap Txn ID" />
-                  </span>
+                  <CopyButton value={shown.id} label="Swap Txn ID" onWhite className="font-mono" />
                 }
               />
               <DetailField
                 label="Phone"
                 value={
-                  <span className="inline-flex items-center gap-1.5 font-mono">
+                  <CopyButton value={shown.cust.phone.replace(/\s/g, "")} label="Phone" onWhite className="font-mono">
                     {shown.cust.phone}
-                    <CopyButton value={shown.cust.phone.replace(/\s/g, "")} label="Phone" />
-                  </span>
+                  </CopyButton>
                 }
               />
             </div>

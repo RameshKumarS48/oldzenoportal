@@ -141,10 +141,7 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
                       {s.type === "poll" ? (
                         `expected ${(s.expected ?? []).join(", ")}`
                       ) : s.bat?.sn ? (
-                        <span className="inline-flex items-center gap-1.5">
-                          {s.bat.sn}
-                          <CopyButton value={s.bat.sn} label={`Battery serial ${s.bat.sn}`} />
-                        </span>
+                        <CopyButton value={s.bat.sn} label={`Battery serial ${s.bat.sn}`} />
                       ) : (
                         "–"
                       )}
@@ -173,16 +170,16 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
           <DetailField label="Swap Txn ID" value={<span className="font-mono">{txn.id}</span>} />
           <DetailField
             label="Customer ID"
-            value={<span className="inline-flex items-center gap-1.5 font-mono">{txn.cust.id}<CopyButton value={txn.cust.id} label="Customer ID" /></span>}
+            value={<CopyButton value={txn.cust.id} label="Customer ID" className="font-mono" />}
           />
           <DetailField label="Phone" value={<span className="font-mono">{txn.cust.phone}</span>} />
           <DetailField
             label="RFID"
-            value={<span className="inline-flex items-center gap-1.5 font-mono">{txn.cust.rfid}<CopyButton value={txn.cust.rfid} label="RFID" /></span>}
+            value={<CopyButton value={txn.cust.rfid} label="RFID" className="font-mono" />}
           />
           <DetailField
             label="Vehicle"
-            value={<span className="inline-flex items-center gap-1.5 font-mono">{txn.vehicle}<CopyButton value={txn.vehicle} label="Vehicle" /></span>}
+            value={<CopyButton value={txn.vehicle} label="Vehicle" className="font-mono" />}
           />
           <DetailField label="Station" value={<><span className="font-mono">{txn.station.id}</span> · {txn.station.name}</>} />
           <DetailField label="Started" value={<span className="font-mono">{fmtClock(txn.startMinute)}</span>} />

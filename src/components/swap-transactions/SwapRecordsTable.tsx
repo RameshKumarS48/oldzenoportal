@@ -86,16 +86,13 @@ function RecordDetail({ record }: { record: SwapRecord }) {
         <DetailField label="Collect Timestamp" value={fmtTs(record.collectTimestamp)} />
         <DetailField
           label="Dispense Swap Txn ID"
-          value={<span className="inline-flex items-center gap-1.5 font-mono">{record.id}<CopyButton value={record.id} label="Dispense Swap Txn ID" /></span>}
+          value={<CopyButton value={record.id} label="Dispense Swap Txn ID" className="font-mono" />}
         />
         <DetailField
           label="Collect Swap Txn ID"
           value={
             record.collectSwapTransactionId ? (
-              <span className="inline-flex items-center gap-1.5 font-mono">
-                {record.collectSwapTransactionId}
-                <CopyButton value={record.collectSwapTransactionId} label="Collect Swap Txn ID" />
-              </span>
+              <CopyButton value={record.collectSwapTransactionId} label="Collect Swap Txn ID" className="font-mono" />
             ) : (
               <span className="font-mono">–</span>
             )
@@ -121,7 +118,7 @@ function RecordDetail({ record }: { record: SwapRecord }) {
               {record.batteries.map((b) => (
                 <tr key={b.bin}>
                   <td className="py-1.5 pr-4 font-mono text-slate-700 whitespace-nowrap">
-                    <span className="inline-flex items-center gap-1.5">{b.bin}<CopyButton value={b.bin} label={`Bin ${b.bin}`} /></span>
+                    <CopyButton value={b.bin} label={`Bin ${b.bin}`} />
                   </td>
                   <td className="py-1.5 pr-4 text-slate-600">{b.billedKWh.toFixed(6)}</td>
                   <td className="py-1.5 pr-4">
@@ -135,10 +132,7 @@ function RecordDetail({ record }: { record: SwapRecord }) {
                   <td className="py-1.5 pr-4 text-slate-600">{b.ahRegen ?? "–"}</td>
                   <td className="py-1.5 pr-4 font-mono text-slate-500 whitespace-nowrap">
                     {b.rfidTagUid ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        {b.rfidTagUid}
-                        <CopyButton value={b.rfidTagUid} label={`RFID Tag UID ${b.rfidTagUid}`} />
-                      </span>
+                      <CopyButton value={b.rfidTagUid} label={`RFID Tag UID ${b.rfidTagUid}`} />
                     ) : (
                       "–"
                     )}
@@ -357,7 +351,7 @@ export function SwapRecordsTable() {
                   <Fragment key={r.id}>
                     <tr
                       className={cn(
-                        "group hover:bg-slate-50 transition-colors cursor-pointer",
+                        "hover:bg-slate-50 transition-colors cursor-pointer",
                         expanded && "bg-slate-50",
                         isTamperingCandidate(r) && "bg-red-50/30"
                       )}
@@ -366,16 +360,12 @@ export function SwapRecordsTable() {
                       <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{fmtDateTime(r.occurredAt)}</td>
                       <td className="px-3 py-2.5 font-medium text-slate-700">{r.customerName}</td>
                       <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">
-                        <span className="inline-flex items-center gap-1.5">
-                          {r.phone}
-                          <CopyButton value={r.phone.replace(/\s/g, "")} label="Phone" reveal />
-                        </span>
+                        <CopyButton value={r.phone.replace(/\s/g, "")} label="Phone">{r.phone}</CopyButton>
                       </td>
                       <td className="px-3 py-2.5 text-slate-500">
                         {r.batteries.map((b) => (
-                          <p key={b.bin} className="font-mono text-[10px] flex items-center gap-1.5">
-                            {b.bin}
-                            <CopyButton value={b.bin} label={`Bin ${b.bin}`} reveal />
+                          <p key={b.bin} className="font-mono text-[10px]">
+                            <CopyButton value={b.bin} label={`Bin ${b.bin}`} />
                           </p>
                         ))}
                       </td>
@@ -386,15 +376,13 @@ export function SwapRecordsTable() {
                       </td>
                       <td className="px-3 py-2.5 whitespace-nowrap">
                         <span className={cn(
-                          "inline-flex items-center gap-1 font-mono text-[11px]",
+                          "inline-flex items-center gap-5 font-mono text-[11px]",
                           crossStation ? "text-rose-700 font-semibold" : "text-slate-500"
                         )}>
                           {crossStation && <AlertTriangle className="w-3 h-3 text-rose-600" />}
-                          {r.dispenseStationId || "–"}
-                          {r.dispenseStationId && <CopyButton value={r.dispenseStationId} label="Dispense station code" reveal />}
+                          {r.dispenseStationId ? <CopyButton value={r.dispenseStationId} label="Dispense station code" /> : "–"}
                           <ArrowRight className={cn("w-3 h-3", crossStation ? "text-rose-400" : "text-slate-300")} />
-                          {r.collectStationId || "–"}
-                          {r.collectStationId && <CopyButton value={r.collectStationId} label="Collect station code" reveal />}
+                          {r.collectStationId ? <CopyButton value={r.collectStationId} label="Collect station code" /> : "–"}
                         </span>
                         {crossStation && (
                           <span className="block text-[10px] text-rose-600 font-semibold mt-0.5">2 stations, review</span>

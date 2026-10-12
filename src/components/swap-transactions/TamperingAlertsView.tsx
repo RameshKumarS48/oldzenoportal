@@ -457,42 +457,35 @@ export function TamperingAlertsView() {
                   <Fragment key={alert.id}>
                     <tr
                       className={cn(
-                        "group hover:bg-slate-50 transition-colors cursor-pointer",
+                        "hover:bg-slate-50 transition-colors cursor-pointer",
                         expanded && "bg-slate-50"
                       )}
                       onClick={() => setExpandedId(expanded ? null : alert.id)}
                     >
                       <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1.5">
-                          {alert.id}
-                          <CopyButton value={alert.id} label="Alert ID" reveal />
-                        </span>
-                        {rfidActive && <Ban className="w-3 h-3 text-red-500 inline ml-1.5" />}
+                        {rfidActive && <Ban className="w-3 h-3 text-red-500 inline mr-1.5" />}
+                        <CopyButton value={alert.id} label="Alert ID" />
                       </td>
                       <td className="px-3 py-2.5">
                         <p className="font-medium text-slate-700">{alert.customerName}</p>
                         {/* The vehicle shows its last 8 characters but copies in full. */}
-                        <p className="text-slate-400 text-[11px] inline-flex items-center gap-1.5">
-                          {alert.customerId}
-                          <CopyButton value={alert.customerId} label="Customer ID" reveal />
-                          <span>·</span>
-                          {alert.vehicleId.slice(-8)}
-                          <CopyButton value={alert.vehicleId} label="Vehicle ID" reveal />
+                        <p className="text-slate-400 text-[11px] whitespace-nowrap">
+                          <CopyButton value={alert.customerId} label="Customer ID" />
+                          <span className="mx-2.5">·</span>
+                          <CopyButton value={alert.vehicleId} label="Vehicle ID">{alert.vehicleId.slice(-8)}</CopyButton>
                         </p>
                       </td>
                       <td className="px-3 py-2.5 text-slate-500">
                         {alert.batteryIds.map((b) => (
-                          <p key={b} className="font-mono text-[10px] flex items-center gap-1.5">
-                            {b}
-                            <CopyButton value={b} label={`Battery ID ${b}`} reveal />
+                          <p key={b} className="font-mono text-[10px]">
+                            <CopyButton value={b} label={`Battery ID ${b}`} />
                           </p>
                         ))}
                       </td>
                       {/* Station code leads, in the primary text style; the name sits under it, quieter. */}
                       <td className="px-3 py-2.5 max-w-[140px]">
-                        <p className="flex items-center gap-1.5 font-mono text-slate-700">
-                          {alert.swapStationId}
-                          <CopyButton value={alert.swapStationId} label="Station code" reveal />
+                        <p className="font-mono text-slate-700">
+                          <CopyButton value={alert.swapStationId} label="Station code" />
                         </p>
                         <p className="truncate text-slate-400 text-[10px]">{alert.swapStationName.split(",")[0].trim()}</p>
                       </td>
