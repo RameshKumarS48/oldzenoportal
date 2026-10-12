@@ -225,7 +225,7 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
           <DetailField label="RFID" value={<span className="font-mono">{txn.cust.rfid}</span>} />
           <DetailField label="Vehicle" value={<span className="font-mono">{txn.vehicle}</span>} />
           <DetailField label="Station" value={<><span className="font-mono">{txn.station.id}</span> · {txn.station.name}</>} />
-          <DetailField label="Started" value={<span className="font-mono">{fmtClock(txn.startMinute)} IST</span>} />
+          <DetailField label="Started" value={<span className="font-mono">{fmtClock(txn.startMinute)} EAT</span>} />
           <DetailField label="Duration" value={<span className="font-mono">{txn.endT}s</span>} />
         </div>
       </section>
