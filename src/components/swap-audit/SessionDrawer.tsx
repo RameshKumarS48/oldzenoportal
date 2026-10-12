@@ -184,7 +184,7 @@ export function SessionDrawer({
             <div className="grid grid-cols-4 gap-4">
               <DetailField
                 label="Station"
-                value={<>{shown.station.name}<span className="block font-mono text-[10px] text-slate-400">{shown.station.id}</span></>}
+                value={<><span className="font-mono">{shown.station.id}</span><span className="block text-[10px] text-slate-400">{shown.station.name}</span></>}
               />
               <DetailField label="Time" value={`6 Oct, ${fmtClock(shown.startMinute)}`} />
               <DetailField
@@ -205,6 +205,7 @@ export function SessionDrawer({
                   </span>
                 }
               />
+              <DetailField label="Phone" value={<span className="font-mono">{shown.cust.phone}</span>} />
             </div>
           )}
         </div>

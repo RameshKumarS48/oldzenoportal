@@ -185,7 +185,7 @@ export function SwapAuditTable() {
 
         <select value={station} onChange={(e) => { setStation(e.target.value); setPage(1); }} className={CONTROL}>
           <option value="">All Stations</option>
-          {STATIONS.map((s) => <option key={s.id} value={s.id}>{s.name} · {s.id}</option>)}
+          {STATIONS.map((s) => <option key={s.id} value={s.id}>{s.id} · {s.name}</option>)}
         </select>
 
         <select value={scenario} onChange={(e) => { setScenario(e.target.value); setPage(1); }} className={CONTROL}>
@@ -278,9 +278,10 @@ export function SwapAuditTable() {
                     <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{t.id}</td>
                     <td className="px-3 py-2.5 font-medium text-slate-700 whitespace-nowrap">{t.cust.name}</td>
                     <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{t.cust.phone}</td>
-                    <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">
-                      {t.station.name}
-                      <span className="block font-mono text-[10px] text-slate-400">{t.station.id}</span>
+                    {/* Station ID leads, in the table's ID style; the name sits under it, quieter. */}
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <span className="font-mono text-[11px] text-slate-500">{t.station.id}</span>
+                      <span className="block text-[10px] text-slate-400">{t.station.name}</span>
                     </td>
                     <td className="px-3 py-2.5 text-slate-600">
                       <span className="inline-flex items-center gap-1">
