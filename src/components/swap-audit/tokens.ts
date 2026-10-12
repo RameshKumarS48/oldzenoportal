@@ -79,13 +79,18 @@ export const SLOT_META: Record<"charged" | "depleted" | "foreign" | "phantom", {
   phantom:  { label: "No battery", badge: "bg-red-600 text-white",         bar: "bg-red-500",     card: "border-2 border-dashed border-red-400 bg-red-50/60" },
 };
 
-/** Legend above the slot strip. */
-export const SLOT_LEGEND: { label: string; dot: string }[] = [
-  { label: "Charged",                  dot: "bg-emerald-500" },
-  { label: "Customer's depleted",      dot: "bg-amber-500" },
-  { label: "No battery / suspect S/N", dot: "bg-red-500" },
-  { label: "Empty",                    dot: "bg-slate-300" },
-  { label: "Dispensed",                dot: "bg-blue-500" },
+export type LegendKey = "charged" | "depleted" | "bad" | "empty" | "dispensed";
+
+/**
+ * Legend above the slot strip. Empty is an outlined square, not a filled one,
+ * so it differs from Charged by shape as well as colour.
+ */
+export const SLOT_LEGEND: { key: LegendKey; label: string; dot: string }[] = [
+  { key: "charged",   label: "Charged",                  dot: "bg-emerald-500" },
+  { key: "depleted",  label: "Customer's depleted",      dot: "bg-amber-500" },
+  { key: "bad",       label: "No battery / suspect S/N", dot: "bg-red-500" },
+  { key: "empty",     label: "Empty",                    dot: "border border-slate-300" },
+  { key: "dispensed", label: "Dispensed",                dot: "bg-blue-500" },
 ];
 
 /** The small uppercase caption dome puts above a sub-section of a detail row. */

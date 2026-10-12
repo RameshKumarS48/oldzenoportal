@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Play, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import {
-  detectionText, fmtClock, fmtClockSec, fmtRel, slotLabel, stepLabel,
+  detectionText, fmtClock, fmtClockSec, slotLabel, stepLabel,
   type Step, type SwapTxn,
 } from "@/lib/mock/swap-audit";
 import { stepToken, SUBLAB, SECTION } from "./tokens";
@@ -65,6 +65,7 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
   const liveLabel = atEnd ? (hasPoll ? "After poll" : "After") : k === 0 ? "At start" : `After step ${k}`;
 
   const jump = (to: number) => { setPlaying(false); setStep(to >= n ? null : to); };
+
 
   // Battery movement
   const pollSlots = txn.steps.find((s) => s.type === "poll")?.slots ?? [];
@@ -141,36 +142,37 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
 
       <section>
         <h3 className={SECTION}>Station before → after</h3>
-        {/* Slots, with a step-through so the moment of the fake is visible */}
-        <div>
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <StepBtn onClick={() => jump(Math.max(0, k - 1))} disabled={k === 0}>
-              <ChevronLeft className="w-3 h-3" /> Step
-            </StepBtn>
-            <button
-              type="button"
-              onClick={() => { if (playing) { setPlaying(false); return; } setStep(0); setPlaying(true); }}
-              disabled={n === 0}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold bg-[#003B49] text-white hover:bg-[#00505f] transition-colors disabled:opacity-40"
-            >
-              {playing ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-              {playing ? "Pause" : "Replay"}
-            </button>
-            <StepBtn onClick={() => jump(k + 1)} disabled={k >= n}>
-              Step <ChevronRight className="w-3 h-3" />
-            </StepBtn>
-            <span className="text-[11px] text-slate-400 tabular-nums">{k} of {n} steps applied</span>
-          </div>
-
-          <SlotStrip
-            before={txn.before}
-            state={state}
-            marks={marks}
-            liveLabel={liveLabel}
-            now={!atEnd && current ? nowText(current) : undefined}
-            nowClass={!atEnd && current ? stepToken(current).text : undefined}
-          />
-        </div>
+        {/* Opens on the end of the session; the step controls sit centred underneath. */}
+        <SlotStrip
+          before={txn.before}
+          state={state}
+          steps={txn.steps}
+          applied={k}
+          marks={marks}
+          liveLabel={liveLabel}
+          event={atEnd ? txn.steps[n - 1] : current}
+          startMinute={txn.startMinute}
+          footer={
+            <div className="flex items-center gap-2 flex-wrap">
+              <StepBtn onClick={() => jump(Math.max(0, k - 1))} disabled={k === 0}>
+                <ChevronLeft className="w-3 h-3" /> Step
+              </StepBtn>
+              <button
+                type="button"
+                onClick={() => { if (playing) { setPlaying(false); return; } setStep(0); setPlaying(true); }}
+                disabled={n === 0}
+                className="inline-flex min-w-[90px] items-center justify-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold bg-[#003B49] text-white hover:bg-[#00505f] transition-colors disabled:opacity-40"
+              >
+                {playing ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                {playing ? "Pause" : "Replay"}
+              </button>
+              <StepBtn onClick={() => jump(k + 1)} disabled={k >= n}>
+                Step <ChevronRight className="w-3 h-3" />
+              </StepBtn>
+              <span className="min-w-[90px] text-[11px] text-slate-400 tabular-nums">Step {k} of {n}</span>
+            </div>
+          }
+        />
       </section>
 
       <section>
@@ -283,12 +285,6 @@ function MovementGroup({
       )}
     </tbody>
   );
-}
-
-function nowText(step: Step): string {
-  const where = step.type === "poll" ? (step.slots ?? []).map(slotLabel).join(", ") : slotLabel(step.slot!);
-  const sn = step.type === "poll" ? (step.expected ?? []).join(", ") : step.bat?.sn ?? "—";
-  return `${fmtRel(step.t)} · ${stepLabel(step)} · ${where} · ${sn}`;
 }
 
 function detection(step: Step): { text: string; bad: boolean } {
