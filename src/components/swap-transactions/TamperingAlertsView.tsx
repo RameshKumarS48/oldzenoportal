@@ -44,11 +44,28 @@ const VIOLATION_COLORS: Record<ViolationType, string> = {
 };
 
 const STATUS_COLORS: Record<AlertStatus, string> = {
-  pending:      "bg-amber-50 text-amber-700 border border-amber-200",
-  approved:     "bg-emerald-50 text-emerald-700 border border-emerald-200",
-  rejected:     "bg-slate-100 text-slate-500 border border-slate-200",
-  investigating:"bg-blue-50 text-blue-700 border border-blue-200",
+  pending:      "bg-amber-50 text-amber-700",
+  approved:     "bg-emerald-50 text-emerald-700",
+  rejected:     "bg-slate-100 text-slate-500",
+  investigating:"bg-blue-50 text-blue-700",
 };
+
+/** Read-only labels (Violation, Status, Double Bill): flat tint, no border or shadow. */
+const LABEL = "px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap";
+
+/** Actions: the Swap Audit drawer's outline button. Meaning lives in the icon colour. */
+const ACTION =
+  "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors";
+
+/**
+ * Approve and Reject, told apart at a glance: the Approved status label's green
+ * and the red label tint (the light shade fills, the dark shade draws text, icon
+ * and border). Text is 5.2:1 and 5.9:1, 4.8:1 and 5.3:1 on hover.
+ */
+const APPROVE =
+  "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-emerald-700 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors";
+const REJECT =
+  "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-red-700 bg-red-50 text-red-700 hover:bg-red-100 transition-colors";
 
 export const STATUS_LABELS: Record<AlertStatus, string> = {
   pending:      "Pending",
@@ -569,7 +586,7 @@ export function TamperingAlertsView() {
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
                 {["Alert ID", "Customer / Vehicle", "Battery(s)", "Station", "Detected", "Violation", "Offence", "Penalty", "Status", "Actions"].map((h) => (
-                  <th key={h} className="text-left px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                  <th key={h} className={cn("text-left px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap", h === "Actions" && "border-l border-slate-200")}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -633,19 +650,19 @@ export function TamperingAlertsView() {
                         <span className="text-slate-400">{new Date(alert.detectedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>
                       </td>
                       <td className="px-3 py-2.5">
-                        <span className={cn("px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap", VIOLATION_COLORS[alert.violationType])}>
+                        <span className={cn(LABEL, VIOLATION_COLORS[alert.violationType])}>
                           {VIOLATION_LABELS[alert.violationType]}
                         </span>
                         {alert.isDoubleBill && (
-                          <span className="block text-[10px] text-red-500 font-semibold mt-0.5">Double Bill</span>
+                          <span className={cn(LABEL, "mt-1 inline-block bg-red-50 text-red-700")}>Double Bill</span>
                         )}
                       </td>
                       <td className="px-3 py-2.5 text-center">
                         <span className={cn(
-                          "inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold",
-                          alert.offenceCount >= 3 ? "bg-red-100 text-red-700" :
-                          alert.offenceCount === 2 ? "bg-amber-100 text-amber-700" :
-                          "bg-slate-100 text-slate-600"
+                          "text-xs font-semibold",
+                          alert.offenceCount >= 3 ? "text-red-700" :
+                          alert.offenceCount === 2 ? "text-amber-700" :
+                          "text-slate-600"
                         )}>
                           {OFFENCE_LABEL[alert.offenceCount] ?? `${alert.offenceCount}th`}
                         </span>
@@ -656,32 +673,33 @@ export function TamperingAlertsView() {
                           : <span className="text-slate-300">–</span>}
                       </td>
                       <td className="px-3 py-2.5">
-                        <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap", STATUS_COLORS[alert.status])}>
+                        <span className={cn(LABEL, STATUS_COLORS[alert.status])}>
                           {STATUS_LABELS[alert.status]}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                      {/* A thin divider keeps information and actions apart. */}
+                      <td className="px-3 py-2.5 border-l border-slate-200" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1 flex-wrap">
                           {/* Pending actions */}
                           {canWrite && alert.status === "pending" && (
                             <>
                               <button
                                 onClick={() => setApproveTarget(alert)}
-                                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                                className={APPROVE}
                               >
-                                <CheckCircle2 className="w-3 h-3" /> Approve
+                                <CheckCircle2 className="w-3 h-3 text-emerald-700" /> Approve
                               </button>
                               <button
                                 onClick={() => setRejectTarget(alert)}
-                                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                                className={REJECT}
                               >
-                                <XCircle className="w-3 h-3" /> Reject
+                                <XCircle className="w-3 h-3 text-red-700" /> Reject
                               </button>
                               <button
                                 onClick={() => setInvestTarget(alert)}
-                                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                                className={cn(ACTION, "ml-2")}
                               >
-                                <AlertTriangle className="w-3 h-3" /> Investigate
+                                <AlertTriangle className="w-3 h-3 text-blue-700" /> Investigate
                               </button>
                             </>
                           )}
@@ -695,17 +713,17 @@ export function TamperingAlertsView() {
                                     sendNotification(alert.id);
                                     toast.success("Customer notified", `${alert.customerName} was sent the penalty notice for ${alert.id}.`);
                                   }}
-                                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-teal-50 text-teal-700 hover:bg-teal-100 transition-colors"
+                                  className={ACTION}
                                 >
-                                  <Bell className="w-3 h-3" /> Notify
+                                  <Bell className="w-3 h-3 text-teal-700" /> Notify
                                 </button>
                               )}
                               {alert.offenceCount >= 3 && !rfidActive && (
                                 <button
                                   onClick={() => setRfidTarget({ alert, disable: true })}
-                                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+                                  className={ACTION}
                                 >
-                                  <Ban className="w-3 h-3" /> Disable RFID
+                                  <Ban className="w-3 h-3 text-red-700" /> Disable RFID
                                 </button>
                               )}
                             </>
@@ -715,9 +733,9 @@ export function TamperingAlertsView() {
                           {canWrite && rfidActive && (
                             <button
                               onClick={() => setRfidTarget({ alert, disable: false })}
-                              className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                              className={ACTION}
                             >
-                              <Unlock className="w-3 h-3" /> Re-enable RFID
+                              <Unlock className="w-3 h-3 text-emerald-700" /> Re-enable RFID
                             </button>
                           )}
 
@@ -725,9 +743,9 @@ export function TamperingAlertsView() {
                           {canWrite && (alert.status === "rejected" || alert.status === "investigating") && (
                             <button
                               onClick={() => setReopenTarget(alert)}
-                              className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+                              className={ACTION}
                             >
-                              <RotateCcw className="w-3 h-3" /> Reopen
+                              <RotateCcw className="w-3 h-3 text-amber-700" /> Reopen
                             </button>
                           )}
 
