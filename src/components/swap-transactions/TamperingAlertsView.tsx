@@ -467,7 +467,9 @@ export function TamperingAlertsView() {
                         <CopyButton value={alert.id} label="Alert ID" />
                       </td>
                       <td className="px-3 py-2.5">
-                        <p className="font-medium text-slate-700">{alert.customerName}</p>
+                        <p className="font-medium text-slate-700">
+                          <CopyButton value={alert.customerName} label="Customer name" />
+                        </p>
                         {/* The vehicle shows its last 8 characters but copies in full. */}
                         <p className="text-slate-400 text-[11px] whitespace-nowrap">
                           <CopyButton value={alert.customerId} label="Customer ID" />

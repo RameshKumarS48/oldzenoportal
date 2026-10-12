@@ -137,7 +137,7 @@ export function SessionDrawer({
                   aria-live="polite"
                   className="font-medium text-slate-700 focus:outline-none"
                 >
-                  {shown.cust.name}
+                  <CopyButton value={shown.cust.name} label="Customer name" onWhite />
                 </h2>
                 <span className={cn("px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap", VERDICT_META[shown.verdict.status].badge)}>
                   {VERDICT_META[shown.verdict.status].label}

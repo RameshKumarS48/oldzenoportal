@@ -358,7 +358,9 @@ export function SwapRecordsTable() {
                       onClick={() => setExpandedId(expanded ? null : r.id)}
                     >
                       <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{fmtDateTime(r.occurredAt)}</td>
-                      <td className="px-3 py-2.5 font-medium text-slate-700">{r.customerName}</td>
+                      <td className="px-3 py-2.5 font-medium text-slate-700">
+                        <CopyButton value={r.customerName} label="Customer name" />
+                      </td>
                       <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">
                         <CopyButton value={r.phone.replace(/\s/g, "")} label="Phone">{r.phone}</CopyButton>
                       </td>
