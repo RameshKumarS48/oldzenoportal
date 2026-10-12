@@ -243,7 +243,7 @@ export function SwapRecordsTable() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col flex-1 min-h-0 gap-4">
       {/* Summary */}
       <StatGrid cols={5}>
         <StatCard label="Total Swaps" value={totalSwaps} />
@@ -323,8 +323,8 @@ export function SwapRecordsTable() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="flex flex-col flex-1 min-h-0 bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-auto">
           <table className="w-full text-xs min-w-[1200px]">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>

@@ -8,7 +8,8 @@ export default function TamperingAlertsPage() {
   return (
     <SupportGuard>
       <Topbar title="Tampering Alerts" />
-      <main className="flex-1 overflow-y-auto bg-zeno-bg p-6">
+      {/* As on Asset Tracking: the page doesn't scroll; the table card fills the rest and scrolls its own rows. */}
+      <main className="flex flex-col flex-1 overflow-hidden bg-zeno-bg p-6">
         <TamperingAlertsView />
       </main>
     </SupportGuard>

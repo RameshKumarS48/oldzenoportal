@@ -373,7 +373,7 @@ export function TamperingAlertsView() {
   const clearFilters = () => { setSearch(""); setStatusFilter(""); setViolFilter(""); setOffenceFilter(""); setDateFilter(""); };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col flex-1 min-h-0 gap-4">
       {/* Summary */}
       <StatGrid>
         <StatCard label="Pending Review"       value={pending}    valueColor={pending > 0 ? "text-amber-600" : undefined} />
@@ -431,8 +431,8 @@ export function TamperingAlertsView() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="flex flex-col flex-1 min-h-0 bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-auto">
           <table className="w-full text-xs min-w-[1100px]">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
