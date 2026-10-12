@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AccessGuard } from "@/components/ui/AccessGuard";
 import { Topbar } from "@/components/layout/Topbar";
 import { ShieldAlert, ArrowLeftRight } from "lucide-react";
@@ -9,9 +10,19 @@ import { SwapRecordsTable } from "@/components/swap-transactions/SwapRecordsTabl
 
 type View = "tampering" | "all";
 
+// Reading the URL needs a Suspense boundary for the production build.
 export default function SwapTransactionsPage() {
-  // Tampering Alerts is the default view of this tab.
-  const [view, setView] = useState<View>("tampering");
+  return (
+    <Suspense fallback={null}>
+      <SwapTransactions />
+    </Suspense>
+  );
+}
+
+function SwapTransactions() {
+  // Tampering Alerts is the default view; a return from Swap Audit names its view.
+  const initialView = useSearchParams().get("view");
+  const [view, setView] = useState<View>(initialView === "all" ? "all" : "tampering");
 
   return (
     <AccessGuard module="swap_info">
@@ -43,8 +54,7 @@ export default function SwapTransactionsPage() {
       {/* Content */}
       {/* As on Asset Tracking: the page doesn't scroll; the table card fills the rest and scrolls its own rows. */}
       <div className="flex flex-col flex-1 overflow-hidden bg-zeno-bg p-6">
-        {/* Tampering Alerts reads Swap Audit's return parameters, which Next requires inside Suspense. */}
-        {view === "tampering" ? <Suspense fallback={null}><TamperingAlertsView /></Suspense> : <SwapRecordsTable />}
+        {view === "tampering" ? <TamperingAlertsView /> : <SwapRecordsTable />}
       </div>
       </main>
     </AccessGuard>

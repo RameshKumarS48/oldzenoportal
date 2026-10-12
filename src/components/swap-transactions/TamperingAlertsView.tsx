@@ -1,11 +1,11 @@
 "use client";
 
-import { Fragment, useState, useMemo, useEffect } from "react";
+import { Fragment, useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   Search, ChevronDown, ChevronUp, Info, CheckCircle2, XCircle,
-  AlertTriangle, Ban, Bell, Unlock, RotateCcw, ShieldAlert, ArrowRight,
+  AlertTriangle, Ban, Bell, Unlock, RotateCcw, ShieldAlert, ArrowRight, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -336,7 +336,8 @@ export function TamperingAlertsView() {
   const [violationFilter, setViolFilter]  = useState(() => params.get("violation") ?? "");
   const [offenceFilter, setOffenceFilter] = useState(() => params.get("offence") ?? "");
   const [dateFilter, setDateFilter]       = useState(() => params.get("date") ?? "");
-  const [expandedId, setExpandedId]       = useState<string | null>(null);
+  // Returning from Swap Audit opens the alert's Trail.
+  const [expandedId, setExpandedId]       = useState<string | null>(() => params.get("focus"));
   const [approveTarget, setApproveTarget] = useState<TamperingAlert | null>(null);
   const [rejectTarget, setRejectTarget]   = useState<TamperingAlert | null>(null);
   const [investTarget, setInvestTarget]   = useState<TamperingAlert | null>(null);
@@ -345,8 +346,13 @@ export function TamperingAlertsView() {
   const [now] = useState(() => Date.now());
   const [page, setPage]                   = useState(() => Number(params.get("page")) || 1);
   const [perPage, setPerPage]             = useState(() => Number(params.get("per")) || 25);
-  /** The alert Swap Audit returned to: highlighted until a click lands somewhere else. */
+  /** The alert Swap Audit returned to: selected until another row is clicked or expanded. */
   const [focusId, setFocusId]             = useState(() => params.get("focus"));
+  /** That alert, when the restored filters no longer include it. */
+  const [missingId, setMissingId]         = useState<string | null>(null);
+  /** Bumped to scroll to, focus and announce the returned alert again (after "Show it"). */
+  const [revealTick, setRevealTick]       = useState(0);
+  const liveRef = useRef<HTMLSpanElement>(null);
 
   const filtered = useMemo(() => {
     const cutoff =
@@ -382,34 +388,52 @@ export function TamperingAlertsView() {
     setPage(1);
   }
 
-  // On return, open the page that holds the returned-to alert (same render pattern).
-  const [pagedForFocus, setPagedForFocus] = useState(false);
-  if (focusId && !pagedForFocus) {
-    setPagedForFocus(true);
+  // On return (and again after "Show it"), open the page that holds the alert, or
+  // note that the restored filters leave it out. Same render-time pattern as above.
+  const [pagedForTick, setPagedForTick] = useState(-1);
+  if (focusId && pagedForTick !== revealTick) {
+    setPagedForTick(revealTick);
     const i = filtered.findIndex((a) => a.id === focusId);
     if (i >= 0) setPage(Math.floor(i / perPage) + 1);
+    else if (alerts.some((a) => a.id === focusId)) setMissingId(focusId);
   }
 
-  // Once, on return: drop the restore parameters from the URL, scroll the alert
-  // into view and give it keyboard focus.
+  // Once, on return: drop the restore parameters from the URL.
   useEffect(() => {
-    if (!focusId) return;
-    window.history.replaceState(null, "", window.location.pathname);
-    const row = document.querySelector<HTMLElement>(`tr[data-alert="${CSS.escape(focusId)}"]`);
-    row?.scrollIntoView({ block: "center" });
-    row?.focus({ preventScroll: true });
+    if (focusId) window.history.replaceState(null, "", window.location.pathname);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // The highlight stays until a click lands outside that row.
+  // After the list renders: centre the alert in the table, focus it, and tell
+  // screen readers where they are. Instant, no animation.
   useEffect(() => {
     if (!focusId) return;
-    const onDown = (e: PointerEvent) => {
-      if (!(e.target as Element).closest(`tr[data-alert="${CSS.escape(focusId)}"]`)) setFocusId(null);
-    };
-    document.addEventListener("pointerdown", onDown);
-    return () => document.removeEventListener("pointerdown", onDown);
-  }, [focusId]);
+    const row = document.querySelector<HTMLElement>(`tr[data-alert="${CSS.escape(focusId)}"]`);
+    if (!row) return;
+    row.scrollIntoView({ block: "center" });
+    row.focus({ preventScroll: true });
+    const a = alerts.find((x) => x.id === focusId);
+    if (a && liveRef.current) {
+      liveRef.current.textContent =
+        `Returned to alert ${a.id}, ${VIOLATION_LABELS[a.violationType]}, ${STATUS_LABELS[a.status]}. Trail expanded.`;
+    }
+    // Only on return and after "Show it", not on every edit to the alerts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealTick]);
+
+  // Another row clicked or expanded: the returned alert stops being the selection.
+  const toggleRow = (id: string) => {
+    if (focusId && id !== focusId) setFocusId(null);
+    setExpandedId(expandedId === id ? null : id);
+  };
+
+  // "Show it": drop every filter, then land on the alert as on return.
+  const showMissing = () => {
+    setSearch(""); setStatusFilter(""); setViolFilter(""); setOffenceFilter(""); setDateFilter("");
+    setMissingId(null);
+    setExpandedId(focusId);
+    setRevealTick((t) => t + 1);
+  };
 
   /**
    * "View in Swap Audit": that alert's station and detected date (EAT, Swap
@@ -423,6 +447,7 @@ export function TamperingAlertsView() {
     if (violationFilter) back.set("violation", violationFilter);
     if (offenceFilter) back.set("offence", offenceFilter);
     if (dateFilter) back.set("date", dateFilter);
+    if (pathname === "/swap-transactions") back.set("view", "tampering");
     back.set("page", String(page));
     back.set("per", String(perPage));
     const to = new URLSearchParams({
@@ -507,6 +532,22 @@ export function TamperingAlertsView() {
         <span className="ml-auto text-xs text-slate-400">{filtered.length} alert{filtered.length !== 1 ? "s" : ""}</span>
       </div>
 
+      {/* Where the returned-to alert went, when the restored filters leave it out. */}
+      {missingId && (
+        <div role="status" className="shrink-0 bg-white rounded-xl border border-slate-200 px-4 py-2.5 flex items-center gap-3">
+          <span className="text-xs text-slate-600">{missingId} isn&apos;t in the current filters</span>
+          <button onClick={showMissing} className="text-xs text-slate-400 hover:text-slate-600">Show it</button>
+          <button
+            onClick={() => setMissingId(null)}
+            aria-label="Dismiss"
+            className="ml-auto p-1 rounded-lg hover:bg-slate-100 text-slate-500"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+      <span ref={liveRef} aria-live="polite" className="sr-only" />
+
       {/* Table */}
       <div className="flex flex-col flex-1 min-h-0 bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="flex-1 min-h-0 overflow-auto">
@@ -541,7 +582,7 @@ export function TamperingAlertsView() {
                         // Swap Audit's selected-row style, for the alert we came back to.
                         focusId === alert.id && "bg-zeno-teal/5 dark:bg-(--sidebar-text)/10"
                       )}
-                      onClick={() => setExpandedId(expanded ? null : alert.id)}
+                      onClick={() => toggleRow(alert.id)}
                     >
                       <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">
                         {rfidActive && <Ban className="w-3 h-3 text-red-500 inline mr-1.5" />}
@@ -678,7 +719,7 @@ export function TamperingAlertsView() {
 
                           {/* Expand */}
                           <button
-                            onClick={() => setExpandedId(expanded ? null : alert.id)}
+                            onClick={() => toggleRow(alert.id)}
                             className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold text-slate-500 hover:bg-slate-100 transition-colors"
                           >
                             {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
