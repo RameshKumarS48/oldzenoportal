@@ -231,15 +231,11 @@ export function SwapAuditTable() {
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
                 {[
-                  "Time (EAT)", "Swap Txn ID", "Customer", "Phone", "Station", "Scenario",
-                  "Collects", "Dispensed", "Balance", "Verdict", "",
+                  "Time (EAT)", "Swap Txn ID", "Customer", "Phone", "Station", "Scenario", "Verdict", "",
                 ].map((h) => (
                   <th
                     key={h}
-                    className={cn(
-                      "px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap",
-                      h === "Collects" || h === "Dispensed" || h === "Balance" ? "text-right" : "text-left"
-                    )}
+                    className="px-3 py-2.5 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap"
                   >
                     {h}
                   </th>
@@ -249,7 +245,7 @@ export function SwapAuditTable() {
             <tbody className="divide-y divide-slate-100">
               {paginated.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="text-center py-16">
+                  <td colSpan={8} className="text-center py-16">
                     <PackageOpen className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="text-slate-400">No swap sessions match your filters</p>
                   </td>
@@ -295,20 +291,6 @@ export function SwapAuditTable() {
                         {faked && <AlertTriangle className="w-3 h-3 text-red-500 shrink-0" />}
                         {t.sc.name}
                       </span>
-                    </td>
-                    {/* Recorded vs confirmed: the gap between them is the fraud. */}
-                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                      <span className={cn("font-semibold", v.Pc < v.Rc ? "text-red-600" : "text-slate-700")}>
-                        {v.Pc}
-                      </span>
-                      <span className="text-slate-400"> / {v.Rc}</span>
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-semibold text-slate-700">{v.Dn}</td>
-                    <td className={cn(
-                      "px-3 py-2.5 text-right font-semibold whitespace-nowrap",
-                      v.bal !== 0 ? "text-red-600" : "text-slate-400"
-                    )}>
-                      {v.bal > 0 ? `+${v.bal}` : v.bal}
                     </td>
                     <td className="px-3 py-2.5">
                       <span className={cn("px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap", meta.badge)}>
