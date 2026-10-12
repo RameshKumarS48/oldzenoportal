@@ -119,7 +119,9 @@ export interface Step {
   post?: boolean;
 }
 
-export type VerdictStatus = "COMPLIANT" | "NON-COMPLIANT" | "REVIEW" | "NO SWAP";
+/** Two verdicts. Anything short of a clean double swap, including a single
+ * swap or an aborted session, is non-compliant. */
+export type VerdictStatus = "COMPLIANT" | "NON-COMPLIANT";
 
 export interface Flag {
   t: string;
@@ -340,13 +342,12 @@ export function verdict(steps: Step[]): Verdict {
   const bal = Pc - Dn;
 
   const flags: Flag[] = [];
-  let hard = false;
-  const bad = (t: string) => { flags.push({ t, k: "bad" }); hard = true; };
+  const bad = (t: string) => flags.push({ t, k: "bad" });
   const warn = (t: string) => flags.push({ t, k: "warn" });
 
   if (Rc === 0 && Dn === 0) {
     return {
-      status: "NO SWAP",
+      status: "NON-COMPLIANT",
       flags: [{ t: "Collect slot opened and timed out, no battery movement", k: "" }],
       Rc, Pc, Dn, bal,
     };
@@ -391,7 +392,7 @@ export function verdict(steps: Step[]): Verdict {
     };
   }
 
-  return { status: hard ? "NON-COMPLIANT" : "REVIEW", flags, Rc, Pc, Dn, bal };
+  return { status: "NON-COMPLIANT", flags, Rc, Pc, Dn, bal };
 }
 
 // ── Building one transaction ─────────────────────────────────────────────────
@@ -587,7 +588,7 @@ function buildTransactions(): SwapTxn[] {
 
 export const SWAP_TXNS: SwapTxn[] = buildTransactions();
 
-export const VERDICT_ORDER: VerdictStatus[] = ["COMPLIANT", "NON-COMPLIANT", "REVIEW", "NO SWAP"];
+export const VERDICT_ORDER: VerdictStatus[] = ["COMPLIANT", "NON-COMPLIANT"];
 
 /** Totals across the whole day — the verdict chips show these, not the filtered counts. */
 export const VERDICT_TOTALS: Record<VerdictStatus, number> = VERDICT_ORDER.reduce(

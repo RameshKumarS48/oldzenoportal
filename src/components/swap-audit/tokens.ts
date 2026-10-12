@@ -15,8 +15,6 @@ import { isSuspicious } from "@/lib/mock/swap-audit";
 export const VERDICT_META: Record<VerdictStatus, { label: string; badge: string; dot: string }> = {
   "COMPLIANT":     { label: "Compliant",     badge: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
   "NON-COMPLIANT": { label: "Non-compliant", badge: "bg-red-50 text-red-700",         dot: "bg-red-500" },
-  "REVIEW":        { label: "Review",        badge: "bg-amber-50 text-amber-700",     dot: "bg-amber-500" },
-  "NO SWAP":       { label: "No swap",       badge: "bg-slate-100 text-slate-500",    dot: "bg-slate-400" },
 };
 
 export type StepTone = "collect" | "collectBad" | "dispense" | "timeout" | "poll";

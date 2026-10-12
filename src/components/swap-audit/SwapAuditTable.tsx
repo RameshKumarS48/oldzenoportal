@@ -62,8 +62,6 @@ const VERDICT_CARDS: { label: string; value: number; valueColor?: string }[] = [
   { label: "Sessions",      value: SWAP_TXNS.length },
   { label: "Compliant",     value: VERDICT_TOTALS.COMPLIANT,        valueColor: "text-emerald-600" },
   { label: "Non-compliant", value: VERDICT_TOTALS["NON-COMPLIANT"], valueColor: "text-red-600" },
-  { label: "Needs review",  value: VERDICT_TOTALS.REVIEW,           valueColor: "text-amber-600" },
-  { label: "No swap",       value: VERDICT_TOTALS["NO SWAP"] },
 ];
 
 /** The sessions of 6 Oct 2026, one row each, opened in a drawer for the evidence behind the verdict. */
@@ -165,7 +163,7 @@ export function SwapAuditTable() {
   return (
     <div className="space-y-4">
       {/* Summary */}
-      <StatGrid cols={6}>
+      <StatGrid cols={4}>
         {VERDICT_CARDS.map((c) => (
           <StatCard key={c.label} label={c.label} value={c.value} valueColor={c.valueColor} />
         ))}
