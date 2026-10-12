@@ -283,8 +283,7 @@ export function SwapAuditTable() {
                       <CopyButton value={t.cust.name} label="Customer name" />
                     </td>
                     <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">
-                      {/* Copied without spaces, the form phone and M-Pesa fields expect. */}
-                      <CopyButton value={t.cust.phone.replace(/\s/g, "")} label="Phone">{t.cust.phone}</CopyButton>
+                      <CopyButton value={t.cust.phone} label="Phone" />
                     </td>
                     {/* Station ID leads, in the table's ID style; the name sits under it, quieter. */}
                     <td className="px-3 py-2.5 whitespace-nowrap">

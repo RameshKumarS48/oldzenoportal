@@ -189,9 +189,7 @@ export function SessionDrawer({
               <DetailField
                 label="Phone"
                 value={
-                  <CopyButton value={shown.cust.phone.replace(/\s/g, "")} label="Phone" onWhite className="font-mono">
-                    {shown.cust.phone}
-                  </CopyButton>
+                  <CopyButton value={shown.cust.phone} label="Phone" onWhite className="font-mono" />
                 }
               />
             </div>

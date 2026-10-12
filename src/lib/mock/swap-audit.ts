@@ -313,7 +313,7 @@ function buildCustomers(): Customer[] {
     const rest = ri(100, 999);
     const rfid = String(ri(10000000, 99999999));
     const id = `R-${ri(10000, 99999)}`;
-    out.push({ name: `${first} ${last}`, phone: `+254 ${prefix} ${three} ${rest}`, rfid, id });
+    out.push({ name: `${first} ${last}`, phone: `+254${prefix}${three}${rest}`, rfid, id });
   }
   return out;
 }

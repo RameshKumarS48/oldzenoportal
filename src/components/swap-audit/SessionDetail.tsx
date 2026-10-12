@@ -175,9 +175,7 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
           <DetailField
             label="Phone"
             value={
-              <CopyButton value={txn.cust.phone.replace(/\s/g, "")} label="Phone" className="font-mono">
-                {txn.cust.phone}
-              </CopyButton>
+              <CopyButton value={txn.cust.phone} label="Phone" className="font-mono" />
             }
           />
           <DetailField

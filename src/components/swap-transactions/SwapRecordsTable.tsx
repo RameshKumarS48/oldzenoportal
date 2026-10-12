@@ -362,7 +362,7 @@ export function SwapRecordsTable() {
                         <CopyButton value={r.customerName} label="Customer name" />
                       </td>
                       <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">
-                        <CopyButton value={r.phone.replace(/\s/g, "")} label="Phone">{r.phone}</CopyButton>
+                        <CopyButton value={r.phone} label="Phone" />
                       </td>
                       <td className="px-3 py-2.5 text-slate-500">
                         {r.batteries.map((b) => (
