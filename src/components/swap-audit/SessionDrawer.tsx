@@ -17,7 +17,7 @@ const FOCUSABLE =
  * to stay inside <main> to pick up globals.css's dark-mode overrides.
  */
 export function SessionDrawer({
-  txn, position, total, onPrev, onNext, onClose,
+  txn, position, total, onPrev, onNext, onClose, backLink,
 }: {
   txn: SwapTxn | null;
   /** 1-based place of `txn` in the filtered list; 0 when it isn't in it. */
@@ -27,6 +27,8 @@ export function SessionDrawer({
   onPrev?: () => void;
   onNext?: () => void;
   onClose: () => void;
+  /** "Back to alert", above the customer name in the fixed header. */
+  backLink?: React.ReactNode;
 }) {
   const open = txn !== null;
 
@@ -127,6 +129,8 @@ export function SessionDrawer({
       >
         {/* Who and the verdict, then where, when and which swap in the detail grid's label style. */}
         <div className="px-6 py-4 border-b border-slate-200 space-y-3">
+          {/* Part of the fixed header, so it stays in view while the body scrolls. */}
+          {open && backLink && <div>{backLink}</div>}
           <div className="flex items-start justify-between gap-4">
             {shown && (
               <div className="flex items-center gap-2 flex-wrap min-w-0">

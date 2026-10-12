@@ -1,9 +1,11 @@
 "use client";
 
 import { Fragment, useState, useMemo, useEffect } from "react";
+import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Search, ChevronDown, ChevronUp, Info, CheckCircle2, XCircle,
-  AlertTriangle, Ban, Bell, Unlock, RotateCcw, ShieldAlert,
+  AlertTriangle, Ban, Bell, Unlock, RotateCcw, ShieldAlert, ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -17,6 +19,10 @@ import type { TamperingAlert, ViolationType, AlertStatus } from "@/store/tamperi
 import { useAuthStore } from "@/store/auth";
 import { useAccess } from "@/lib/access";
 import { cn } from "@/lib/utils";
+import { SWAP_TXNS } from "@/lib/mock/swap-audit";
+
+/** Swap Audit's session IDs: an alert opens its session there only when it is one of these. */
+const SWAP_AUDIT_IDS = new Set(SWAP_TXNS.map((t) => t.id));
 
 // ── Labels & styles ─────────────────────────────────────────────────────────
 
@@ -129,7 +135,7 @@ function EscalationBanner() {
 
 // ── Audit Trail Row ──────────────────────────────────────────────────────────
 
-function AuditTrail({ alert }: { alert: TamperingAlert }) {
+function AuditTrail({ alert, swapAuditHref }: { alert: TamperingAlert; swapAuditHref: string }) {
   const events: { label: string; time?: string; note?: string; color: string }[] = [
     { label: "Alert detected", time: alert.detectedAt, note: alert.detectionReason, color: "bg-slate-400" },
     ...(alert.reviewedAt ? [{ label: `Status → ${STATUS_LABELS[alert.status]}`, time: alert.reviewedAt, note: alert.reviewNote, color: alert.status === "approved" ? "bg-emerald-500" : alert.status === "rejected" ? "bg-slate-400" : "bg-blue-500" }] : []),
@@ -158,6 +164,17 @@ function AuditTrail({ alert }: { alert: TamperingAlert }) {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Navigation only, for every alert whatever its status. Styled as the Swap
+          Audit drawer's Previous/Next buttons. */}
+      <div className="mt-3 flex justify-end">
+        <Link
+          href={swapAuditHref}
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors"
+        >
+          View in Swap Audit <ArrowRight className="w-3 h-3" />
+        </Link>
       </div>
     </div>
   );
@@ -311,11 +328,14 @@ export function TamperingAlertsView() {
   const { alerts, approveAlert, rejectAlert, markInvestigating, sendNotification, toggleRfid, reopenAlert } =
     useTamperingAlertsStore();
 
-  const [search, setSearch]               = useState("");
-  const [statusFilter, setStatusFilter]   = useState("");
-  const [violationFilter, setViolFilter]  = useState("");
-  const [offenceFilter, setOffenceFilter] = useState("");
-  const [dateFilter, setDateFilter]       = useState("");
+  // Swap Audit's "Back to alert" returns here with the filters and page it left with.
+  const params   = useSearchParams();
+  const pathname = usePathname();
+  const [search, setSearch]               = useState(() => params.get("q") ?? "");
+  const [statusFilter, setStatusFilter]   = useState(() => params.get("status") ?? "");
+  const [violationFilter, setViolFilter]  = useState(() => params.get("violation") ?? "");
+  const [offenceFilter, setOffenceFilter] = useState(() => params.get("offence") ?? "");
+  const [dateFilter, setDateFilter]       = useState(() => params.get("date") ?? "");
   const [expandedId, setExpandedId]       = useState<string | null>(null);
   const [approveTarget, setApproveTarget] = useState<TamperingAlert | null>(null);
   const [rejectTarget, setRejectTarget]   = useState<TamperingAlert | null>(null);
@@ -323,8 +343,10 @@ export function TamperingAlertsView() {
   const [rfidTarget, setRfidTarget]       = useState<{ alert: TamperingAlert; disable: boolean } | null>(null);
   const [reopenTarget, setReopenTarget]   = useState<TamperingAlert | null>(null);
   const [now] = useState(() => Date.now());
-  const [page, setPage]                   = useState(1);
-  const [perPage, setPerPage]             = useState(25);
+  const [page, setPage]                   = useState(() => Number(params.get("page")) || 1);
+  const [perPage, setPerPage]             = useState(() => Number(params.get("per")) || 25);
+  /** The alert Swap Audit returned to: highlighted until a click lands somewhere else. */
+  const [focusId, setFocusId]             = useState(() => params.get("focus"));
 
   const filtered = useMemo(() => {
     const cutoff =
@@ -359,6 +381,61 @@ export function TamperingAlertsView() {
     setPrevFilterKey(filterKey);
     setPage(1);
   }
+
+  // On return, open the page that holds the returned-to alert (same render pattern).
+  const [pagedForFocus, setPagedForFocus] = useState(false);
+  if (focusId && !pagedForFocus) {
+    setPagedForFocus(true);
+    const i = filtered.findIndex((a) => a.id === focusId);
+    if (i >= 0) setPage(Math.floor(i / perPage) + 1);
+  }
+
+  // Once, on return: drop the restore parameters from the URL, scroll the alert
+  // into view and give it keyboard focus.
+  useEffect(() => {
+    if (!focusId) return;
+    window.history.replaceState(null, "", window.location.pathname);
+    const row = document.querySelector<HTMLElement>(`tr[data-alert="${CSS.escape(focusId)}"]`);
+    row?.scrollIntoView({ block: "center" });
+    row?.focus({ preventScroll: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // The highlight stays until a click lands outside that row.
+  useEffect(() => {
+    if (!focusId) return;
+    const onDown = (e: PointerEvent) => {
+      if (!(e.target as Element).closest(`tr[data-alert="${CSS.escape(focusId)}"]`)) setFocusId(null);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [focusId]);
+
+  /**
+   * "View in Swap Audit": that alert's station and detected date (EAT, Swap
+   * Audit's zone), its session when Swap Audit has it, and where to come back
+   * to: this page, its filters and its page.
+   */
+  const swapAuditHref = (alert: TamperingAlert) => {
+    const back = new URLSearchParams();
+    if (search) back.set("q", search);
+    if (statusFilter) back.set("status", statusFilter);
+    if (violationFilter) back.set("violation", violationFilter);
+    if (offenceFilter) back.set("offence", offenceFilter);
+    if (dateFilter) back.set("date", dateFilter);
+    back.set("page", String(page));
+    back.set("per", String(perPage));
+    const to = new URLSearchParams({
+      from: "alert",
+      alert: alert.id,
+      station: alert.swapStationId,
+      date: new Date(new Date(alert.detectedAt).getTime() + 3 * 3_600_000).toISOString().slice(0, 10),
+      violation: VIOLATION_LABELS[alert.violationType],
+      ret: `${pathname}?${back.toString()}`,
+    });
+    if (SWAP_AUDIT_IDS.has(alert.swapEventId)) to.set("txn", alert.swapEventId);
+    return `/swap-audit?${to.toString()}`;
+  };
 
   const paginated = useMemo(() => {
     const start = (page - 1) * perPage;
@@ -456,9 +533,13 @@ export function TamperingAlertsView() {
                 return (
                   <Fragment key={alert.id}>
                     <tr
+                      data-alert={alert.id}
+                      tabIndex={-1}
                       className={cn(
                         "hover:bg-slate-50 transition-colors cursor-pointer",
-                        expanded && "bg-slate-50"
+                        expanded && "bg-slate-50",
+                        // Swap Audit's selected-row style, for the alert we came back to.
+                        focusId === alert.id && "bg-zeno-teal/5 dark:bg-(--sidebar-text)/10"
                       )}
                       onClick={() => setExpandedId(expanded ? null : alert.id)}
                     >
@@ -603,6 +684,7 @@ export function TamperingAlertsView() {
                             {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                             Trail
                           </button>
+
                         </div>
                       </td>
                     </tr>
@@ -611,7 +693,7 @@ export function TamperingAlertsView() {
                     {expanded && (
                       <tr key={`${alert.id}-audit`}>
                         <td colSpan={10} className="p-0">
-                          <AuditTrail alert={alert} />
+                          <AuditTrail alert={alert} swapAuditHref={swapAuditHref(alert)} />
                         </td>
                       </tr>
                     )}

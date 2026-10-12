@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { AccessGuard } from "@/components/ui/AccessGuard";
 import { Topbar } from "@/components/layout/Topbar";
 import { ShieldAlert, ArrowLeftRight } from "lucide-react";
@@ -43,7 +43,8 @@ export default function SwapTransactionsPage() {
       {/* Content */}
       {/* As on Asset Tracking: the page doesn't scroll; the table card fills the rest and scrolls its own rows. */}
       <div className="flex flex-col flex-1 overflow-hidden bg-zeno-bg p-6">
-        {view === "tampering" ? <TamperingAlertsView /> : <SwapRecordsTable />}
+        {/* Tampering Alerts reads Swap Audit's return parameters, which Next requires inside Suspense. */}
+        {view === "tampering" ? <Suspense fallback={null}><TamperingAlertsView /></Suspense> : <SwapRecordsTable />}
       </div>
       </main>
     </AccessGuard>

@@ -1,15 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Search, Download, ChevronRight, PackageOpen, AlertTriangle } from "lucide-react";
+import { Search, Download, ChevronRight, PackageOpen, AlertTriangle, ArrowLeft } from "lucide-react";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { Pagination } from "@/components/ui/Pagination";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { toast } from "@/store/toast";
 import { cn } from "@/lib/utils";
 import {
-  SWAP_TXNS, STATIONS, SCENARIOS, VERDICT_TOTALS, fmtClock,
+  SWAP_TXNS, STATIONS, SCENARIOS, fmtClock,
   type SwapTxn, type VerdictStatus,
 } from "@/lib/mock/swap-audit";
 import { VERDICT_META } from "./tokens";
@@ -57,43 +58,107 @@ const CONTROL =
   "text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-600 " +
   "focus:outline-none focus:ring-2 focus:ring-[#003B49]/20";
 
-/** The day's session counts by verdict. Display only; the Verdict dropdown filters. */
-const VERDICT_CARDS: { label: string; value: number; valueColor?: string }[] = [
-  { label: "Sessions",      value: SWAP_TXNS.length },
-  { label: "Compliant",     value: VERDICT_TOTALS.COMPLIANT,        valueColor: "text-emerald-600" },
-  { label: "Non-compliant", value: VERDICT_TOTALS["NON-COMPLIANT"], valueColor: "text-red-600" },
-];
+/** The one day the sample data covers. Every session is on it. */
+const AUDIT_DAY = "2026-10-06";
+
+/** "2026-08-24" → "24 Aug". */
+const fmtDay = (iso: string) =>
+  new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+
+/** Where "Back to alert" may return to: only the two Tampering Alerts pages. */
+const ALERT_PAGES = /^\/(swap-transactions|support\/tampering-alerts)(\?|$)/;
+
+interface AlertOrigin {
+  alert: string;
+  station: string;
+  /** The alert's detected date, EAT, as YYYY-MM-DD. */
+  date: string;
+  violation: string;
+  /** The alerts page, with its filters and page, to return to. */
+  ret: string;
+}
+
+/**
+ * The small way back to the Tampering Alert that opened this page, with its
+ * violation. Navigation only: no review actions here.
+ */
+export function BackToAlert({ origin }: { origin: AlertOrigin }) {
+  const href = `${origin.ret}${origin.ret.includes("?") ? "&" : "?"}focus=${encodeURIComponent(origin.alert)}`;
+  return (
+    <span className="inline-flex items-center gap-2 flex-wrap">
+      <Link
+        href={href}
+        aria-label={`Back to alert ${origin.alert}`}
+        className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors"
+      >
+        <ArrowLeft className="w-3.5 h-3.5" />
+        Back to alert {origin.alert}
+      </Link>
+      <span className="text-[11px] text-slate-400">{origin.violation}</span>
+    </span>
+  );
+}
 
 /** The sessions of 6 Oct 2026, one row each, opened in a drawer for the evidence behind the verdict. */
 export function SwapAuditTable() {
+  const params = useSearchParams();
   const [search, setSearch] = useState("");
-  const [station, setStation] = useState("");
+  // Opened from a Tampering Alert: start filtered to that alert's station and day.
+  // The day has no control of its own; the empty state names it and Clear drops it.
+  const [station, setStation] = useState(() => params.get("station") ?? "");
+  const [day, setDay] = useState(() => params.get("date") ?? "");
   const [scenario, setScenario] = useState("");
   const [verdict, setVerdict] = useState<VerdictStatus | "">("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
 
-  const filtered = useMemo(() => {
+  // Everything but the verdict, so the dropdown can count each verdict within it.
+  const beforeVerdict = useMemo(() => {
     const q = search.trim().toLowerCase();
+    if (day && day !== AUDIT_DAY) return [];
     return SWAP_TXNS.filter((t) => {
       if (q && !t.haystack.includes(q)) return false;
       if (station && t.station.id !== station) return false;
       if (scenario && t.sc.key !== scenario) return false;
-      if (verdict && t.verdict.status !== verdict) return false;
       return true;
     });
-  }, [search, station, scenario, verdict]);
+  }, [search, station, scenario, day]);
+
+  const filtered = useMemo(
+    () => (verdict ? beforeVerdict.filter((t) => t.verdict.status === verdict) : beforeVerdict),
+    [beforeVerdict, verdict]
+  );
+
+  const verdictCount = (v: VerdictStatus, rows: SwapTxn[]) => rows.filter((t) => t.verdict.status === v).length;
 
   const paginated = useMemo(
     () => filtered.slice((page - 1) * perPage, (page - 1) * perPage + perPage),
     [filtered, page, perPage]
   );
 
-  // Batteries the stations are short across the day — the number the fraud costs.
-  const short = SWAP_TXNS.reduce((s, t) => s + (t.verdict.bal < 0 ? -t.verdict.bal : 0), 0);
+  // The cards follow the filters. Batteries short is the number the fraud costs.
+  const short = filtered.reduce((s, t) => s + (t.verdict.bal < 0 ? -t.verdict.bal : 0), 0);
+  const summary: { label: string; value: number; valueColor?: string }[] = [
+    { label: "Sessions",      value: filtered.length },
+    { label: "Compliant",     value: verdictCount("COMPLIANT", filtered),     valueColor: "text-emerald-600" },
+    { label: "Non-compliant", value: verdictCount("NON-COMPLIANT", filtered), valueColor: "text-red-600" },
+  ];
 
   // The open swap lives in the URL, so a link reopens it and Back closes it.
-  const openId = useSearchParams().get("txn");
+  const openId = params.get("txn");
+
+  // Only a "View in Swap Audit" link sets these, so any other way in shows no back bar.
+  const ret = params.get("ret") ?? "";
+  const origin: AlertOrigin | null =
+    params.get("from") === "alert" && params.get("alert") && ALERT_PAGES.test(ret)
+      ? {
+          alert: params.get("alert")!,
+          station: params.get("station") ?? "",
+          date: params.get("date") ?? "",
+          violation: params.get("violation") ?? "",
+          ret,
+        }
+      : null;
   const openTxn = openId ? SWAP_TXNS.find((t) => t.id === openId) ?? null : null;
   const openIndex = openTxn ? filtered.findIndex((t) => t.id === openTxn.id) : -1;
 
@@ -155,16 +220,16 @@ export function SwapAuditTable() {
   const selectVerdict = (v: VerdictStatus | "") => { setVerdict(v); setPage(1); };
 
   const clearFilters = () => {
-    setSearch(""); setStation(""); setScenario(""); setVerdict(""); setPage(1);
+    setSearch(""); setStation(""); setScenario(""); setVerdict(""); setDay(""); setPage(1);
   };
 
-  const dirty = search || station || scenario || verdict;
+  const dirty = search || station || scenario || verdict || day;
 
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4">
       {/* Summary */}
       <StatGrid cols={4}>
-        {VERDICT_CARDS.map((c) => (
+        {summary.map((c) => (
           <StatCard key={c.label} label={c.label} value={c.value} valueColor={c.valueColor} />
         ))}
         <StatCard label="Batteries short" value={short} valueColor={short > 0 ? "text-red-600" : undefined} />
@@ -185,6 +250,7 @@ export function SwapAuditTable() {
         <select value={station} onChange={(e) => { setStation(e.target.value); setPage(1); }} className={CONTROL}>
           <option value="">All Stations</option>
           {STATIONS.map((s) => <option key={s.id} value={s.id}>{s.id} · {s.name}</option>)}
+          {station && !STATIONS.some((s) => s.id === station) && <option value={station}>{station}</option>}
         </select>
 
         <select value={scenario} onChange={(e) => { setScenario(e.target.value); setPage(1); }} className={CONTROL}>
@@ -199,7 +265,7 @@ export function SwapAuditTable() {
         >
           <option value="">All Verdicts</option>
           {(Object.keys(VERDICT_META) as VerdictStatus[]).map((v) => (
-            <option key={v} value={v}>{VERDICT_META[v].label} ({VERDICT_TOTALS[v]})</option>
+            <option key={v} value={v}>{VERDICT_META[v].label} ({verdictCount(v, beforeVerdict)})</option>
           ))}
         </select>
 
@@ -245,7 +311,17 @@ export function SwapAuditTable() {
                 <tr>
                   <td colSpan={8} className="text-center py-16">
                     <PackageOpen className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <p className="text-slate-400">No swap sessions match your filters</p>
+                    {origin ? (
+                      // Opened from an alert with nothing to show: say what was looked for, and the way back.
+                      <>
+                        <p className="text-slate-400">
+                          No sessions found for {origin.station}{origin.date ? ` on ${fmtDay(origin.date)}` : ""}.
+                        </p>
+                        <p className="mt-2"><BackToAlert origin={origin} /></p>
+                      </>
+                    ) : (
+                      <p className="text-slate-400">No swap sessions match your filters</p>
+                    )}
                   </td>
                 </tr>
               )}
@@ -314,6 +390,7 @@ export function SwapAuditTable() {
         onPrev={openIndex > 0 ? () => goTo(openIndex - 1) : undefined}
         onNext={openIndex >= 0 && openIndex < filtered.length - 1 ? () => goTo(openIndex + 1) : undefined}
         onClose={closeDrawer}
+        backLink={origin && <BackToAlert origin={origin} />}
       />
     </div>
   );
