@@ -41,6 +41,25 @@ export interface TamperingAlert {
 }
 
 const MOCK_ALERTS: TamperingAlert[] = [
+  // ── Linked to Swap Audit ────────────────────────────────────────────────────
+  // Built from Swap Audit's session SWP-20261006-044 (6 Oct, 15:05 EAT, BS0021),
+  // using that session's own customer, vehicle, battery and verdict reasons, so
+  // "View in Swap Audit" opens a real session.
+  {
+    id: "AL-025",
+    customerId: "R-49094", customerName: "Daniel Njoroge",
+    vehicleId: "KMFC985G",
+    batteryIds: ["1594617973"],
+    swapStationId: "BS0021", swapStationName: "Kilimani, BS0021",
+    detectedAt: "2026-10-06T12:07:00Z",
+    swapEventId: "SWP-20261006-044",
+    violationType: "suspected_tampering",
+    detectionReason: "S10: read 1594617973, already collected in S01. Post-session poll: S01 empty, expected 1594617973. Station short by 1.",
+    offenceCount: 1,
+    isDoubleBill: false,
+    status: "pending",
+    createdAt: "2026-10-06T12:07:00Z",
+  },
   // ── Pending alerts (5) ──────────────────────────────────────────────────────
   {
     id: "AL-001",
@@ -565,7 +584,7 @@ export const useTamperingAlertsStore = create<TamperingAlertsState>()(
     }),
     {
       name: "zeno-tampering-alerts",
-      version: 1,
+      version: 2,
       migrate: () => ({ alerts: MOCK_ALERTS }),
     }
   )
