@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Play, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CopyButton } from "@/components/ui/CopyButton";
 import {
   detectionText, fmtClock, fmtClockSec, slotLabel, stepLabel,
   type Step, type SwapTxn,
@@ -136,7 +137,17 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
                       {s.type === "poll" ? (s.slots ?? []).map(slotLabel).join(", ") : slotLabel(s.slot!)}
                     </td>
                     <td className="py-1.5 pr-4 font-mono text-slate-700">
-                      {s.type === "poll" ? `expected ${(s.expected ?? []).join(", ")}` : s.bat?.sn ?? "–"}
+                      {/* Single serials copy; a poll's "expected …" list is a phrase, not one value. */}
+                      {s.type === "poll" ? (
+                        `expected ${(s.expected ?? []).join(", ")}`
+                      ) : s.bat?.sn ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          {s.bat.sn}
+                          <CopyButton value={s.bat.sn} label={`battery serial ${s.bat.sn}`} />
+                        </span>
+                      ) : (
+                        "–"
+                      )}
                     </td>
                     <td className="py-1.5 pr-4 text-slate-600 tabular-nums">
                       {s.type !== "poll" && s.bat?.soc != null ? `${s.bat.soc}%` : "–"}
@@ -160,10 +171,19 @@ export function SessionDetail({ txn }: { txn: SwapTxn }) {
             />
           </div>
           <DetailField label="Swap Txn ID" value={<span className="font-mono">{txn.id}</span>} />
-          <DetailField label="Customer ID" value={<span className="font-mono">{txn.cust.id}</span>} />
+          <DetailField
+            label="Customer ID"
+            value={<span className="inline-flex items-center gap-1.5 font-mono">{txn.cust.id}<CopyButton value={txn.cust.id} label="customer ID" /></span>}
+          />
           <DetailField label="Phone" value={<span className="font-mono">{txn.cust.phone}</span>} />
-          <DetailField label="RFID" value={<span className="font-mono">{txn.cust.rfid}</span>} />
-          <DetailField label="Vehicle" value={<span className="font-mono">{txn.vehicle}</span>} />
+          <DetailField
+            label="RFID"
+            value={<span className="inline-flex items-center gap-1.5 font-mono">{txn.cust.rfid}<CopyButton value={txn.cust.rfid} label="RFID" /></span>}
+          />
+          <DetailField
+            label="Vehicle"
+            value={<span className="inline-flex items-center gap-1.5 font-mono">{txn.vehicle}<CopyButton value={txn.vehicle} label="vehicle" /></span>}
+          />
           <DetailField label="Station" value={<><span className="font-mono">{txn.station.id}</span> · {txn.station.name}</>} />
           <DetailField label="Started" value={<span className="font-mono">{fmtClock(txn.startMinute)}</span>} />
           <DetailField label="Duration" value={<span className="font-mono">{txn.endT}s</span>} />

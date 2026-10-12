@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, ChevronUp, ChevronDown, Copy, Check } from "lucide-react";
+import { X, ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast } from "@/store/toast";
+import { CopyButton } from "@/components/ui/CopyButton";
 import { fmtClock, type SwapTxn } from "@/lib/mock/swap-audit";
 import { VERDICT_META } from "./tokens";
 import { DetailField, SessionDetail, StepBtn } from "./SessionDetail";
@@ -33,19 +33,6 @@ export function SessionDrawer({
   // Keep the last session on screen while the panel slides out.
   const [shown, setShown] = useState(txn);
   if (txn && txn !== shown) setShown(txn);
-
-  // Copy the swap ID: green check and "Copied", as Users' invite-link copy does.
-  const [copied, setCopied] = useState(false);
-  const copyId = async () => {
-    if (!shown) return;
-    try {
-      await navigator.clipboard.writeText(shown.id);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error("Couldn't copy the swap ID", "Your browser blocked clipboard access. Select the ID and copy it manually.");
-    }
-  };
 
   const backdropRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -184,7 +171,15 @@ export function SessionDrawer({
             <div className="grid grid-cols-4 gap-4">
               <DetailField
                 label="Station"
-                value={<><span className="font-mono">{shown.station.id}</span><span className="block text-[10px] text-slate-400">{shown.station.name}</span></>}
+                value={
+                  <>
+                    <span className="inline-flex items-center gap-1.5 font-mono">
+                      {shown.station.id}
+                      <CopyButton value={shown.station.id} label="station ID" />
+                    </span>
+                    <span className="block text-[10px] text-slate-400">{shown.station.name}</span>
+                  </>
+                }
               />
               {/* Times are station-local. Every station is in Nairobi, so that is EAT. */}
               <DetailField label="Time" value={`6 Oct, ${fmtClock(shown.startMinute)} EAT`} />
@@ -193,20 +188,19 @@ export function SessionDrawer({
                 value={
                   <span className="inline-flex items-center gap-1.5">
                     <span className="font-mono">{shown.id}</span>
-                    <button
-                      type="button"
-                      onClick={copyId}
-                      title="Copy ID"
-                      aria-label="Copy ID"
-                      className="rounded text-slate-400 hover:text-slate-600 transition-colors"
-                    >
-                      {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
-                    </button>
-                    <span aria-live="polite" className="text-xs text-green-600">{copied ? "Copied" : ""}</span>
+                    <CopyButton value={shown.id} label="Swap Txn ID" />
                   </span>
                 }
               />
-              <DetailField label="Phone" value={<span className="font-mono">{shown.cust.phone}</span>} />
+              <DetailField
+                label="Phone"
+                value={
+                  <span className="inline-flex items-center gap-1.5 font-mono">
+                    {shown.cust.phone}
+                    <CopyButton value={shown.cust.phone.replace(/\s/g, "")} label="phone" />
+                  </span>
+                }
+              />
             </div>
           )}
         </div>

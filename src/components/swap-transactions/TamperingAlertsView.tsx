@@ -10,6 +10,7 @@ import { Modal } from "@/components/ui/modal";
 import { Pagination } from "@/components/ui/Pagination";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { CopyButton } from "@/components/ui/CopyButton";
 import { toast } from "@/store/toast";
 import { useTamperingAlertsStore } from "@/store/tampering-alerts";
 import type { TamperingAlert, ViolationType, AlertStatus } from "@/store/tampering-alerts";
@@ -456,27 +457,43 @@ export function TamperingAlertsView() {
                   <Fragment key={alert.id}>
                     <tr
                       className={cn(
-                        "hover:bg-slate-50 transition-colors cursor-pointer",
+                        "group hover:bg-slate-50 transition-colors cursor-pointer",
                         expanded && "bg-slate-50"
                       )}
                       onClick={() => setExpandedId(expanded ? null : alert.id)}
                     >
                       <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">
-                        {alert.id}
+                        <span className="inline-flex items-center gap-1.5">
+                          {alert.id}
+                          <CopyButton value={alert.id} label="alert ID" reveal />
+                        </span>
                         {rfidActive && <Ban className="w-3 h-3 text-red-500 inline ml-1.5" />}
                       </td>
                       <td className="px-3 py-2.5">
                         <p className="font-medium text-slate-700">{alert.customerName}</p>
-                        <p className="text-slate-400 text-[11px]">{alert.customerId} · {alert.vehicleId.slice(-8)}</p>
+                        {/* The vehicle shows its last 8 characters but copies in full. */}
+                        <p className="text-slate-400 text-[11px] inline-flex items-center gap-1.5">
+                          {alert.customerId}
+                          <CopyButton value={alert.customerId} label="customer ID" reveal />
+                          <span>·</span>
+                          {alert.vehicleId.slice(-8)}
+                          <CopyButton value={alert.vehicleId} label="vehicle ID" reveal />
+                        </p>
                       </td>
                       <td className="px-3 py-2.5 text-slate-500">
                         {alert.batteryIds.map((b) => (
-                          <p key={b} className="font-mono text-[10px]">{b}</p>
+                          <p key={b} className="font-mono text-[10px] flex items-center gap-1.5">
+                            {b}
+                            <CopyButton value={b} label={`battery ID ${b}`} reveal />
+                          </p>
                         ))}
                       </td>
                       <td className="px-3 py-2.5 text-slate-600 max-w-[140px]">
                         <p className="truncate">{alert.swapStationName.split(",")[0].trim()}</p>
-                        <p className="text-slate-400 text-[10px]">{alert.swapStationId}</p>
+                        <p className="text-slate-400 text-[10px] flex items-center gap-1.5">
+                          {alert.swapStationId}
+                          <CopyButton value={alert.swapStationId} label="station ID" reveal />
+                        </p>
                       </td>
                       <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap text-[11px]">
                         {new Date(alert.detectedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
