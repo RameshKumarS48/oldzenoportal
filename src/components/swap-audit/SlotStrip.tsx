@@ -87,7 +87,8 @@ export function SlotStrip({
         ))}
       </div>
 
-      <div className="overflow-x-auto">
+      {/* pb-3 keeps the sideways scrollbar below the After row, not over its last line. */}
+      <div className="overflow-x-auto pb-3">
         <div className="min-w-[820px] space-y-2">
           <Row label="Before" state={before} before={before} marks={new Map()} compact={compact} isBefore />
           <Row
