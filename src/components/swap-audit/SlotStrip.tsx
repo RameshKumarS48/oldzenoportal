@@ -23,9 +23,6 @@ const DOT = Object.fromEntries(SLOT_LEGEND.map((l) => [l.key, l.dot])) as Record
 
 const stepSlots = (s: Step): number[] => (s.type === "poll" ? s.slots ?? [] : [s.slot!]);
 
-const sameBattery = (a: Battery | null, b: Battery | null) =>
-  a === null || b === null ? a === b : a.sn === b.sn && a.kind === b.kind;
-
 /** Which legend entry a slot's battery belongs to. Dispensed is decided by the caller. */
 function stateKey(bat: Battery | null): LegendKey {
   if (!bat) return "empty";
@@ -41,8 +38,8 @@ function slotTitle(slot: number, bat: Battery | null): string {
 
 /**
  * The station's ten slots, before the session and at the chosen point in it.
- * Empty slots nothing touched shrink to a number and a dot; every battery slot
- * shows its chip, serial and SoC. Reading the two rows
+ * Every slot shows its state: battery slots their chip, serial and SoC, empty
+ * slots "Empty" or "Dispensed". Reading the two rows
  * against each other is how a faked collect becomes visible: the station's
  * record fills a slot that is physically empty.
  */
@@ -68,8 +65,6 @@ export function SlotStrip({
     for (const slot of stepSlots(s)) badges.set(slot, [...(badges.get(slot) ?? []), i + 1]);
   });
 
-  // Only empty slots shrink: a battery slot always shows its chip, serial and SoC.
-  const compact = (i: number) => !badges.has(i + 1) && sameBattery(before[i], state[i]) && !state[i];
 
   // Only the legend entries something on screen is actually drawn in.
   const shown = new Set<LegendKey>();
@@ -93,7 +88,7 @@ export function SlotStrip({
       {/* pb-3 keeps the sideways scrollbar below the After row, not over its last line. */}
       <div className="overflow-x-auto pb-3">
         <div className="min-w-[820px] space-y-2">
-          <Row label="Before" startMinute={startMinute} state={before} before={before} marks={new Map()} compact={compact} isBefore />
+          <Row label="Before" startMinute={startMinute} state={before} before={before} marks={new Map()} isBefore />
           <Row
             label={liveLabel}
             event={event}
@@ -102,7 +97,6 @@ export function SlotStrip({
             before={before}
             marks={marks}
             badges={badges}
-            compact={compact}
           />
         </div>
       </div>
@@ -112,7 +106,7 @@ export function SlotStrip({
 }
 
 function Row({
-  label, event, startMinute, state, before, marks, badges, compact, isBefore,
+  label, event, startMinute, state, before, marks, badges, isBefore,
 }: {
   label: string;
   event?: Step;
@@ -121,7 +115,6 @@ function Row({
   before: SlotState;
   marks: Map<number, Step>;
   badges?: Map<number, number[]>;
-  compact: (i: number) => boolean;
   isBefore?: boolean;
 }) {
   return (
@@ -134,21 +127,17 @@ function Row({
           (event ? <EventCaption event={event} startMinute={startMinute} /> : <ClockTime startMinute={startMinute} t={0} />)}
       </p>
       <div className="grid grid-cols-10 gap-1.5">
-        {state.map((bat, i) =>
-          compact(i) ? (
-            <CompactSlot key={i} slot={i + 1} />
-          ) : (
-            <Slot
-              key={i}
-              slot={i + 1}
-              bat={bat}
-              hadBattery={Boolean(before[i])}
-              mark={marks.get(i + 1)}
-              steps={badges?.get(i + 1)}
-              isBefore={isBefore}
-            />
-          )
-        )}
+        {state.map((bat, i) => (
+          <Slot
+            key={i}
+            slot={i + 1}
+            bat={bat}
+            hadBattery={Boolean(before[i])}
+            mark={marks.get(i + 1)}
+            steps={badges?.get(i + 1)}
+            isBefore={isBefore}
+          />
+        ))}
       </div>
     </div>
   );
@@ -178,29 +167,6 @@ function EventCaption({ event, startMinute }: { event: Step; startMinute: number
       </span>
       <span className="min-w-0 truncate font-mono text-[10px] text-slate-400">{where} · {sn}</span>
     </>
-  );
-}
-
-/**
- * An empty slot nothing touched: its dashed box, but only the number and the
- * outlined Empty dot, pinned to the top. Focusable so keyboard users reach the
- * same detail the hover title gives.
- */
-function CompactSlot({ slot }: { slot: number }) {
-  const tip = slotTitle(slot, null);
-  return (
-    <div
-      tabIndex={0}
-      role="img"
-      title={tip}
-      aria-label={tip}
-      className={cn(SLOT_H, "rounded-lg p-1.5 flex items-start border border-dashed border-slate-300")}
-    >
-      <span className="flex items-center gap-1.5">
-        <span className="text-[10px] font-bold text-slate-500">{slotLabel(slot)}</span>
-        <span className={cn("w-2 h-2 rounded-sm", DOT.empty)} />
-      </span>
-    </div>
   );
 }
 
