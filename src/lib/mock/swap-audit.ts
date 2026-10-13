@@ -15,7 +15,7 @@
  *
  * Clock values are plain minute/second counts, never `Date`. The page is client
  * rendered off a worker-rendered shell, and a `toLocaleTimeString` would disagree
- * between a UTC server and an IST browser.
+ * between a UTC server and a browser on East Africa Time.
  */
 
 // ── Seeded PRNG ──────────────────────────────────────────────────────────────
@@ -119,7 +119,9 @@ export interface Step {
   post?: boolean;
 }
 
-export type VerdictStatus = "COMPLIANT" | "NON-COMPLIANT" | "REVIEW" | "NO SWAP";
+/** Two verdicts. Anything short of a clean double swap, including a single
+ * swap or an aborted session, is non-compliant. */
+export type VerdictStatus = "COMPLIANT" | "NON-COMPLIANT";
 
 export interface Flag {
   t: string;
@@ -151,7 +153,7 @@ export interface SwapTxn {
   id: string;
   sc: Scenario;
   station: Station;
-  /** Minutes since midnight on 6 Oct 2026, IST. */
+  /** Minutes since midnight on 6 Oct 2026, EAT. */
   startMinute: number;
   /** Session length in seconds. */
   endT: number;
@@ -168,25 +170,31 @@ export interface SwapTxn {
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
+// Nairobi sites, named as the rest of the app names them.
+// The same codes these sites carry in the app's station list (kpi-infra.ts),
+// in the upper-case BS0000 form Tampering Alerts uses.
 export const STATIONS: Station[] = [
-  { id: "STN-BLR-014", name: "HSR Layout" },
-  { id: "STN-BLR-021", name: "Koramangala 5th Blk" },
-  { id: "STN-BLR-033", name: "Whitefield ITPL" },
-  { id: "STN-BLR-047", name: "Electronic City Ph 1" },
+  { id: "BS0017", name: "Extra Miles, Eastleigh" },
+  { id: "BS0021", name: "M Square, Kilimani" },
+  { id: "BS0022", name: "Pop Up Mall, Parklands" },
+  { id: "BS0030", name: "Headquarters Inn, Langata" },
 ];
 
+// Kenyan names. Each list keeps its old length: the PRNG draws the same
+// number of times, so every session keeps its serials, slots and times.
 const FIRST_NAMES = [
-  "Arjun", "Priya", "Ravi", "Meena", "Karthik", "Divya", "Suresh", "Anitha",
-  "Vikram", "Lakshmi", "Naveen", "Shalini", "Manoj", "Deepa", "Rahul", "Kavya",
-  "Imran", "Farah", "Prakash", "Sowmya", "Ganesh", "Harini", "Sandeep", "Nisha",
+  "Brian", "Faith", "Kevin", "Mercy", "Dennis", "Grace", "Collins", "Esther",
+  "Victor", "Joy", "Samuel", "Wanjiru", "Peter", "Achieng", "Daniel", "Njeri",
+  "Hassan", "Halima", "Moses", "Wambui", "Felix", "Chebet", "Joseph", "Akinyi",
 ];
 
 const LAST_NAMES = [
-  "Kumar", "Reddy", "Nair", "Gowda", "Iyer", "Sharma", "Rao",
-  "Menon", "Shetty", "Pillai", "Khan", "Hegde", "Naidu", "Prasad",
+  "Kamau", "Otieno", "Mwangi", "Wanjiku", "Kiprop", "Omondi", "Chebet",
+  "Mutua", "Njoroge", "Wafula", "Odhiambo", "Kariuki", "Ochieng", "Barasa",
 ];
 
-const PHONE_PREFIXES = [98, 99, 97, 90, 88, 70, 63];
+/** Kenyan mobile prefixes (Safaricom and Airtel ranges), without the leading 0. */
+const PHONE_PREFIXES = [712, 722, 745, 790, 733, 757, 768];
 
 /**
  * An event script entry.
@@ -304,10 +312,10 @@ function buildCustomers(): Customer[] {
     const last = pick(LAST_NAMES);
     const prefix = pick(PHONE_PREFIXES);
     const three = ri(100, 999);
-    const five = ri(10000, 99999);
+    const rest = ri(100, 999);
     const rfid = String(ri(10000000, 99999999));
     const id = `R-${ri(10000, 99999)}`;
-    out.push({ name: `${first} ${last}`, phone: `+91 ${prefix}${three} ${five}`, rfid, id });
+    out.push({ name: `${first} ${last}`, phone: `+254${prefix}${three}${rest}`, rfid, id });
   }
   return out;
 }
@@ -334,13 +342,12 @@ export function verdict(steps: Step[]): Verdict {
   const bal = Pc - Dn;
 
   const flags: Flag[] = [];
-  let hard = false;
-  const bad = (t: string) => { flags.push({ t, k: "bad" }); hard = true; };
+  const bad = (t: string) => flags.push({ t, k: "bad" });
   const warn = (t: string) => flags.push({ t, k: "warn" });
 
   if (Rc === 0 && Dn === 0) {
     return {
-      status: "NO SWAP",
+      status: "NON-COMPLIANT",
       flags: [{ t: "Collect slot opened and timed out, no battery movement", k: "" }],
       Rc, Pc, Dn, bal,
     };
@@ -385,7 +392,7 @@ export function verdict(steps: Step[]): Verdict {
     };
   }
 
-  return { status: hard ? "NON-COMPLIANT" : "REVIEW", flags, Rc, Pc, Dn, bal };
+  return { status: "NON-COMPLIANT", flags, Rc, Pc, Dn, bal };
 }
 
 // ── Building one transaction ─────────────────────────────────────────────────
@@ -507,7 +514,9 @@ function buildTxn(sc: Scenario, station: Station, startMinute: number, index: nu
     });
   }
 
-  const vehicle = `KA-${pad(ri(1, 53))}-${pick(["EV", "EZ", "EM"])}-${ri(1000, 9999)}`;
+  // Kenyan motorbike plate, e.g. KMDA412K. Same three draws, in the same order.
+  const plateLetter = "ABCDEFGHJKLMNPQRSTUVWXYZ"[ri(1, 24) - 1];
+  const vehicle = `KM${pick(["DA", "EB", "FC"])}${ri(100, 999)}${plateLetter}`;
 
   const txn: SwapTxn = {
     id: `SWP-20261006-${String(index).padStart(3, "0")}`,
@@ -566,7 +575,7 @@ function buildTransactions(): SwapTxn[] {
     })
     .map((x) => x.sc);
 
-  let minute = 362; // 06:02 IST
+  let minute = 362; // 06:02 EAT
   const out: SwapTxn[] = [];
   for (let i = 0; i < ordered.length; i++) {
     minute += ri(4, 21);
@@ -579,7 +588,7 @@ function buildTransactions(): SwapTxn[] {
 
 export const SWAP_TXNS: SwapTxn[] = buildTransactions();
 
-export const VERDICT_ORDER: VerdictStatus[] = ["COMPLIANT", "NON-COMPLIANT", "REVIEW", "NO SWAP"];
+export const VERDICT_ORDER: VerdictStatus[] = ["COMPLIANT", "NON-COMPLIANT"];
 
 /** Totals across the whole day — the verdict chips show these, not the filtered counts. */
 export const VERDICT_TOTALS: Record<VerdictStatus, number> = VERDICT_ORDER.reduce(

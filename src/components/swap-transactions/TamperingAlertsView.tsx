@@ -1,21 +1,29 @@
 "use client";
 
-import { Fragment, useState, useMemo, useEffect } from "react";
+import { Fragment, useState, useMemo, useEffect, useRef } from "react";
+import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Search, ChevronDown, ChevronUp, Info, CheckCircle2, XCircle,
-  AlertTriangle, Ban, Bell, Unlock, RotateCcw, ShieldAlert,
+  AlertTriangle, Ban, Bell, Unlock, RotateCcw, ShieldAlert, ArrowRight, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Pagination } from "@/components/ui/Pagination";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { CopyButton } from "@/components/ui/CopyButton";
 import { toast } from "@/store/toast";
 import { useTamperingAlertsStore } from "@/store/tampering-alerts";
 import type { TamperingAlert, ViolationType, AlertStatus } from "@/store/tampering-alerts";
 import { useAuthStore } from "@/store/auth";
 import { useAccess } from "@/lib/access";
 import { cn } from "@/lib/utils";
+import { DateRangeFilter, inEatRange, type DayRange } from "./DateRangeFilter";
+import { SWAP_TXNS } from "@/lib/mock/swap-audit";
+
+/** Swap Audit's session IDs: an alert opens its session there only when it is one of these. */
+const SWAP_AUDIT_IDS = new Set(SWAP_TXNS.map((t) => t.id));
 
 // ── Labels & styles ─────────────────────────────────────────────────────────
 
@@ -36,13 +44,30 @@ const VIOLATION_COLORS: Record<ViolationType, string> = {
 };
 
 const STATUS_COLORS: Record<AlertStatus, string> = {
-  pending:      "bg-amber-50 text-amber-700 border border-amber-200",
-  approved:     "bg-emerald-50 text-emerald-700 border border-emerald-200",
-  rejected:     "bg-slate-100 text-slate-500 border border-slate-200",
-  investigating:"bg-blue-50 text-blue-700 border border-blue-200",
+  pending:      "bg-amber-50 text-amber-700",
+  approved:     "bg-emerald-50 text-emerald-700",
+  rejected:     "bg-slate-100 text-slate-500",
+  investigating:"bg-blue-50 text-blue-700",
 };
 
-const STATUS_LABELS: Record<AlertStatus, string> = {
+/** Read-only labels (Violation, Status, Double Bill): flat tint, no border or shadow. */
+const LABEL = "px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap";
+
+/** Actions: the Swap Audit drawer's outline button. Meaning lives in the icon colour. */
+const ACTION =
+  "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors";
+
+/**
+ * Approve and Reject, told apart at a glance: the Approved status label's green
+ * and the red label tint (the light shade fills, the dark shade draws text, icon
+ * and border). Text is 5.2:1 and 5.9:1, 4.8:1 and 5.3:1 on hover.
+ */
+const APPROVE =
+  "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-emerald-700 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors";
+const REJECT =
+  "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-red-700 bg-red-50 text-red-700 hover:bg-red-100 transition-colors";
+
+export const STATUS_LABELS: Record<AlertStatus, string> = {
   pending:      "Pending",
   approved:     "Approved",
   rejected:     "Rejected",
@@ -128,7 +153,7 @@ function EscalationBanner() {
 
 // ── Audit Trail Row ──────────────────────────────────────────────────────────
 
-function AuditTrail({ alert }: { alert: TamperingAlert }) {
+function AuditTrail({ alert, swapAuditHref }: { alert: TamperingAlert; swapAuditHref: string }) {
   const events: { label: string; time?: string; note?: string; color: string }[] = [
     { label: "Alert detected", time: alert.detectedAt, note: alert.detectionReason, color: "bg-slate-400" },
     ...(alert.reviewedAt ? [{ label: `Status → ${STATUS_LABELS[alert.status]}`, time: alert.reviewedAt, note: alert.reviewNote, color: alert.status === "approved" ? "bg-emerald-500" : alert.status === "rejected" ? "bg-slate-400" : "bg-blue-500" }] : []),
@@ -157,6 +182,17 @@ function AuditTrail({ alert }: { alert: TamperingAlert }) {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Navigation only, for every alert whatever its status. Styled as the Swap
+          Audit drawer's Previous/Next buttons. */}
+      <div className="mt-3">
+        <Link
+          href={swapAuditHref}
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors"
+        >
+          View in Swap Audit <ArrowRight className="w-3 h-3" />
+        </Link>
       </div>
     </div>
   );
@@ -310,20 +346,38 @@ export function TamperingAlertsView() {
   const { alerts, approveAlert, rejectAlert, markInvestigating, sendNotification, toggleRfid, reopenAlert } =
     useTamperingAlertsStore();
 
-  const [search, setSearch]               = useState("");
-  const [statusFilter, setStatusFilter]   = useState("");
-  const [violationFilter, setViolFilter]  = useState("");
-  const [offenceFilter, setOffenceFilter] = useState("");
-  const [dateFilter, setDateFilter]       = useState("");
-  const [expandedId, setExpandedId]       = useState<string | null>(null);
+  // Swap Audit's "Back to alert" returns here with the filters and page it left with.
+  const params   = useSearchParams();
+  const pathname = usePathname();
+  const [search, setSearch]               = useState(() => params.get("q") ?? "");
+  const [statusFilter, setStatusFilter]   = useState(() => params.get("status") ?? "");
+  const [violationFilter, setViolFilter]  = useState(() => params.get("violation") ?? "");
+  const [offenceFilter, setOffenceFilter] = useState(() => params.get("offence") ?? "");
+  const [dateRange, setDateRange]         = useState<DayRange | null>(() => {
+    const from = params.get("from"), to = params.get("to");
+    return from && to ? { from, to } : null;
+  });
+  const [dateFilter, setDateFilter]       = useState(() => {
+    const d = params.get("date") ?? "";
+    return d === "custom" && !(params.get("from") && params.get("to")) ? "" : d;
+  });
+  // Returning from Swap Audit opens the alert's Trail.
+  const [expandedId, setExpandedId]       = useState<string | null>(() => params.get("focus"));
   const [approveTarget, setApproveTarget] = useState<TamperingAlert | null>(null);
   const [rejectTarget, setRejectTarget]   = useState<TamperingAlert | null>(null);
   const [investTarget, setInvestTarget]   = useState<TamperingAlert | null>(null);
   const [rfidTarget, setRfidTarget]       = useState<{ alert: TamperingAlert; disable: boolean } | null>(null);
   const [reopenTarget, setReopenTarget]   = useState<TamperingAlert | null>(null);
   const [now] = useState(() => Date.now());
-  const [page, setPage]                   = useState(1);
-  const [perPage, setPerPage]             = useState(25);
+  const [page, setPage]                   = useState(() => Number(params.get("page")) || 1);
+  const [perPage, setPerPage]             = useState(() => Number(params.get("per")) || 25);
+  /** The alert Swap Audit returned to: selected until another row is clicked or expanded. */
+  const [focusId, setFocusId]             = useState(() => params.get("focus"));
+  /** That alert, when the restored filters no longer include it. */
+  const [missingId, setMissingId]         = useState<string | null>(null);
+  /** Bumped to scroll to, focus and announce the returned alert again (after "Show it"). */
+  const [revealTick, setRevealTick]       = useState(0);
+  const liveRef = useRef<HTMLSpanElement>(null);
 
   const filtered = useMemo(() => {
     const cutoff =
@@ -336,6 +390,7 @@ export function TamperingAlertsView() {
       if (violationFilter && a.violationType   !== violationFilter)       return false;
       if (offenceFilter   && String(a.offenceCount) !== offenceFilter)    return false;
       if (cutoff          && new Date(a.detectedAt).getTime() < cutoff)   return false;
+      if (dateFilter === "custom" && dateRange && !inEatRange(a.detectedAt, dateRange)) return false;
       if (search) {
         const q = search.toLowerCase();
         return (
@@ -348,16 +403,91 @@ export function TamperingAlertsView() {
       }
       return true;
     });
-  }, [alerts, search, statusFilter, violationFilter, offenceFilter, dateFilter, now]);
+  }, [alerts, search, statusFilter, violationFilter, offenceFilter, dateFilter, dateRange, now]);
 
   // Reset to the first page whenever the filter set changes (adjust state during
   // render: React's recommended alternative to a setState-in-effect).
-  const filterKey = `${search}|${statusFilter}|${violationFilter}|${offenceFilter}|${dateFilter}`;
+  const filterKey = `${search}|${statusFilter}|${violationFilter}|${offenceFilter}|${dateFilter}|${dateRange?.from}|${dateRange?.to}`;
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
   if (filterKey !== prevFilterKey) {
     setPrevFilterKey(filterKey);
     setPage(1);
   }
+
+  // On return (and again after "Show it"), open the page that holds the alert, or
+  // note that the restored filters leave it out. Same render-time pattern as above.
+  const [pagedForTick, setPagedForTick] = useState(-1);
+  if (focusId && pagedForTick !== revealTick) {
+    setPagedForTick(revealTick);
+    const i = filtered.findIndex((a) => a.id === focusId);
+    if (i >= 0) setPage(Math.floor(i / perPage) + 1);
+    else if (alerts.some((a) => a.id === focusId)) setMissingId(focusId);
+  }
+
+  // Once, on return: drop the restore parameters from the URL.
+  useEffect(() => {
+    if (focusId) window.history.replaceState(null, "", window.location.pathname);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // After the list renders: centre the alert in the table, focus it, and tell
+  // screen readers where they are. Instant, no animation.
+  useEffect(() => {
+    if (!focusId) return;
+    const row = document.querySelector<HTMLElement>(`tr[data-alert="${CSS.escape(focusId)}"]`);
+    if (!row) return;
+    row.scrollIntoView({ block: "center" });
+    row.focus({ preventScroll: true });
+    const a = alerts.find((x) => x.id === focusId);
+    if (a && liveRef.current) {
+      liveRef.current.textContent =
+        `Returned to alert ${a.id}, ${VIOLATION_LABELS[a.violationType]}, ${STATUS_LABELS[a.status]}. Trail expanded.`;
+    }
+    // Only on return and after "Show it", not on every edit to the alerts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealTick]);
+
+  // Another row clicked or expanded: the returned alert stops being the selection.
+  const toggleRow = (id: string) => {
+    if (focusId && id !== focusId) setFocusId(null);
+    setExpandedId(expandedId === id ? null : id);
+  };
+
+  // "Show it": drop every filter, then land on the alert as on return.
+  const showMissing = () => {
+    setSearch(""); setStatusFilter(""); setViolFilter(""); setOffenceFilter(""); setDateFilter(""); setDateRange(null);
+    setMissingId(null);
+    setExpandedId(focusId);
+    setRevealTick((t) => t + 1);
+  };
+
+  /**
+   * "View in Swap Audit": that alert's station and detected date (EAT, Swap
+   * Audit's zone), its session when Swap Audit has it, and where to come back
+   * to: this page, its filters and its page.
+   */
+  const swapAuditHref = (alert: TamperingAlert) => {
+    const back = new URLSearchParams();
+    if (search) back.set("q", search);
+    if (statusFilter) back.set("status", statusFilter);
+    if (violationFilter) back.set("violation", violationFilter);
+    if (offenceFilter) back.set("offence", offenceFilter);
+    if (dateFilter) back.set("date", dateFilter);
+    if (dateFilter === "custom" && dateRange) { back.set("from", dateRange.from); back.set("to", dateRange.to); }
+    if (pathname === "/swap-transactions") back.set("view", "tampering");
+    back.set("page", String(page));
+    back.set("per", String(perPage));
+    const to = new URLSearchParams({
+      from: "alert",
+      alert: alert.id,
+      station: alert.swapStationId,
+      date: new Date(new Date(alert.detectedAt).getTime() + 3 * 3_600_000).toISOString().slice(0, 10),
+      violation: VIOLATION_LABELS[alert.violationType],
+      ret: `${pathname}?${back.toString()}`,
+    });
+    if (SWAP_AUDIT_IDS.has(alert.swapEventId)) to.set("txn", alert.swapEventId);
+    return `/swap-audit?${to.toString()}`;
+  };
 
   const paginated = useMemo(() => {
     const start = (page - 1) * perPage;
@@ -369,10 +499,10 @@ export function TamperingAlertsView() {
   const totalDebited   = alerts.filter((a) => a.penaltyApplied).reduce((s, a) => s + (a.penaltyAmountKES ?? 0), 0);
   const rfidDisabled   = alerts.filter((a) => a.rfidDisabled && !a.rfidReenabledAt).length;
 
-  const clearFilters = () => { setSearch(""); setStatusFilter(""); setViolFilter(""); setOffenceFilter(""); setDateFilter(""); };
+  const clearFilters = () => { setSearch(""); setStatusFilter(""); setViolFilter(""); setOffenceFilter(""); setDateFilter(""); setDateRange(null); };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col flex-1 min-h-0 gap-4">
       {/* Summary */}
       <StatGrid>
         <StatCard label="Pending Review"       value={pending}    valueColor={pending > 0 ? "text-amber-600" : undefined} />
@@ -411,9 +541,6 @@ export function TamperingAlertsView() {
           ["Offence", offenceFilter, setOffenceFilter, [
             ["", "All Offences"], ["1", "1st"], ["2", "2nd"], ["3", "3rd"], ["4", "4th+"],
           ]],
-          ["Date", dateFilter, setDateFilter, [
-            ["", "All Time"], ["today", "Today"], ["7d", "Last 7 days"], ["30d", "Last 30 days"],
-          ]],
         ] as [string, string, (v: string) => void, [string, string][]][]).map(([label, val, setter, opts]) => (
           <select
             key={label} value={val} onChange={(e) => setter(e.target.value)}
@@ -423,20 +550,43 @@ export function TamperingAlertsView() {
           </select>
         ))}
 
+        <DateRangeFilter
+          value={dateFilter}
+          range={dateRange}
+          onChange={(v, r) => { setDateFilter(v); setDateRange(r); }}
+          className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/20 text-slate-600"
+        />
+
         {(search || statusFilter || violationFilter || offenceFilter || dateFilter) && (
           <button onClick={clearFilters} className="text-xs text-slate-400 hover:text-slate-600">Clear</button>
         )}
         <span className="ml-auto text-xs text-slate-400">{filtered.length} alert{filtered.length !== 1 ? "s" : ""}</span>
       </div>
 
+      {/* Where the returned-to alert went, when the restored filters leave it out. */}
+      {missingId && (
+        <div role="status" className="shrink-0 bg-white rounded-xl border border-slate-200 px-4 py-2.5 flex items-center gap-3">
+          <span className="text-xs text-slate-600">{missingId} isn&apos;t in the current filters</span>
+          <button onClick={showMissing} className="text-xs text-slate-400 hover:text-slate-600">Show it</button>
+          <button
+            onClick={() => setMissingId(null)}
+            aria-label="Dismiss"
+            className="ml-auto p-1 rounded-lg hover:bg-slate-100 text-slate-500"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+      <span ref={liveRef} aria-live="polite" className="sr-only" />
+
       {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="flex flex-col flex-1 min-h-0 bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-auto">
           <table className="w-full text-xs min-w-[1100px]">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
                 {["Alert ID", "Customer / Vehicle", "Battery(s)", "Station", "Detected", "Violation", "Offence", "Penalty", "Status", "Actions"].map((h) => (
-                  <th key={h} className="text-left px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                  <th key={h} className={cn("text-left px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap", h === "Actions" && "border-l border-slate-200")}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -455,28 +605,44 @@ export function TamperingAlertsView() {
                 return (
                   <Fragment key={alert.id}>
                     <tr
+                      data-alert={alert.id}
+                      tabIndex={-1}
                       className={cn(
                         "hover:bg-slate-50 transition-colors cursor-pointer",
-                        expanded && "bg-slate-50"
+                        expanded && "bg-slate-50",
+                        // Swap Audit's selected-row style, for the alert we came back to.
+                        focusId === alert.id && "bg-zeno-teal/5 dark:bg-(--sidebar-text)/10"
                       )}
-                      onClick={() => setExpandedId(expanded ? null : alert.id)}
+                      onClick={() => toggleRow(alert.id)}
                     >
                       <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">
-                        {alert.id}
-                        {rfidActive && <Ban className="w-3 h-3 text-red-500 inline ml-1.5" />}
+                        {rfidActive && <Ban className="w-3 h-3 text-red-500 inline mr-1.5" />}
+                        <CopyButton value={alert.id} label="Alert ID" />
                       </td>
                       <td className="px-3 py-2.5">
-                        <p className="font-medium text-slate-700">{alert.customerName}</p>
-                        <p className="text-slate-400 text-[11px]">{alert.customerId} · {alert.vehicleId.slice(-8)}</p>
+                        <p className="font-medium text-slate-700">
+                          <CopyButton value={alert.customerName} label="Customer name" />
+                        </p>
+                        {/* The vehicle shows its last 8 characters but copies in full. */}
+                        <p className="text-slate-400 text-[11px] whitespace-nowrap">
+                          <CopyButton value={alert.customerId} label="Customer ID" />
+                          <span className="mx-2.5">·</span>
+                          <CopyButton value={alert.vehicleId} label="Vehicle ID">{alert.vehicleId.slice(-8)}</CopyButton>
+                        </p>
                       </td>
                       <td className="px-3 py-2.5 text-slate-500">
                         {alert.batteryIds.map((b) => (
-                          <p key={b} className="font-mono text-[10px]">{b}</p>
+                          <p key={b} className="font-mono text-[10px]">
+                            <CopyButton value={b} label={`Battery ID ${b}`} />
+                          </p>
                         ))}
                       </td>
-                      <td className="px-3 py-2.5 text-slate-600 max-w-[140px]">
-                        <p className="truncate">{alert.swapStationName.split(",")[0].trim()}</p>
-                        <p className="text-slate-400 text-[10px]">{alert.swapStationId}</p>
+                      {/* Station code leads, in the primary text style; the name sits under it, quieter. */}
+                      <td className="px-3 py-2.5 max-w-[140px]">
+                        <p className="font-mono text-slate-700">
+                          <CopyButton value={alert.swapStationId} label="Station code" />
+                        </p>
+                        <p className="truncate text-slate-400 text-[10px]">{alert.swapStationName.split(",")[0].trim()}</p>
                       </td>
                       <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap text-[11px]">
                         {new Date(alert.detectedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
@@ -484,19 +650,19 @@ export function TamperingAlertsView() {
                         <span className="text-slate-400">{new Date(alert.detectedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>
                       </td>
                       <td className="px-3 py-2.5">
-                        <span className={cn("px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap", VIOLATION_COLORS[alert.violationType])}>
+                        <span className={cn(LABEL, VIOLATION_COLORS[alert.violationType])}>
                           {VIOLATION_LABELS[alert.violationType]}
                         </span>
                         {alert.isDoubleBill && (
-                          <span className="block text-[10px] text-red-500 font-semibold mt-0.5">Double Bill</span>
+                          <span className={cn(LABEL, "mt-1 inline-block bg-red-50 text-red-700")}>Double Bill</span>
                         )}
                       </td>
                       <td className="px-3 py-2.5 text-center">
                         <span className={cn(
-                          "inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold",
-                          alert.offenceCount >= 3 ? "bg-red-100 text-red-700" :
-                          alert.offenceCount === 2 ? "bg-amber-100 text-amber-700" :
-                          "bg-slate-100 text-slate-600"
+                          "text-xs font-semibold",
+                          alert.offenceCount >= 3 ? "text-red-700" :
+                          alert.offenceCount === 2 ? "text-amber-700" :
+                          "text-slate-600"
                         )}>
                           {OFFENCE_LABEL[alert.offenceCount] ?? `${alert.offenceCount}th`}
                         </span>
@@ -507,32 +673,33 @@ export function TamperingAlertsView() {
                           : <span className="text-slate-300">–</span>}
                       </td>
                       <td className="px-3 py-2.5">
-                        <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap", STATUS_COLORS[alert.status])}>
+                        <span className={cn(LABEL, STATUS_COLORS[alert.status])}>
                           {STATUS_LABELS[alert.status]}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                      {/* A thin divider keeps information and actions apart. */}
+                      <td className="px-3 py-2.5 border-l border-slate-200" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1 flex-wrap">
                           {/* Pending actions */}
                           {canWrite && alert.status === "pending" && (
                             <>
                               <button
                                 onClick={() => setApproveTarget(alert)}
-                                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                                className={APPROVE}
                               >
-                                <CheckCircle2 className="w-3 h-3" /> Approve
+                                <CheckCircle2 className="w-3 h-3 text-emerald-700" /> Approve
                               </button>
                               <button
                                 onClick={() => setRejectTarget(alert)}
-                                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                                className={REJECT}
                               >
-                                <XCircle className="w-3 h-3" /> Reject
+                                <XCircle className="w-3 h-3 text-red-700" /> Reject
                               </button>
                               <button
                                 onClick={() => setInvestTarget(alert)}
-                                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                                className={cn(ACTION, "ml-2")}
                               >
-                                <AlertTriangle className="w-3 h-3" /> Investigate
+                                <AlertTriangle className="w-3 h-3 text-blue-700" /> Investigate
                               </button>
                             </>
                           )}
@@ -546,17 +713,17 @@ export function TamperingAlertsView() {
                                     sendNotification(alert.id);
                                     toast.success("Customer notified", `${alert.customerName} was sent the penalty notice for ${alert.id}.`);
                                   }}
-                                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-teal-50 text-teal-700 hover:bg-teal-100 transition-colors"
+                                  className={ACTION}
                                 >
-                                  <Bell className="w-3 h-3" /> Notify
+                                  <Bell className="w-3 h-3 text-teal-700" /> Notify
                                 </button>
                               )}
                               {alert.offenceCount >= 3 && !rfidActive && (
                                 <button
                                   onClick={() => setRfidTarget({ alert, disable: true })}
-                                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+                                  className={ACTION}
                                 >
-                                  <Ban className="w-3 h-3" /> Disable RFID
+                                  <Ban className="w-3 h-3 text-red-700" /> Disable RFID
                                 </button>
                               )}
                             </>
@@ -566,9 +733,9 @@ export function TamperingAlertsView() {
                           {canWrite && rfidActive && (
                             <button
                               onClick={() => setRfidTarget({ alert, disable: false })}
-                              className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                              className={ACTION}
                             >
-                              <Unlock className="w-3 h-3" /> Re-enable RFID
+                              <Unlock className="w-3 h-3 text-emerald-700" /> Re-enable RFID
                             </button>
                           )}
 
@@ -576,20 +743,21 @@ export function TamperingAlertsView() {
                           {canWrite && (alert.status === "rejected" || alert.status === "investigating") && (
                             <button
                               onClick={() => setReopenTarget(alert)}
-                              className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+                              className={ACTION}
                             >
-                              <RotateCcw className="w-3 h-3" /> Reopen
+                              <RotateCcw className="w-3 h-3 text-amber-700" /> Reopen
                             </button>
                           )}
 
                           {/* Expand */}
                           <button
-                            onClick={() => setExpandedId(expanded ? null : alert.id)}
+                            onClick={() => toggleRow(alert.id)}
                             className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold text-slate-500 hover:bg-slate-100 transition-colors"
                           >
                             {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                             Trail
                           </button>
+
                         </div>
                       </td>
                     </tr>
@@ -598,7 +766,7 @@ export function TamperingAlertsView() {
                     {expanded && (
                       <tr key={`${alert.id}-audit`}>
                         <td colSpan={10} className="p-0">
-                          <AuditTrail alert={alert} />
+                          <AuditTrail alert={alert} swapAuditHref={swapAuditHref(alert)} />
                         </td>
                       </tr>
                     )}

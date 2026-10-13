@@ -172,7 +172,7 @@ export function WalletLedgerTable() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col flex-1 min-h-0 gap-4">
       {/* Summary */}
       <StatGrid>
         <StatCard label="Total Credited" value={fmtKES(totalCredited)} valueColor="text-emerald-600" />
@@ -242,8 +242,8 @@ export function WalletLedgerTable() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="flex flex-col flex-1 min-h-0 bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-auto">
           <table className="w-full text-xs min-w-[1180px]">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>

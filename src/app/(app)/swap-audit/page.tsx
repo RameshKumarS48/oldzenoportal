@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { ScanSearch } from "lucide-react";
 import { AccessGuard } from "@/components/ui/AccessGuard";
 import { Topbar } from "@/components/layout/Topbar";
@@ -22,8 +23,12 @@ export default function SwapAuditPage() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto bg-zeno-bg p-6">
-          <SwapAuditTable />
+        {/* As on Asset Tracking: the page doesn't scroll; the table card fills the rest and scrolls its own rows. */}
+        <div className="flex flex-col flex-1 overflow-hidden bg-zeno-bg p-6">
+          {/* The table reads ?txn= from the URL, which Next requires inside Suspense. */}
+          <Suspense fallback={null}>
+            <SwapAuditTable />
+          </Suspense>
         </div>
       </main>
     </AccessGuard>

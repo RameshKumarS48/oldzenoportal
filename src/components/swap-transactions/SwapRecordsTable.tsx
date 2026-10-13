@@ -5,6 +5,7 @@ import { Search, Download, ArrowRight, ChevronDown, ChevronUp, PackageOpen, Aler
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { toast } from "@/store/toast";
 import { Pagination } from "@/components/ui/Pagination";
+import { CopyButton } from "@/components/ui/CopyButton";
 import {
   useSwapTransactionsStore,
   swapStatus,
@@ -16,6 +17,7 @@ import {
   type SwapStatus,
 } from "@/store/swap-transactions";
 import { cn } from "@/lib/utils";
+import { DateRangeFilter, inEatRange, type DayRange } from "./DateRangeFilter";
 
 // ── Formatting ────────────────────────────────────────────────────────────────
 
@@ -83,8 +85,20 @@ function RecordDetail({ record }: { record: SwapRecord }) {
         <DetailField label="Total Points" value={record.totalPoints.toFixed(2)} />
         <DetailField label="Dispense Timestamp" value={fmtTs(record.dispenseTimestamp)} />
         <DetailField label="Collect Timestamp" value={fmtTs(record.collectTimestamp)} />
-        <DetailField label="Dispense Swap Txn ID" value={<span className="font-mono">{record.id}</span>} />
-        <DetailField label="Collect Swap Txn ID" value={<span className="font-mono">{record.collectSwapTransactionId ?? "–"}</span>} />
+        <DetailField
+          label="Dispense Swap Txn ID"
+          value={<CopyButton value={record.id} label="Dispense Swap Txn ID" className="font-mono" />}
+        />
+        <DetailField
+          label="Collect Swap Txn ID"
+          value={
+            record.collectSwapTransactionId ? (
+              <CopyButton value={record.collectSwapTransactionId} label="Collect Swap Txn ID" className="font-mono" />
+            ) : (
+              <span className="font-mono">–</span>
+            )
+          }
+        />
         <DetailField label="Multiday Split" value={record.multiday ?? "–"} />
         <DetailField label="Manual Ignore" value={record.manualIgnore ? "Yes" : "No"} />
       </div>
@@ -104,7 +118,9 @@ function RecordDetail({ record }: { record: SwapRecord }) {
             <tbody className="divide-y divide-slate-200">
               {record.batteries.map((b) => (
                 <tr key={b.bin}>
-                  <td className="py-1.5 pr-4 font-mono text-slate-700 whitespace-nowrap">{b.bin}</td>
+                  <td className="py-1.5 pr-4 font-mono text-slate-700 whitespace-nowrap">
+                    <CopyButton value={b.bin} label={`Bin ${b.bin}`} />
+                  </td>
                   <td className="py-1.5 pr-4 text-slate-600">{b.billedKWh.toFixed(6)}</td>
                   <td className="py-1.5 pr-4">
                     {b.rfidMismatch
@@ -115,7 +131,13 @@ function RecordDetail({ record }: { record: SwapRecord }) {
                   <td className="py-1.5 pr-4 text-slate-600">{b.ahDischarged ?? "–"}</td>
                   <td className="py-1.5 pr-4 text-slate-600">{b.ahCharged ?? "–"}</td>
                   <td className="py-1.5 pr-4 text-slate-600">{b.ahRegen ?? "–"}</td>
-                  <td className="py-1.5 pr-4 font-mono text-slate-500 whitespace-nowrap">{b.rfidTagUid ?? "–"}</td>
+                  <td className="py-1.5 pr-4 font-mono text-slate-500 whitespace-nowrap">
+                    {b.rfidTagUid ? (
+                      <CopyButton value={b.rfidTagUid} label={`RFID Tag UID ${b.rfidTagUid}`} />
+                    ) : (
+                      "–"
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -161,6 +183,7 @@ export function SwapRecordsTable() {
   const [rfidFilter, setRfid]         = useState("");
   const [statusFilter, setStatus]     = useState("");
   const [dateFilter, setDate]         = useState("");
+  const [dateRange, setDateRange]     = useState<DayRange | null>(null);
   const [expandedId, setExpandedId]   = useState<string | null>(null);
   const [page, setPage]               = useState(1);
   const [perPage, setPerPage]         = useState(25);
@@ -192,6 +215,7 @@ export function SwapRecordsTable() {
       if (rfidFilter === "no" && hasRfidMismatch(r)) return false;
       if (statusFilter && swapStatus(r) !== statusFilter) return false;
       if (cutoff && new Date(r.occurredAt).getTime() < cutoff) return false;
+      if (dateFilter === "custom" && dateRange && !inEatRange(r.occurredAt, dateRange)) return false;
       if (search) {
         const q = search.toLowerCase();
         return (
@@ -203,7 +227,7 @@ export function SwapRecordsTable() {
       }
       return true;
     });
-  }, [sorted, search, stationFilter, rfidFilter, statusFilter, dateFilter, now]);
+  }, [sorted, search, stationFilter, rfidFilter, statusFilter, dateFilter, dateRange, now]);
 
   const paginated = useMemo(() => {
     const start = (page - 1) * perPage;
@@ -218,11 +242,11 @@ export function SwapRecordsTable() {
   const skippedCount = records.filter((r) => r.skipped).length;
 
   const clearFilters = () => {
-    setSearch(""); setStation(""); setRfid(""); setStatus(""); setDate(""); setPage(1);
+    setSearch(""); setStation(""); setRfid(""); setStatus(""); setDate(""); setDateRange(null); setPage(1);
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col flex-1 min-h-0 gap-4">
       {/* Summary */}
       <StatGrid cols={5}>
         <StatCard label="Total Swaps" value={totalSwaps} />
@@ -271,16 +295,12 @@ export function SwapRecordsTable() {
           {STATUS_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
 
-        <select
+        <DateRangeFilter
           value={dateFilter}
-          onChange={(e) => { setDate(e.target.value); setPage(1); }}
+          range={dateRange}
+          onChange={(v, r) => { setDate(v); setDateRange(r); setPage(1); }}
           className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 text-slate-600"
-        >
-          <option value="">All Time</option>
-          <option value="today">Today</option>
-          <option value="7d">Last 7 days</option>
-          <option value="30d">Last 30 days</option>
-        </select>
+        />
 
         {(search || stationFilter || rfidFilter || statusFilter || dateFilter) && (
           <button onClick={clearFilters} className="text-xs text-slate-400 hover:text-slate-600">Clear</button>
@@ -302,8 +322,8 @@ export function SwapRecordsTable() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="flex flex-col flex-1 min-h-0 bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-auto">
           <table className="w-full text-xs min-w-[1200px]">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
@@ -337,11 +357,17 @@ export function SwapRecordsTable() {
                       onClick={() => setExpandedId(expanded ? null : r.id)}
                     >
                       <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{fmtDateTime(r.occurredAt)}</td>
-                      <td className="px-3 py-2.5 font-medium text-slate-700">{r.customerName}</td>
-                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">{r.phone}</td>
+                      <td className="px-3 py-2.5 font-medium text-slate-700">
+                        <CopyButton value={r.customerName} label="Customer name" />
+                      </td>
+                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">
+                        <CopyButton value={r.phone} label="Phone" />
+                      </td>
                       <td className="px-3 py-2.5 text-slate-500">
                         {r.batteries.map((b) => (
-                          <p key={b.bin} className="font-mono text-[10px]">{b.bin}</p>
+                          <p key={b.bin} className="font-mono text-[10px]">
+                            <CopyButton value={b.bin} label={`Bin ${b.bin}`} />
+                          </p>
                         ))}
                       </td>
                       <td className="px-3 py-2.5 text-right font-semibold text-slate-700">{totalBilledKWh(r).toFixed(3)}</td>
@@ -351,13 +377,13 @@ export function SwapRecordsTable() {
                       </td>
                       <td className="px-3 py-2.5 whitespace-nowrap">
                         <span className={cn(
-                          "inline-flex items-center gap-1 font-mono text-[11px]",
+                          "inline-flex items-center gap-5 font-mono text-[11px]",
                           crossStation ? "text-rose-700 font-semibold" : "text-slate-500"
                         )}>
                           {crossStation && <AlertTriangle className="w-3 h-3 text-rose-600" />}
-                          {r.dispenseStationId || "–"}
+                          {r.dispenseStationId ? <CopyButton value={r.dispenseStationId} label="Dispense station code" /> : "–"}
                           <ArrowRight className={cn("w-3 h-3", crossStation ? "text-rose-400" : "text-slate-300")} />
-                          {r.collectStationId || "–"}
+                          {r.collectStationId ? <CopyButton value={r.collectStationId} label="Collect station code" /> : "–"}
                         </span>
                         {crossStation && (
                           <span className="block text-[10px] text-rose-600 font-semibold mt-0.5">2 stations, review</span>
