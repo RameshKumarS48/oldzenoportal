@@ -56,6 +56,10 @@ async function exportToXLSX(vehicles: ReturnType<typeof useAssetTrackingStore.ge
 export default function AssetTrackingPage() {
   const [view, setView] = useState<View>("list");
   const filteredVehicles = useAssetTrackingStore((s) => s.filteredVehicles);
+  // Map View calls filteredVehicles() during render, so this page has to re-run
+  // when the filters move. filteredVehicles is a stable reference and never
+  // does that on its own.
+  useAssetTrackingStore((s) => s.filters);
   const userId = useAuthStore((s) => s.user?.id);
   const [visibleColumns, setVisibleColumns] = useVisibleColumns(userId);
 
