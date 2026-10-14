@@ -1,5 +1,10 @@
 import type { AssetVehicle, FilterState } from "@/store/asset-tracking";
 
+/**
+ * The Immobilization dropdown keeps its original wording, but vehicles store
+ * `On` / `Off` and the store matches exactly, so those two words are translated
+ * on the way in and out. The request states are stored as they read.
+ */
 export const IMMOBILIZATION_OPTIONS = [
   "All", "Immobilized", "Mobilized",
   "ImmobilizedRequestSent", "MobilizedRequestSent",
@@ -20,6 +25,15 @@ export const STORE_CODE_OPTIONS = [
   "ke-nbo-mkp", "ke-nbo-zhq", "ke-nrm-zgs", "ke-nyk-zhq",
   "ke-nyr-ctr-zhb", "ke-tmu-zgs",
 ];
+
+const IMMOBILIZATION_VALUE: Record<string, string> = { Immobilized: "On", Mobilized: "Off" };
+
+/** A dropdown word as the store's value: "Immobilized" → "On". */
+export const immobilizationValue = (label: string) => IMMOBILIZATION_VALUE[label] ?? label;
+
+/** A stored value as the dropdown's word: "On" → "Immobilized". */
+export const immobilizationLabel = (value: string) =>
+  Object.keys(IMMOBILIZATION_VALUE).find((k) => IMMOBILIZATION_VALUE[k] === value) ?? value;
 
 export type SelectKey =
   | "status" | "connectivity" | "immobilization" | "tenant" | "storeCode" | "vcu" | "zeConnect" | "evcc";
@@ -53,6 +67,7 @@ export function isActive(f: FilterState, id: FilterId): boolean {
 /** The value a pill or menu row shows; the Odo text is the one the old trigger used. */
 export function valueLabel(f: FilterState, id: FilterId): string {
   if (id === "odo") return `${f.odoFrom ?? 0} → ${f.odoTo ?? "∞"}`;
+  if (id === "immobilization") return immobilizationLabel(f.immobilization);
   return f[id];
 }
 
