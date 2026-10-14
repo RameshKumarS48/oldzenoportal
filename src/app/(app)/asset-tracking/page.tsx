@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Download, List, Map } from "lucide-react";
+import { List, Map } from "lucide-react";
 import { useAssetTrackingStore } from "@/store/asset-tracking";
+import { useAuthStore } from "@/store/auth";
 import { AccessGuard } from "@/components/ui/AccessGuard";
 import { Topbar } from "@/components/layout/Topbar";
-import { Button } from "@/components/ui/button";
 import { toast } from "@/store/toast";
-import { SearchInput, SegmentedControl } from "@/components/ui/FilterControls";
+import { SegmentedControl } from "@/components/ui/FilterControls";
 import { FilterBar } from "@/components/asset-tracking/FilterBar";
 import { VehicleTable } from "@/components/asset-tracking/VehicleTable";
 import { VehicleMap } from "@/components/asset-tracking/VehicleMap";
+import { useVisibleColumns } from "@/components/asset-tracking/vehicle-columns";
 
 type View = "list" | "map";
 
@@ -54,9 +55,13 @@ async function exportToXLSX(vehicles: ReturnType<typeof useAssetTrackingStore.ge
 
 export default function AssetTrackingPage() {
   const [view, setView] = useState<View>("list");
-  const filters = useAssetTrackingStore((s) => s.filters);
-  const setFilter = useAssetTrackingStore((s) => s.setFilter);
   const filteredVehicles = useAssetTrackingStore((s) => s.filteredVehicles);
+  // Map View calls filteredVehicles() during render, so this page has to re-run
+  // when the filters move. filteredVehicles is a stable reference and never
+  // does that on its own.
+  useAssetTrackingStore((s) => s.filters);
+  const userId = useAuthStore((s) => s.user?.id);
+  const [visibleColumns, setVisibleColumns] = useVisibleColumns(userId);
 
   function handleExport() {
     const rows = filteredVehicles();
@@ -73,7 +78,7 @@ export default function AssetTrackingPage() {
       <Topbar title="Asset Tracking" />
       <main className="flex flex-col flex-1 overflow-hidden">
       {/* Page controls */}
-      <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-200 bg-white shrink-0">
+      <div className="flex items-center px-6 py-3.5 border-b border-slate-200 bg-white shrink-0">
         <SegmentedControl
           value={view}
           onChange={setView}
@@ -82,27 +87,17 @@ export default function AssetTrackingPage() {
             { value: "map", label: "Map View", icon: <Map className="w-4 h-4" /> },
           ]}
         />
-
-        <div className="flex items-center gap-3">
-          <SearchInput
-            value={filters.search}
-            onChange={(v) => setFilter("search", v)}
-            placeholder="Search VIN, customer, plate…"
-            className="w-64"
-          />
-          <Button variant="primary" onClick={handleExport}>
-            <Download className="w-4 h-4" />
-            Export
-          </Button>
-        </div>
       </div>
 
       {/* Content */}
       <div className="flex flex-col flex-1 overflow-hidden p-5 gap-4">
-        <FilterBar />
+        <FilterBar
+          onExport={handleExport}
+          columns={view === "list" ? { visible: visibleColumns, onChange: setVisibleColumns } : undefined}
+        />
 
         {view === "list" ? (
-          <VehicleTable />
+          <VehicleTable visible={visibleColumns} />
         ) : (
           <VehicleMap vehicles={filteredVehicles()} className="flex-1" />
         )}
