@@ -1,10 +1,9 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { Columns3, Download, SlidersHorizontal, X } from "lucide-react";
+import { Columns3, Download, Search, SlidersHorizontal, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAssetTrackingStore } from "@/store/asset-tracking";
-import { SearchInput } from "@/components/ui/FilterControls";
 import { Button } from "@/components/ui/button";
 import { FILTERS, isActive, valueLabel, type FilterId } from "./filter-defs";
 import { FiltersPopover } from "./FiltersPopover";
@@ -15,13 +14,20 @@ import { DEFAULT_COLUMNS, type ColumnId } from "./vehicle-columns";
 /** The tinted selected style used elsewhere (selected rows, tags), with its dark-mode pair. */
 const TINT = "bg-zeno-teal/10 text-zeno-teal dark:bg-(--sidebar-text)/10 dark:text-(--sidebar-text)";
 /**
- * Toolbar buttons: the Swap Audit drawer's outline look (white, bordered, hover
- * slate-50) at the default Button size, which with its border is 38px, the
- * search box's height. The border is slate-300, the outline Button's, a step
- * firmer than StepBtn's slate-200 so the buttons stand out on the slate-50 page.
+ * Row 1 is Swap Audit's filter bar (SwapAuditTable.tsx): a white card holding
+ * compact text-xs controls, whose styles are repeated here. Columns and Filters
+ * take its dropdowns' look (slate-200 border, px-2.5 py-1.5), so every control
+ * in the bar is the same height. The search is w-72, not Swap Audit's w-60, so
+ * its longer placeholder fits.
  */
-const TOOL = "shrink-0 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50";
-/** Count badge on Filters and Columns, in the sidebar's dark navy. */
+const BAR = "bg-white rounded-xl border border-slate-200 px-4 py-2.5 flex items-center gap-3 flex-wrap";
+const SEARCH =
+  "pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white " +
+  "focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 focus:border-[#003B49] w-72";
+const TOOL =
+  "shrink-0 inline-flex items-center gap-1.5 text-xs font-medium border border-slate-200 rounded-lg px-2.5 py-1.5 " +
+  "bg-white text-slate-600 hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-[#003B49]/20";
+/** Count badge on Filters and Columns, in the sidebar's dark navy. In the bar it's pulled in (-my-0.5) so the button stays 30px. */
 const BADGE = "inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-zeno-teal text-white text-[10px] font-semibold tabular-nums";
 const RING = "focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40";
 /** Text actions (Clear filters): the app's link style, teal, so they don't read as disabled. */
@@ -146,50 +152,49 @@ export function FilterBar({
   return (
     <div className="space-y-3 shrink-0">
       {/* Row 1 */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex flex-1 min-w-0 items-center gap-3">
-          <SearchInput
+      <div className={BAR}>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+          <input
             value={filters.search}
-            onChange={(v) => setFilter("search", v)}
+            onChange={(e) => setFilter("search", e.target.value)}
             placeholder="Search VIN, customer, phone, plate, IMEI…"
-            className="w-full sm:w-96 [&_input]:border-slate-300"
+            aria-label="Search VIN, customer, phone, plate, IMEI"
+            className={SEARCH}
           />
-          {columns && (
-            <Button
-              ref={columnsBtn}
-              variant="outline"
-              onClick={(e) => (panel?.kind === "columns" ? closePanel("close") : openColumns(e.currentTarget))}
-              aria-haspopup="dialog"
-              aria-expanded={panel?.kind === "columns"}
-              aria-controls={panel?.kind === "columns" ? "asset-columns-popover" : undefined}
-              aria-label={customColumns ? `Columns, ${columns.visible.length} visible` : "Columns"}
-              className={TOOL}
-            >
-              <Columns3 className="w-4 h-4" />
-              Columns
-              {customColumns && <span className={BADGE}>{columns.visible.length}</span>}
-            </Button>
-          )}
-          <Button
-            ref={filterBtn}
-            variant="outline"
-            onClick={(e) => (panel?.kind === "filters" ? closePanel("close") : openFilters(null, e.currentTarget))}
-            aria-haspopup="dialog"
-            aria-expanded={panel?.kind === "filters"}
-            aria-controls={panel?.kind === "filters" ? "asset-filters-popover" : undefined}
-            aria-label={active.length > 0 ? `Filters, ${active.length} active` : "Filters"}
-            className={cn(TOOL, active.length > 0 && cn(TINT, "border-zeno-teal/30 hover:bg-zeno-teal/15"))}
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-            Filters
-            {active.length > 0 && (
-              <span className={BADGE}>{active.length}</span>
-            )}
-          </Button>
         </div>
+        {columns && (
+          <button
+            ref={columnsBtn}
+            onClick={(e) => (panel?.kind === "columns" ? closePanel("close") : openColumns(e.currentTarget))}
+            aria-haspopup="dialog"
+            aria-expanded={panel?.kind === "columns"}
+            aria-controls={panel?.kind === "columns" ? "asset-columns-popover" : undefined}
+            aria-label={customColumns ? `Columns, ${columns.visible.length} visible` : "Columns"}
+            className={TOOL}
+          >
+            <Columns3 className="w-3.5 h-3.5" />
+            Columns
+            {customColumns && <span className={cn(BADGE, "-my-0.5")}>{columns.visible.length}</span>}
+          </button>
+        )}
+        <button
+          ref={filterBtn}
+          onClick={(e) => (panel?.kind === "filters" ? closePanel("close") : openFilters(null, e.currentTarget))}
+          aria-haspopup="dialog"
+          aria-expanded={panel?.kind === "filters"}
+          aria-controls={panel?.kind === "filters" ? "asset-filters-popover" : undefined}
+          aria-label={active.length > 0 ? `Filters, ${active.length} active` : "Filters"}
+          className={cn(TOOL, active.length > 0 && cn(TINT, "border-zeno-teal/30 hover:bg-zeno-teal/15"))}
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+          Filters
+          {active.length > 0 && <span className={cn(BADGE, "-my-0.5")}>{active.length}</span>}
+        </button>
 
-        <Button variant="primary" onClick={onExport} className="shrink-0">
-          <Download className="w-4 h-4" />
+        {/* The small primary Button, with a border in its own colour so it's the bar's 30px. */}
+        <Button variant="primary" size="sm" onClick={onExport} className="ml-auto shrink-0 border border-zeno-red hover:border-zeno-red-hover">
+          <Download className="w-3.5 h-3.5" />
           Export
         </Button>
       </div>
