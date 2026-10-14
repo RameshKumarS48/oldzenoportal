@@ -213,11 +213,11 @@ export function SessionDrawer({
             </span>
             <Link
               href={alertNav.href}
-              aria-label={alertNav.pending ? `Return to alert ${alertNav.id} to decide` : `Back to alert ${alertNav.id}`}
-              className="inline-flex shrink-0 items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold bg-zeno-teal text-white hover:bg-zeno-teal-hover transition-colors"
+              aria-label={alertNav.pending ? `Go back to alert ${alertNav.id} to decide` : `Back to alert ${alertNav.id}`}
+              className="inline-flex shrink-0 items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold bg-zeno-red text-white hover:bg-zeno-red-hover transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              {alertNav.pending ? "Return to alert to decide" : `Back to alert ${alertNav.id}`}
+              {alertNav.pending ? "Decide on alert" : `Back to alert ${alertNav.id}`}
             </Link>
           </div>
         )}
