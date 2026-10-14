@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { List, Map } from "lucide-react";
 import { useAssetTrackingStore } from "@/store/asset-tracking";
+import { useAuthStore } from "@/store/auth";
 import { AccessGuard } from "@/components/ui/AccessGuard";
 import { Topbar } from "@/components/layout/Topbar";
 import { toast } from "@/store/toast";
@@ -10,6 +11,7 @@ import { SegmentedControl } from "@/components/ui/FilterControls";
 import { FilterBar } from "@/components/asset-tracking/FilterBar";
 import { VehicleTable } from "@/components/asset-tracking/VehicleTable";
 import { VehicleMap } from "@/components/asset-tracking/VehicleMap";
+import { useVisibleColumns } from "@/components/asset-tracking/vehicle-columns";
 
 type View = "list" | "map";
 
@@ -54,6 +56,8 @@ async function exportToXLSX(vehicles: ReturnType<typeof useAssetTrackingStore.ge
 export default function AssetTrackingPage() {
   const [view, setView] = useState<View>("list");
   const filteredVehicles = useAssetTrackingStore((s) => s.filteredVehicles);
+  const userId = useAuthStore((s) => s.user?.id);
+  const [visibleColumns, setVisibleColumns] = useVisibleColumns(userId);
 
   function handleExport() {
     const rows = filteredVehicles();
@@ -83,10 +87,13 @@ export default function AssetTrackingPage() {
 
       {/* Content */}
       <div className="flex flex-col flex-1 overflow-hidden p-5 gap-4">
-        <FilterBar onExport={handleExport} />
+        <FilterBar
+          onExport={handleExport}
+          columns={view === "list" ? { visible: visibleColumns, onChange: setVisibleColumns } : undefined}
+        />
 
         {view === "list" ? (
-          <VehicleTable />
+          <VehicleTable visible={visibleColumns} />
         ) : (
           <VehicleMap vehicles={filteredVehicles()} className="flex-1" />
         )}

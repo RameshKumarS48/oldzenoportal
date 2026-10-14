@@ -1,37 +1,62 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { Download, SlidersHorizontal, X } from "lucide-react";
+import { Columns3, Download, SlidersHorizontal, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAssetTrackingStore } from "@/store/asset-tracking";
 import { SearchInput } from "@/components/ui/FilterControls";
 import { Button } from "@/components/ui/button";
 import { FILTERS, isActive, valueLabel, type FilterId } from "./filter-defs";
-import { FiltersSheet } from "./FiltersSheet";
+import { FiltersPopover } from "./FiltersPopover";
+import { ColumnPicker } from "./ColumnPicker";
+import type { DismissReason } from "./ToolbarPopover";
+import { DEFAULT_COLUMNS, type ColumnId } from "./vehicle-columns";
 
 /** The tinted selected style used elsewhere (selected rows, tags), with its dark-mode pair. */
 const TINT = "bg-zeno-teal/10 text-zeno-teal dark:bg-(--sidebar-text)/10 dark:text-(--sidebar-text)";
+/**
+ * Toolbar buttons: the Swap Audit drawer's outline look (white, bordered, hover
+ * slate-50) at the default Button size, which with its border is 38px, the
+ * search box's height. The border is slate-300, the outline Button's, a step
+ * firmer than StepBtn's slate-200 so the buttons stand out on the slate-50 page.
+ */
+const TOOL = "shrink-0 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50";
+/** Count badge on Filters and Columns, in the sidebar's dark navy. */
+const BADGE = "inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-zeno-teal text-white text-[10px] font-semibold tabular-nums";
 const RING = "focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40";
-const CLEAR = cn("inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors rounded", RING);
+/** Text actions (Clear filters): the app's link style, teal, so they don't read as disabled. */
+const CLEAR = cn("inline-flex items-center gap-1 text-xs font-medium text-zeno-teal hover:underline dark:text-(--sidebar-text) rounded", RING);
 /** Row 2 holds at most this many lines; the rest go behind "+N more". */
 const MAX_LINES = 2;
 const GAP = 8; // gap-2
 
+type Panel = { kind: "filters"; focusId: FilterId | null } | { kind: "columns" } | null;
+
 /**
- * Asset Tracking's filters. Row 1: search, the Filters button, Export. Row 2,
- * only while something is active: a chip per filter in FILTERS order, "+N more"
- * past two lines, and Clear filters. Chips open the drawer at their filter;
- * their × and Clear filters apply at once. The drawer waits for Apply.
+ * Asset Tracking's toolbar. Row 1: search, Columns (List view), Filters, Export.
+ * Row 2, only while something is active: a chip per filter in FILTERS order,
+ * "+N more" past two lines, and Clear filters. Chips open the Filters popover
+ * at their filter; their × and Clear filters apply at once. Both popovers wait
+ * for Apply, and only one is open at a time: opening one unmounts the other,
+ * which discards its draft.
  */
-export function FilterBar({ onExport }: { onExport: () => void }) {
+export function FilterBar({
+  onExport,
+  columns,
+}: {
+  onExport: () => void;
+  /** The list's column selection; omitted in Map view, which hides the Columns button. */
+  columns?: { visible: ColumnId[]; onChange: (cols: ColumnId[]) => void };
+}) {
   const filters = useAssetTrackingStore((s) => s.filters);
   const setFilter = useAssetTrackingStore((s) => s.setFilter);
   const resetFilters = useAssetTrackingStore((s) => s.resetFilters);
 
-  const [sheet, setSheet] = useState<{ open: boolean; focusId: FilterId | null }>({ open: false, focusId: null });
+  const [panel, setPanel] = useState<Panel>(null);
   const [visibleCount, setVisibleCount] = useState(Infinity);
 
   const filterBtn = useRef<HTMLButtonElement>(null);
+  const columnsBtn = useRef<HTMLButtonElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   const rowRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
@@ -40,6 +65,9 @@ export function FilterBar({ onExport }: { onExport: () => void }) {
   const shown = active.slice(0, Math.min(visibleCount, active.length));
   const hiddenCount = active.length - shown.length;
   const hasRow = active.length > 0;
+  const customColumns =
+    !!columns &&
+    !(columns.visible.length === DEFAULT_COLUMNS.length && DEFAULT_COLUMNS.every((c) => columns.visible.includes(c)));
 
   // Fit row 2 into MAX_LINES. An invisible copy of every chip gives their
   // widths; packing them as flex-wrap would says how many fit alongside the
@@ -76,24 +104,32 @@ export function FilterBar({ onExport }: { onExport: () => void }) {
     return () => ro.disconnect();
   }, [hasRow]);
 
-  function openSheet(focusId: FilterId | null, from: HTMLElement) {
+  function openFilters(focusId: FilterId | null, from: HTMLElement) {
     opener.current = from;
-    setSheet({ open: true, focusId });
+    setPanel({ kind: "filters", focusId });
   }
 
-  // Focus goes back to whatever opened the drawer, or the Filters button if that chip has gone.
-  const closeSheet = useCallback(() => {
-    setSheet((s) => ({ ...s, open: false }));
+  function openColumns(from: HTMLElement) {
+    opener.current = from;
+    setPanel({ kind: "columns" });
+  }
+
+  // Focus goes back to whatever opened the popover, or the Filters button if
+  // that chip has gone. An outside click leaves focus where it landed, unless
+  // that was nowhere.
+  const closePanel = useCallback((reason: DismissReason) => {
+    setPanel(null);
     requestAnimationFrame(() => {
+      if (reason === "outside" && document.activeElement && document.activeElement !== document.body) return;
       const el = opener.current;
       (el?.isConnected ? el : filterBtn.current)?.focus();
     });
   }, []);
 
-  /** The one "Clear filters", on the page and in the drawer: the store's reset, at once. */
+  /** The page's "Clear filters": the store's reset, at once. The popover's own one stays open (FiltersPopover). */
   const clearAll = useCallback(() => {
     resetFilters();
-    setSheet((s) => ({ ...s, open: false }));
+    setPanel(null);
     requestAnimationFrame(() => filterBtn.current?.focus());
   }, [resetFilters]);
 
@@ -116,23 +152,38 @@ export function FilterBar({ onExport }: { onExport: () => void }) {
             value={filters.search}
             onChange={(v) => setFilter("search", v)}
             placeholder="Search VIN, customer, phone, plate, IMEI…"
-            className="w-full sm:w-96"
+            className="w-full sm:w-96 [&_input]:border-slate-300"
           />
+          {columns && (
+            <Button
+              ref={columnsBtn}
+              variant="outline"
+              onClick={(e) => (panel?.kind === "columns" ? closePanel("close") : openColumns(e.currentTarget))}
+              aria-haspopup="dialog"
+              aria-expanded={panel?.kind === "columns"}
+              aria-controls={panel?.kind === "columns" ? "asset-columns-popover" : undefined}
+              aria-label={customColumns ? `Columns, ${columns.visible.length} visible` : "Columns"}
+              className={TOOL}
+            >
+              <Columns3 className="w-4 h-4" />
+              Columns
+              {customColumns && <span className={BADGE}>{columns.visible.length}</span>}
+            </Button>
+          )}
           <Button
             ref={filterBtn}
-            variant="secondary"
-            onClick={(e) => openSheet(null, e.currentTarget)}
+            variant="outline"
+            onClick={(e) => (panel?.kind === "filters" ? closePanel("close") : openFilters(null, e.currentTarget))}
             aria-haspopup="dialog"
-            aria-expanded={sheet.open}
+            aria-expanded={panel?.kind === "filters"}
+            aria-controls={panel?.kind === "filters" ? "asset-filters-popover" : undefined}
             aria-label={active.length > 0 ? `Filters, ${active.length} active` : "Filters"}
-            className={cn("shrink-0", active.length > 0 && cn(TINT, "hover:bg-zeno-teal/15"))}
+            className={cn(TOOL, active.length > 0 && cn(TINT, "border-zeno-teal/30 hover:bg-zeno-teal/15"))}
           >
             <SlidersHorizontal className="w-4 h-4" />
             Filters
             {active.length > 0 && (
-              <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-zeno-red text-white text-[10px] font-semibold tabular-nums">
-                {active.length}
-              </span>
+              <span className={BADGE}>{active.length}</span>
             )}
           </Button>
         </div>
@@ -151,13 +202,13 @@ export function FilterBar({ onExport }: { onExport: () => void }) {
               key={id}
               label={label}
               value={valueLabel(filters, id)}
-              onOpen={(el) => openSheet(id, el)}
+              onOpen={(el) => openFilters(id, el)}
               onRemove={() => remove(id)}
             />
           ))}
           {hiddenCount > 0 && (
             <button
-              onClick={(e) => openSheet(null, e.currentTarget)}
+              onClick={(e) => openFilters(null, e.currentTarget)}
               aria-haspopup="dialog"
               aria-label={`${hiddenCount} more filters. Open filters`}
               className={cn(
@@ -187,7 +238,18 @@ export function FilterBar({ onExport }: { onExport: () => void }) {
         </div>
       )}
 
-      <FiltersSheet open={sheet.open} focusId={sheet.focusId} onClose={closeSheet} onClearAll={clearAll} />
+      {panel?.kind === "filters" && (
+        <FiltersPopover
+          key={panel.focusId ?? "all"}
+          anchorRef={filterBtn}
+          focusId={panel.focusId}
+          onDismiss={closePanel}
+          onClearAll={resetFilters}
+        />
+      )}
+      {panel?.kind === "columns" && columns && (
+        <ColumnPicker anchorRef={columnsBtn} visible={columns.visible} onChange={columns.onChange} onDismiss={closePanel} />
+      )}
     </div>
   );
 }
