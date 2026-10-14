@@ -49,8 +49,8 @@ export function BatteryFilterBar({
         <input
           value={search}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder="Search by IMEI"
-          aria-label="Search by IMEI"
+          placeholder="Search serial no. or IMEI"
+          aria-label="Search by battery serial number or IMEI"
           className={SEARCH}
         />
       </div>
