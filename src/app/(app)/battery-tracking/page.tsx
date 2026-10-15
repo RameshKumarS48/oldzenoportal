@@ -53,7 +53,7 @@ function BatteryTracking() {
   // which applies when the URL doesn't name one.
   const [initial] = useState(() => readListState(new URLSearchParams(params.toString())));
   const [search, setSearch] = useState(initial.search);
-  const [filters, setFilters] = useState<BatteryFilters>({ lastSeen: initial.lastSeen });
+  const [filters, setFilters] = useState<BatteryFilters>({ lastSeen: initial.lastSeen, range: initial.range });
   const [sort, setSort] = useState<Sort>(initial.sort);
   const [page, setPage] = useState(initial.page);
   const [perPageInUrl, setPerPageInUrl] = useState(initial.perPage);
@@ -62,7 +62,7 @@ function BatteryTracking() {
   const perPage = perPageInUrl ?? savedPerPage;
   const now = useSyncExternalStore(subscribeMinute, currentMinute, noMinute);
 
-  const state = { search, lastSeen: filters.lastSeen, sort, page, perPage: perPageInUrl };
+  const state = { search, lastSeen: filters.lastSeen, range: filters.range, sort, page, perPage: perPageInUrl };
   const query = listQuery(state);
   useEffect(() => {
     if (window.location.pathname + window.location.search !== pathname + query) {
@@ -95,8 +95,8 @@ function BatteryTracking() {
         </span>
       </div>
 
-      {/* Content */}
-      <div className="flex flex-col flex-1 overflow-hidden p-5 gap-4">
+      {/* Content. bg-zeno-bg, as on Swap Transactions, so dark mode darkens the page canvas too. */}
+      <div className="flex flex-col flex-1 overflow-hidden bg-zeno-bg p-5 gap-4">
         <BatteryFilterBar
           search={search}
           onSearch={(v) => {

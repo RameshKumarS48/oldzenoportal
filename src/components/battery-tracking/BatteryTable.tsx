@@ -9,29 +9,27 @@ import type { Sort, SortKey } from "./filters";
 import { Dash, LastSeen, Location, Soc } from "./cells";
 
 /**
- * Each column's minimum, in px including px-3 padding: the wider of the header
- * and the longest value in Geist / Geist Mono, as Asset Tracking's are.
+ * Each column's width, in px including px-3 padding: its widest content (header
+ * with sort icon, or value) measured in the browser, plus the padding. Nothing
+ * wraps at this width, and below their sum (684px) the table scrolls sideways.
  */
 const COLUMNS: { label: string; width: number; sortKey?: SortKey }[] = [
-  { label: "Battery Serial No.", width: 144 },
-  { label: "IMEI", width: 136 },
-  // Sortable headers are 16px wider, for the sort icon.
-  { label: "Last Seen (UTC)", width: 136, sortKey: "lastSeen" },
-  // A 40px slot for "100%", the 8px gap and the 64px bar.
-  { label: "SOC", width: 136, sortKey: "soc" },
-  // The header is wider than the 72px latitude slot, comma, 80px longitude slot and icon.
-  { label: "Last Known Location (lat, long)", width: 208 },
+  { label: "Battery Serial No.", width: 140 },
+  { label: "IMEI", width: 132 },
+  { label: "Last Seen (UTC)", width: 132, sortKey: "lastSeen" },
+  { label: "SOC %", width: 80, sortKey: "soc" },
+  { label: "Last Known Location (lat, long)", width: 200 },
 ];
 const MIN_WIDTH = COLUMNS.reduce((sum, c) => sum + c.width, 0);
 
 /**
- * Columns grow with the table, from their minimum at a 960px-wide table to
- * their minimum plus 32px (spacing 8) at 1440px, then stop. Measured against
- * the scroll area (a size container), so the sidebar's state counts. Whatever
- * is left goes to a blank column after the last.
+ * The table fills the row: the width left over after every column's content is
+ * shared equally between the columns, so the space between one column's
+ * content and the next is the same everywhere. 100cqw is the scroll area's
+ * width (a size container); the share never goes below zero.
  */
-const GROW = 32;
-const colWidth = (min: number) => `clamp(${min}px, calc(${min}px + (100cqw - 960px) / 15), ${min + GROW}px)`;
+const colWidth = (min: number) =>
+  `calc(${min}px + max(0px, (100cqw - ${MIN_WIDTH}px) / ${COLUMNS.length}))`;
 
 /** Asset Tracking's sort icon: neutral until sorted, then the direction in brand red. */
 function SortIcon({ active, direction }: { active: boolean; direction?: "asc" | "desc" }) {
@@ -79,7 +77,6 @@ export function BatteryTable({
             {COLUMNS.map(({ label, width }) => (
               <col key={label} style={{ width: colWidth(width) }} />
             ))}
-            <col />
           </colgroup>
           {/* Sticky header. With border-collapse a cell's border stays behind when it sticks, so the
               divider is an inset 1px shadow in the same slate-200, which moves with the cell. */}
@@ -108,13 +105,12 @@ export function BatteryTable({
                   )}
                 </th>
               ))}
-              <th aria-hidden className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_var(--color-slate-200)]" />
             </tr>
           </thead>
           <tbody>
             {!loading && pageRows.length === 0 && (
               <tr>
-                <td colSpan={COLUMNS.length + 1} className="text-center py-16 text-slate-400 text-sm">
+                <td colSpan={COLUMNS.length} className="text-center py-16 text-slate-400 text-sm">
                   No batteries match the current search and filters.
                 </td>
               </tr>
@@ -145,7 +141,6 @@ export function BatteryTable({
                 <td className="px-3 py-2.5 whitespace-nowrap">
                   <Location text={b.location} />
                 </td>
-                <td aria-hidden />
               </tr>
             ))}
           </tbody>

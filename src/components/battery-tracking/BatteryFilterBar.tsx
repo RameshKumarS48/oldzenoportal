@@ -1,7 +1,8 @@
 "use client";
 
 import { Search, X } from "lucide-react";
-import { anyFilter, LAST_SEEN_OPTIONS, NO_FILTERS, type BatteryFilters, type LastSeenPreset } from "./filters";
+import { DateRangeFilter } from "@/components/swap-transactions/DateRangeFilter";
+import { anyFilter, NO_FILTERS, type BatteryFilters, type LastSeenPreset } from "./filters";
 
 // Swap Audit's filter bar (SwapAuditTable.tsx): a white card holding compact
 // text-xs controls. Its styles are repeated here so that file stays untouched.
@@ -18,9 +19,9 @@ const CLEAR =
   "focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40";
 
 /**
- * Battery Tracking's filter bar, in Swap Audit's pattern: search, the Last seen
- * dropdown, Clear filters while the dropdown is set, and the count on the
- * right. Every control applies at once.
+ * Battery Tracking's filter bar, in Swap Audit's pattern: search, Swap
+ * Transactions' time filter for Last Seen, Clear filters while it's set, and the
+ * count on the right. The presets apply at once; a custom range on Apply.
  */
 export function BatteryFilterBar({
   search,
@@ -55,16 +56,13 @@ export function BatteryFilterBar({
         />
       </div>
 
-      <select
-        aria-label="Last seen"
+      {/* Swap Transactions' time filter, unchanged: presets plus "Custom range…". */}
+      <DateRangeFilter
         value={filters.lastSeen}
-        onChange={(e) => onFilters({ ...filters, lastSeen: e.target.value as LastSeenPreset })}
+        range={filters.range}
+        onChange={(v, r) => onFilters({ lastSeen: v as LastSeenPreset, range: r })}
         className={CONTROL}
-      >
-        {LAST_SEEN_OPTIONS.map(({ value, label }) => (
-          <option key={value} value={value}>{label}</option>
-        ))}
-      </select>
+      />
 
       {filtered && (
         <button onClick={() => onFilters(NO_FILTERS)} className={CLEAR}>

@@ -1,31 +1,33 @@
 import type { BatteryRecord } from "@/lib/mock/battery-tracking";
+import type { DayRange } from "@/components/swap-transactions/DateRangeFilter";
 
 /**
  * Battery Tracking's Last seen filter and its sort, and the rules that apply them
  * to the mock data. Nothing here changes a record: Last Seen is read only to
  * compare it.
+ *
+ * The filter is Swap Transactions' time filter (DateRangeFilter): All Time,
+ * Today, Last 7 days, Last 30 days or a custom range of days, meaning "last
+ * seen within" that period. The presets count back from now, as Swap
+ * Transactions' do; a custom range covers whole UTC days, to match the Last
+ * Seen (UTC) column.
  */
 
-export type LastSeenPreset = "any" | "24h" | "7d" | "30d";
+/** DateRangeFilter's values: "" is All Time, "custom" uses `range`. */
+export type LastSeenPreset = "" | "today" | "7d" | "30d" | "custom";
+export const LAST_SEEN_VALUES: LastSeenPreset[] = ["", "today", "7d", "30d", "custom"];
 
-/** The Last seen dropdown's options, labelled as the closed dropdown shows them. */
-export const LAST_SEEN_OPTIONS: { value: LastSeenPreset; label: string }[] = [
-  { value: "any", label: "Last seen: Any time" },
-  { value: "24h", label: "Last seen: Not seen in 24 h" },
-  { value: "7d", label: "Last seen: Not seen in 7 days" },
-  { value: "30d", label: "Last seen: Not seen in 30 days" },
-];
-
-const HOURS: Record<Exclude<LastSeenPreset, "any">, number> = { "24h": 24, "7d": 7 * 24, "30d": 30 * 24 };
+const HOURS: Record<"today" | "7d" | "30d", number> = { today: 24, "7d": 7 * 24, "30d": 30 * 24 };
 
 export interface BatteryFilters {
-  /** Batteries last seen longer ago than this. */
   lastSeen: LastSeenPreset;
+  /** The custom range, as YYYY-MM-DD UTC days, both ends included. */
+  range: DayRange | null;
 }
 
-export const NO_FILTERS: BatteryFilters = { lastSeen: "any" };
+export const NO_FILTERS: BatteryFilters = { lastSeen: "", range: null };
 
-export const anyFilter = (f: BatteryFilters) => f.lastSeen !== "any";
+export const anyFilter = (f: BatteryFilters) => f.lastSeen !== "" && (f.lastSeen !== "custom" || f.range !== null);
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -39,12 +41,16 @@ function seenAt(text: string): number | null {
 
 /** Does the battery pass the filter, measured from `now` (ms)? */
 export function matches(b: BatteryRecord, f: BatteryFilters, now: number): boolean {
-  if (f.lastSeen !== "any") {
-    const at = seenAt(b.lastSeen);
-    // A battery with no readable Last Seen hasn't been seen in any window.
-    if (at !== null && now - at <= HOURS[f.lastSeen] * 3_600_000) return false;
+  if (!anyFilter(f)) return true;
+  const at = seenAt(b.lastSeen);
+  // A battery with no readable Last Seen wasn't seen in any period.
+  if (at === null) return false;
+  if (f.lastSeen === "custom") {
+    const [fy, fm, fd] = f.range!.from.split("-").map(Number);
+    const [ty, tm, td] = f.range!.to.split("-").map(Number);
+    return at >= Date.UTC(fy, fm - 1, fd) && at < Date.UTC(ty, tm - 1, td + 1);
   }
-  return true;
+  return now - at <= HOURS[f.lastSeen as keyof typeof HOURS] * 3_600_000;
 }
 
 export type SortKey = "lastSeen" | "soc";

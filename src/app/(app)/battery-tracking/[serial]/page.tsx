@@ -30,9 +30,9 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
-/** The vehicle detail page's "Show on Google Map" link style. */
+/** The vehicle detail page's "Show on Google Map" link style, lightened in dark mode like the portal's other teal links. */
 const LINK =
-  "inline-flex items-center gap-1.5 text-sm text-zeno-teal font-medium hover:underline rounded " +
+  "inline-flex items-center gap-1.5 text-sm text-zeno-teal dark:text-(--sidebar-text) font-medium hover:underline rounded " +
   "focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40";
 
 export default function BatteryDetailPage() {
@@ -100,7 +100,7 @@ function BatteryDetail() {
       </div>
 
       {/* Body: card left, map right; stacked and scrolling below lg. */}
-      <div className="flex flex-col lg:flex-row flex-1 overflow-y-auto lg:overflow-hidden p-5 gap-5">
+      <div className="flex flex-col lg:flex-row flex-1 overflow-y-auto lg:overflow-hidden bg-zeno-bg p-5 gap-5">
         {/* As tall as its content, as in the dev portal, not stretched to the map. */}
         <div className="w-full lg:w-80 shrink-0 lg:self-start lg:max-h-full bg-white border border-slate-200 rounded-xl lg:overflow-y-auto">
           <div className="px-5 pt-5 pb-3 border-b border-slate-100">
@@ -124,8 +124,8 @@ function BatteryDetail() {
                 <Dash />
               )}
             </InfoRow>
-            <InfoRow label="SOC">
-              <Soc value={battery.soc} className="justify-end" />
+            <InfoRow label="SOC %">
+              <Soc value={battery.soc} />
             </InfoRow>
             <InfoRow label="Last Seen (UTC)">
               <LastSeen text={battery.lastSeen} />

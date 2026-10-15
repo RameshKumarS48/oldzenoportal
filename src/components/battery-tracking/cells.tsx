@@ -25,7 +25,9 @@ export const mapsUrl = (text: string) => `https://maps.google.com/?q=${encodeURI
 
 /**
  * "15 Oct 2026 09:56", stacked: date on top, time below in muted text, and the
- * exact stored time on hover. Text without a time shows as it is.
+ * exact stored time on hover. The zone is in the column header and the card's
+ * label ("Last Seen (UTC)"), so only the hover text repeats it. Text without a
+ * time shows as it is.
  */
 export function LastSeen({ text }: { text: string }) {
   if (!text) return <Dash />;
@@ -35,35 +37,27 @@ export function LastSeen({ text }: { text: string }) {
   return (
     <time title={exact} className="block tabular-nums">
       <span className="block">{date}</span>
-      {time && <span className="block text-xs text-slate-400">{time} UTC</span>}
+      {time && <span className="block text-xs text-slate-400">{time}</span>}
     </time>
   );
 }
 
 /**
- * "78%" left-aligned in a slot as wide as "100%", then the bar, so every bar
- * starts at the same x. The bar is the provisioning pages' track, a step
- * darker (slate-200) so it shows on white, with a slate-400 fill; the text
- * carries the value, so it's hidden from screen readers.
+ * SOC as a plain number ("78"); the "%" is in the column header and the card's
+ * label ("SOC %"). No value shows "No data" in muted text.
  */
 export function Soc({ value, className }: { value: number | null; className?: string }) {
   if (value === null) return <span className={cn("text-xs text-slate-400", className)}>No data</span>;
-  return (
-    <span className={cn("flex items-center gap-2", className)}>
-      <span className="w-10 shrink-0 text-slate-700 tabular-nums">{value}%</span>
-      <span aria-hidden className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-        <span className="block h-full rounded-full bg-slate-400" style={{ width: `${value}%` }} />
-      </span>
-    </span>
-  );
+  return <span className={cn("text-slate-700 tabular-nums", className)}>{value}</span>;
 }
 
 /**
  * The table's "lat, long" link to Google Maps, in the vehicle page's "Show on
- * Google Map" style. Latitude and longitude each sit right-aligned in a fixed
- * slot, sized for the widest valid value ("−90.00000" in 72px, "−180.00000" in
- * 80px), so the decimal points line up down the column whatever the sign. The
- * link and a copy of the text use the stored numbers, with their hyphens.
+ * Google Map" style, lightened in dark mode like the portal's other teal links.
+ * Latitude and longitude each sit right-aligned in a fixed slot, sized for the
+ * widest valid value ("−90.00000" in 72px, "−180.00000" in 80px), so the
+ * decimal points line up down the column whatever the sign. The link and a
+ * copy of the text use the stored numbers, with their hyphens.
  *
  * It's inside a clickable row: its click and Enter open Maps only.
  */
@@ -90,7 +84,7 @@ export function Location({ text }: { text: string }) {
       onCopy={onCopy}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
-      className="inline-flex items-center text-zeno-teal hover:underline tabular-nums whitespace-nowrap rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
+      className="inline-flex items-center text-zeno-teal dark:text-(--sidebar-text) hover:underline tabular-nums whitespace-nowrap rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
     >
       <span className="w-18 shrink-0 text-right">{showCoord(lat)}</span>
       <span>,</span>
