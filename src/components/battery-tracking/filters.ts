@@ -53,6 +53,36 @@ export function matches(b: BatteryRecord, f: BatteryFilters, now: number): boole
   return now - at <= HOURS[f.lastSeen as keyof typeof HOURS] * 3_600_000;
 }
 
+/** "1 Oct", or "1 Oct 2025" when it isn't `year`. */
+function dayLabel(iso: string, year: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${d} ${MONTHS[m - 1]}${y === year ? "" : ` ${y}`}`;
+}
+
+/**
+ * The active filter in words, for the count: "seen today", "seen in the last 7
+ * days", or a custom range, "seen 1–10 Oct", "seen 28 Sep – 3 Oct", "seen on
+ * 5 Oct". The year shows only when it isn't `year` (the current one), and on
+ * both ends of a range that crosses years. Null
+ * when nothing is filtered.
+ */
+export function describeFilter(f: BatteryFilters, year: number): string | null {
+  if (!anyFilter(f)) return null;
+  if (f.lastSeen === "today") return "seen today";
+  if (f.lastSeen === "7d") return "seen in the last 7 days";
+  if (f.lastSeen === "30d") return "seen in the last 30 days";
+  const { from, to } = f.range!;
+  if (from === to) return `seen on ${dayLabel(from, year)}`;
+  const sameMonth = from.slice(0, 7) === to.slice(0, 7);
+  if (sameMonth) {
+    const end = dayLabel(to, year);
+    return `seen ${Number(from.slice(8))}–${end}`;
+  }
+  // A range across years names both, so "28 Dec 2025 – 3 Jan 2026" isn't half-dated.
+  const show = from.slice(0, 4) === to.slice(0, 4) ? year : 0;
+  return `seen ${dayLabel(from, show)} – ${dayLabel(to, show)}`;
+}
+
 export type SortKey = "lastSeen" | "soc";
 export type Sort = { column: SortKey; direction: "asc" | "desc" } | null;
 

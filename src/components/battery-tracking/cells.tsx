@@ -44,11 +44,13 @@ export function LastSeen({ text }: { text: string }) {
 
 /**
  * SOC as a plain number ("78"); the "%" is in the column header and the card's
- * label ("SOC %"). No value shows "No data" in muted text.
+ * label ("SOC %"). It sits right-aligned in a slot as wide as "100" (26px, in
+ * w-7), with tabular figures, so the digits line up down the column. No value
+ * shows "No data" in muted text, starting where the slot starts.
  */
 export function Soc({ value, className }: { value: number | null; className?: string }) {
   if (value === null) return <span className={cn("text-xs text-slate-400", className)}>No data</span>;
-  return <span className={cn("text-slate-700 tabular-nums", className)}>{value}</span>;
+  return <span className={cn("inline-block w-7 text-right text-slate-700 tabular-nums", className)}>{value}</span>;
 }
 
 /**

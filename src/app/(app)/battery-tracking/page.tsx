@@ -7,7 +7,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { BatteryTable } from "@/components/battery-tracking/BatteryTable";
 import { BatteryFilterBar } from "@/components/battery-tracking/BatteryFilterBar";
 import { useBatteries } from "@/components/battery-tracking/use-batteries";
-import { matches, nextSort, sortRows, type BatteryFilters, type Sort } from "@/components/battery-tracking/filters";
+import { anyFilter, matches, nextSort, sortRows, type BatteryFilters, type Sort } from "@/components/battery-tracking/filters";
 import { listQuery, readListState } from "@/components/battery-tracking/list-query";
 import { usePerPage } from "@/components/battery-tracking/per-page";
 import { useAuthStore } from "@/store/auth";
@@ -110,6 +110,7 @@ function BatteryTracking() {
           }}
           shown={data ? rows.length : null}
           total={data ? data.rows.length : null}
+          year={new Date(data?.loadedAt ?? 0).getUTCFullYear()}
         />
 
         <BatteryTable
@@ -117,6 +118,7 @@ function BatteryTracking() {
           loading={!data}
           sort={sort}
           onSort={(column) => setSort((s) => nextSort(s, column))}
+          filteredColumn={anyFilter(filters) ? "lastSeen" : null}
           page={page}
           perPage={perPage}
           onPage={setPage}

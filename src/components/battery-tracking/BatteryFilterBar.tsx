@@ -2,7 +2,7 @@
 
 import { Search, X } from "lucide-react";
 import { DateRangeFilter } from "@/components/swap-transactions/DateRangeFilter";
-import { anyFilter, NO_FILTERS, type BatteryFilters, type LastSeenPreset } from "./filters";
+import { anyFilter, describeFilter, NO_FILTERS, type BatteryFilters, type LastSeenPreset } from "./filters";
 
 // Swap Audit's filter bar (SwapAuditTable.tsx): a white card holding compact
 // text-xs controls. Its styles are repeated here so that file stays untouched.
@@ -30,6 +30,7 @@ export function BatteryFilterBar({
   onFilters,
   shown,
   total,
+  year,
 }: {
   search: string;
   onSearch: (v: string) => void;
@@ -38,10 +39,13 @@ export function BatteryFilterBar({
   /** Batteries matching search and filters, and in all; null until the rows have loaded. */
   shown: number | null;
   total: number | null;
+  /** The current year, so a custom range in it can leave the year out. */
+  year: number;
 }) {
   const filtered = anyFilter(filters);
   const narrowed = filtered || search.trim() !== "";
   const noun = (n: number) => (n === 1 ? "battery" : "batteries");
+  const filterWords = describeFilter(filters, year);
 
   return (
     <div className={BAR}>
@@ -75,7 +79,7 @@ export function BatteryFilterBar({
         {shown === null || total === null
           ? null
           : narrowed
-            ? `${shown.toLocaleString()} of ${total.toLocaleString()} ${noun(total)}`
+            ? `${shown.toLocaleString()} of ${total.toLocaleString()} ${noun(total)}${filterWords ? ` · ${filterWords}` : ""}`
             : `${total.toLocaleString()} ${noun(total)}`}
       </span>
     </div>

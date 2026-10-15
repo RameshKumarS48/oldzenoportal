@@ -2,6 +2,7 @@
 
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import type { BatteryRecord } from "@/lib/mock/battery-tracking";
+import { cn } from "@/lib/utils";
 import { Pagination } from "@/components/ui/Pagination";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { PER_PAGE_OPTIONS } from "./per-page";
@@ -50,6 +51,7 @@ export function BatteryTable({
   loading,
   sort,
   onSort,
+  filteredColumn,
   page,
   perPage,
   onPage,
@@ -61,6 +63,8 @@ export function BatteryTable({
   loading: boolean;
   sort: Sort;
   onSort: (column: SortKey) => void;
+  /** A column a filter is narrowing; its header takes the selected style. */
+  filteredColumn: SortKey | null;
   page: number;
   perPage: number;
   onPage: (p: number) => void;
@@ -95,9 +99,17 @@ export function BatteryTable({
                   {sortKey ? (
                     <button
                       onClick={() => onSort(sortKey)}
-                      className="inline-flex items-center hover:text-slate-700 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
+                      className={cn(
+                        "inline-flex items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40",
+                        // The selected tint (the active Filters button, chips), as a pill on the opaque header:
+                        // pulled out by its padding so the label stays in line with the values.
+                        filteredColumn === sortKey
+                          ? "-mx-1.5 -my-0.5 px-1.5 py-0.5 bg-zeno-teal/10 text-zeno-teal dark:bg-(--sidebar-text)/10 dark:text-(--sidebar-text)"
+                          : "hover:text-slate-700"
+                      )}
                     >
                       {label}
+                      {filteredColumn === sortKey && <span className="sr-only"> (filtered)</span>}
                       <SortIcon active={sort?.column === sortKey} direction={sort?.direction} />
                     </button>
                   ) : (
