@@ -377,9 +377,11 @@ Removed along the way: the pill menu and popovers (`FilterPopover.tsx`,
 
 These were found in the pre-change audit and deliberately left alone:
 
-1. **Immobilization options don't match the data.** Vehicles store `On` / `Off`, but
-   the dropdown offers `Immobilized` / `Mobilized`. "Mobilized" never matches. The
-   45 `Off` vehicles can't be filtered for.
+1. **Fixed: Immobilization options didn't match the data.** Vehicles store `On` /
+   `Off`, but the dropdown offered `Immobilized` / `Mobilized`, which matched no
+   vehicle, so applying either emptied the list. The dropdown and chip keep that
+   wording, and `filter-defs.ts` translates it to the stored value when the filter is
+   applied ("Immobilized" → `On`, "Mobilized" → `Off`) and back for display.
 2. **Date of Sale is a single exact day,** not a range.
 3. **Odo Range has no validation.** From can be greater than To, and negative numbers
    can be typed.

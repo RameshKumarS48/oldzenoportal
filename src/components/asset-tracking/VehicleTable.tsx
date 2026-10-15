@@ -115,6 +115,11 @@ export function VehicleTable({ visible }: { visible: ColumnId[] }) {
   const setPerPage = useAssetTrackingStore((s) => s.setPerPage);
   const setSort = useAssetTrackingStore((s) => s.setSort);
   const filteredVehicles = useAssetTrackingStore((s) => s.filteredVehicles);
+  // `filteredVehicles` is a getter held in state, so its reference never changes
+  // and subscribing to it alone would never re-render this table. The filters
+  // are what move, so subscribe to those: without this the search box and every
+  // filter update their chips while the rows below stay as they were.
+  useAssetTrackingStore((s) => s.filters);
 
   const columns = COLUMNS.filter((c) => visible.includes(c.id));
   // Fixed widths: the table is at least their sum (scrolling sideways only when
