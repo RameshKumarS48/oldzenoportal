@@ -9,25 +9,28 @@ import { ASSET_META, type MapAsset } from "@/lib/map-data";
 
 type Mode = "pins" | "heatmap";
 
-const CARTO_TILES = [
-  "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-  "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-  "https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-  "https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-];
+/**
+ * Esri's keyless World Street Map, the same basemap the battery pages use.
+ *
+ * CARTO's free tiles now answer every request with a 2KB "API key required"
+ * watermark instead of map imagery, which left this map blank behind the pins.
+ * Esri serves these without a key; their terms ask for the credit below.
+ */
+const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services";
 
 const STYLE: StyleSpecification = {
   version: 8,
   glyphs: "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf",
   sources: {
-    carto: {
+    basemap: {
       type: "raster",
-      tiles: CARTO_TILES,
+      tiles: [`${ESRI}/World_Street_Map/MapServer/tile/{z}/{y}/{x}`],
       tileSize: 256,
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · © <a href="https://carto.com/attributions">CARTO</a>',
+      maxzoom: 18,
+      attribution: "Tiles © Esri — Source: Esri, HERE, Garmin, USGS, NGA, and the GIS User Community",
     },
   },
-  layers: [{ id: "carto", type: "raster", source: "carto" }],
+  layers: [{ id: "basemap", type: "raster", source: "basemap" }],
 };
 
 const PIN_LAYERS = ["clusters", "cluster-count", "points"];
