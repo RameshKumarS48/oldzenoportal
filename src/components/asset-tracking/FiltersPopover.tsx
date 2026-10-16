@@ -5,7 +5,10 @@ import { X } from "lucide-react";
 import { useAssetTrackingStore, type FilterState } from "@/store/asset-tracking";
 import { Field, SelectField } from "@/components/ui/FilterControls";
 import { Button } from "@/components/ui/button";
-import { FILTERS, isActive, isoToLabel, labelToIso, optionsFor, type FilterId, type SelectKey } from "./filter-defs";
+import {
+  FILTERS, immobilizationLabel, immobilizationValue, isActive, isoToLabel, labelToIso, optionsFor,
+  type FilterId, type SelectKey,
+} from "./filter-defs";
 import { CAPTION, ToolbarPopover, type DismissReason } from "./ToolbarPopover";
 
 const SELECT_KEYS: SelectKey[] = ["status", "connectivity", "immobilization", "tenant", "storeCode", "vcu", "zeConnect", "evcc"];
@@ -20,7 +23,7 @@ const CONTROL =
 
 function draftFrom(f: FilterState): Draft {
   return {
-    status: f.status, connectivity: f.connectivity, immobilization: f.immobilization, tenant: f.tenant,
+    status: f.status, connectivity: f.connectivity, immobilization: immobilizationLabel(f.immobilization), tenant: f.tenant,
     storeCode: f.storeCode, vcu: f.vcu, zeConnect: f.zeConnect, evcc: f.evcc,
     date: f.dateOfSale === "All" ? "" : labelToIso(f.dateOfSale),
     odoFrom: f.odoFrom !== null ? String(f.odoFrom) : "",
@@ -38,6 +41,7 @@ const CLEARED = draftFrom({
 function targetOf(d: Draft): Omit<FilterState, "search"> {
   return {
     ...(Object.fromEntries(SELECT_KEYS.map((k) => [k, d[k]])) as Record<SelectKey, string>),
+    immobilization: immobilizationValue(d.immobilization),
     dateOfSale: d.date ? isoToLabel(d.date) : "All",
     odoFrom: d.odoFrom.trim() === "" ? null : Number(d.odoFrom),
     odoTo: d.odoTo.trim() === "" ? null : Number(d.odoTo),

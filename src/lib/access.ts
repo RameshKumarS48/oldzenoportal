@@ -159,6 +159,7 @@ export function canWrite(role: UserRole | string | undefined, module: AccessModu
  */
 export const ROUTE_MODULES: { prefix: string; module: AccessModule }[] = [
   { prefix: "/asset-tracking",       module: "vehicle" },
+  { prefix: "/battery-tracking",     module: "vehicle" },
   { prefix: "/scanner-provisioning", module: "scanner" },
   { prefix: "/swap-transactions",    module: "swap_info" },
   { prefix: "/swap-audit",           module: "swap_info" },

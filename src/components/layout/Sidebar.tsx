@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  ChevronLeft, ChevronRight, Grid3X3, ScanLine, ArrowLeftRight, ScanSearch, Wallet, Users, LogOut,
+  ChevronLeft, ChevronRight, Grid3X3, BatteryCharging, ScanLine, ArrowLeftRight, ScanSearch, Wallet, Users, LogOut,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ import { useAuthStore } from "@/store/auth";
  */
 const NAV: { href: string; label: string; icon: LucideIcon; module: AccessModule }[] = [
   { href: "/asset-tracking",       label: "Asset Tracking",            icon: Grid3X3,        module: "vehicle" },
+  { href: "/battery-tracking",     label: "Battery Tracking",          icon: BatteryCharging, module: "vehicle" },
   { href: "/scanner-provisioning", label: "Scanner Provisioning Flow", icon: ScanLine,       module: "scanner" },
   { href: "/swap-transactions",    label: "Swap Transactions",         icon: ArrowLeftRight, module: "swap_info" },
   { href: "/swap-audit",           label: "Swap Audit",                icon: ScanSearch,     module: "swap_info" },
