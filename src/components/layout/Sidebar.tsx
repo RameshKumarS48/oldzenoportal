@@ -24,7 +24,7 @@ const NAV: { href: string; label: string; icon: LucideIcon; module: AccessModule
   { href: "/swap-transactions",    label: "Swap Transactions",         icon: ArrowLeftRight, module: "swap_info" },
   { href: "/swap-audit",           label: "Swap Audit",                icon: ScanSearch,     module: "swap_info" },
   { href: "/wallet-transactions",  label: "Wallet Transactions",       icon: Wallet,         module: "wallet_info" },
-  { href: "/pricing-plans",        label: "Pricing Plans",             icon: Tags,           module: "pricing" },
+  { href: "/swap-station-pricing", label: "Swap Station Pricing",      icon: Tags,           module: "pricing" },
   { href: "/users",                label: "User Management",           icon: Users,          module: "user_management" },
 ];
 

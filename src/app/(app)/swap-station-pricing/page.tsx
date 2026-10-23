@@ -70,7 +70,7 @@ export default function PricingPlansPage() {
 
   return (
     <AccessGuard module="pricing">
-      <Topbar title="Pricing Plans" />
+      <Topbar title="Swap Station Pricing" />
       <main className="flex flex-col flex-1 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3.5 border-b border-slate-200 bg-white shrink-0">
           <p className="text-xs text-slate-400 max-w-md">
@@ -125,10 +125,10 @@ export default function PricingPlansPage() {
                   <tr
                     key={plan.id}
                     className="hover:bg-slate-50 cursor-pointer"
-                    onClick={() => router.push(`/pricing-plans/${plan.id}`)}
+                    onClick={() => router.push(`/swap-station-pricing/${plan.id}`)}
                   >
                     <td className="px-4 py-3">
-                      <Link href={`/pricing-plans/${plan.id}`} className="font-medium text-slate-800 hover:underline" onClick={(e) => e.stopPropagation()}>
+                      <Link href={`/swap-station-pricing/${plan.id}`} className="font-medium text-slate-800 hover:underline" onClick={(e) => e.stopPropagation()}>
                         {plan.name}
                       </Link>
                       <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">{plan.description}</p>

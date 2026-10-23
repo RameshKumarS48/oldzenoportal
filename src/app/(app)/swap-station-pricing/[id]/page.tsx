@@ -57,14 +57,14 @@ export default function PricingPlanDetailPage() {
 
   return (
     <AccessGuard module="pricing">
-      <Topbar title="Pricing Plans" />
+      <Topbar title="Swap Station Pricing" />
       <main className="flex flex-col flex-1 overflow-hidden">
         {plan ? (
           <PlanDetail plan={plan} />
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center gap-3">
             <EmptyState title="Plan not found" description="It may have been deleted." />
-            <Link href="/pricing-plans" className="text-sm text-zeno-teal font-medium hover:underline">Back to Pricing Plans</Link>
+            <Link href="/swap-station-pricing" className="text-sm text-zeno-teal font-medium hover:underline">Back to Swap Station Pricing</Link>
           </div>
         )}
       </main>
@@ -95,14 +95,14 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
     setConfirmDelete(false);
     if (!res.ok) return toast.error("Can't delete plan", res.error);
     toast.info("Plan deleted", `${plan.name} was removed.`);
-    router.push("/pricing-plans");
+    router.push("/swap-station-pricing");
   }
 
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3.5 border-b border-slate-200 bg-white shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <Link href="/pricing-plans" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100" aria-label="Back to Pricing Plans">
+          <Link href="/swap-station-pricing" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100" aria-label="Back to Swap Station Pricing">
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <div className="min-w-0">

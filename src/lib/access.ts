@@ -7,7 +7,7 @@
  * `_ro` (read) and `_rw` (write) are *separate* grants: a read-write role holds
  * both. Grants are fixed per role and are not editable per user.
  *
- * The data modules cover dome's data tabs, `pricing` the Pricing Plans tab and
+ * The data modules cover dome's data tabs, `pricing` the Swap Station Pricing tab and
  * `user_management` the last one, so nav gating, route guards and the invite
  * dialog's permission summary all read from this one table. A module may gate more than one tab: Swap Audit
  * and Swap Transactions are two views of the same data and share `swap_info`.
@@ -98,7 +98,7 @@ export const MODULE_LABELS: Record<AccessModule, string> = {
   scanner:         "Scanner",
   swap_info:       "Swap Info",
   wallet_info:     "Wallet Info",
-  pricing:         "Pricing Plans",
+  pricing:         "Swap Station Pricing",
   user_management: "User Management",
 };
 
@@ -168,7 +168,7 @@ export const ROUTE_MODULES: { prefix: string; module: AccessModule }[] = [
   { prefix: "/swap-transactions",    module: "swap_info" },
   { prefix: "/swap-audit",           module: "swap_info" },
   { prefix: "/wallet-transactions",  module: "wallet_info" },
-  { prefix: "/pricing-plans",        module: "pricing" },
+  { prefix: "/swap-station-pricing", module: "pricing" },
   { prefix: "/users",                module: "user_management" },
 ];
 
