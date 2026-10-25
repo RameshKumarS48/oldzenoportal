@@ -6,10 +6,11 @@ import { anyFilter, describeFilter, NO_FILTERS, type BatteryFilters, type LastSe
 
 // Swap Audit's filter bar (SwapAuditTable.tsx): a white card holding compact
 // text-xs controls. Its styles are repeated here so that file stays untouched.
+// The search is w-72, Asset Tracking's width, to fit its longer placeholder.
 const BAR = "bg-white rounded-xl border border-slate-200 px-4 py-2.5 flex items-center gap-3 flex-wrap shrink-0";
 const SEARCH =
   "pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white " +
-  "focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 focus:border-[#003B49] w-60";
+  "focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 focus:border-[#003B49] w-72";
 const CONTROL =
   "text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-600 " +
   "focus:outline-none focus:ring-2 focus:ring-[#003B49]/20";
@@ -54,8 +55,8 @@ export function BatteryFilterBar({
         <input
           value={search}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder="Search serial no. or IMEI"
-          aria-label="Search by battery serial number or IMEI"
+          placeholder="Search serial no., IMEI, VIN or station"
+          aria-label="Search by battery serial number, IMEI, VIN or station code"
           className={SEARCH}
         />
       </div>

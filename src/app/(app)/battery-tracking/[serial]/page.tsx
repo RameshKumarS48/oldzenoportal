@@ -4,12 +4,14 @@ import { Suspense } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useParams, useSearchParams } from "next/navigation";
-import { ArrowLeft, BatteryCharging, ExternalLink } from "lucide-react";
+import { ArrowLeft, ArrowRight, BatteryCharging, Bike, ExternalLink, Zap } from "lucide-react";
 import { AccessGuard } from "@/components/ui/AccessGuard";
 import { Topbar } from "@/components/layout/Topbar";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useBatteries } from "@/components/battery-tracking/use-batteries";
+import { stationByCode, vehicleByVin, type BatteryAsset } from "@/lib/mock/battery-tracking";
+import { useAssetTrackingStore } from "@/store/asset-tracking";
 import { Dash, LastSeen, mapsUrl, showCoord, Soc, splitLocation } from "@/components/battery-tracking/cells";
 
 // MapLibre needs the browser; loaded as Asset Tracking's Map View loads FleetMap.
@@ -101,51 +103,55 @@ function BatteryDetail() {
 
       {/* Body: card left, map right; stacked and scrolling below lg. */}
       <div className="flex flex-col lg:flex-row flex-1 overflow-y-auto lg:overflow-hidden bg-zeno-bg p-5 gap-5">
-        {/* As tall as its content, as in the dev portal, not stretched to the map. */}
-        <div className="w-full lg:w-80 shrink-0 lg:self-start lg:max-h-full bg-white border border-slate-200 rounded-xl lg:overflow-y-auto">
-          <div className="px-5 pt-5 pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2 mb-1">
-              <BatteryCharging className="w-5 h-5 text-zeno-red" />
-              <span className="text-sm font-semibold text-slate-800">Battery</span>
-              <span className="text-xs text-slate-500 ml-1 font-mono tabular-nums">
-                <CopyButton value={battery.serialNo} label="battery serial number" onWhite>
-                  #SN: {battery.serialNo}
-                </CopyButton>
-              </span>
+        {/* As tall as their content, as in the dev portal, not stretched to the map. */}
+        <div className="w-full lg:w-80 shrink-0 lg:self-start lg:max-h-full lg:overflow-y-auto flex flex-col gap-5">
+          <div className="bg-white border border-slate-200 rounded-xl">
+            <div className="px-5 pt-5 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2 mb-1">
+                <BatteryCharging className="w-5 h-5 text-zeno-red" />
+                <span className="text-sm font-semibold text-slate-800">Battery</span>
+                <span className="text-xs text-slate-500 ml-1 font-mono tabular-nums">
+                  <CopyButton value={battery.serialNo} label="battery serial number" onWhite>
+                    #SN: {battery.serialNo}
+                  </CopyButton>
+                </span>
+              </div>
+            </div>
+            <div className="px-5 py-2">
+              <InfoRow label="IMEI">
+                {battery.imei ? (
+                  <span className="font-mono text-xs tabular-nums">
+                    <CopyButton value={battery.imei} label="IMEI" onWhite />
+                  </span>
+                ) : (
+                  <Dash />
+                )}
+              </InfoRow>
+              <InfoRow label="SOC %">
+                <Soc value={battery.soc} />
+              </InfoRow>
+              <InfoRow label="Last Seen (UTC)">
+                <LastSeen text={battery.lastSeen} />
+              </InfoRow>
+              {/* Both right-aligned with five decimals, so the points line up. */}
+              <InfoRow label="Latitude">
+                {pair ? <span className="tabular-nums">{showCoord(pair[0])}</span> : <Dash />}
+              </InfoRow>
+              <InfoRow label="Longitude">
+                {pair ? <span className="tabular-nums">{showCoord(pair[1])}</span> : <Dash />}
+              </InfoRow>
+              {pair && (
+                <div className="pt-3 pb-2">
+                  <a href={mapsUrl(battery.location)} target="_blank" rel="noopener noreferrer" className={LINK}>
+                    Show on Google Maps
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              )}
             </div>
           </div>
-          <div className="px-5 py-2">
-            <InfoRow label="IMEI">
-              {battery.imei ? (
-                <span className="font-mono text-xs tabular-nums">
-                  <CopyButton value={battery.imei} label="IMEI" onWhite />
-                </span>
-              ) : (
-                <Dash />
-              )}
-            </InfoRow>
-            <InfoRow label="SOC %">
-              <Soc value={battery.soc} />
-            </InfoRow>
-            <InfoRow label="Last Seen (UTC)">
-              <LastSeen text={battery.lastSeen} />
-            </InfoRow>
-            {/* Both right-aligned with five decimals, so the points line up. */}
-            <InfoRow label="Latitude">
-              {pair ? <span className="tabular-nums">{showCoord(pair[0])}</span> : <Dash />}
-            </InfoRow>
-            <InfoRow label="Longitude">
-              {pair ? <span className="tabular-nums">{showCoord(pair[1])}</span> : <Dash />}
-            </InfoRow>
-            {pair && (
-              <div className="pt-3 pb-2">
-                <a href={mapsUrl(battery.location)} target="_blank" rel="noopener noreferrer" className={LINK}>
-                  Show on Google Maps
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              </div>
-            )}
-          </div>
+
+          <AssetCard asset={battery.asset} />
         </div>
 
         {/* The map, framed like the card. */}
@@ -158,5 +164,91 @@ function BatteryDetail() {
         </div>
       </div>
     </>
+  );
+}
+
+/** Battery Tracking's table searched for one vehicle or station. */
+const batteriesIn = (id: string) => `/battery-tracking?q=${encodeURIComponent(id)}`;
+
+/**
+ * Where the battery is, in a card matching the details card: the station or
+ * vehicle holding it, with links out, or a muted line when it's in neither.
+ */
+function AssetCard({ asset }: { asset: BatteryAsset | null }) {
+  const station = asset?.type === "station" ? stationByCode(asset.code) : undefined;
+  const vehicle = asset?.type === "vehicle" ? vehicleByVin(asset.vin) : undefined;
+  const Icon = vehicle ? Bike : Zap;
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl">
+      <div className="px-5 pt-5 pb-3 border-b border-slate-100">
+        <div className="flex items-center gap-2 mb-1">
+          <Icon className="w-5 h-5 text-zeno-red" />
+          <span className="text-sm font-semibold text-slate-800">
+            {station ? `In station ${station.code}` : vehicle ? "In vehicle" : "Asset"}
+          </span>
+        </div>
+      </div>
+      <div className="px-5 py-2">
+        {station ? (
+          <>
+            <InfoRow label="Station">{station.name}</InfoRow>
+            <InfoRow label="Address">{station.address}</InfoRow>
+            <InfoRow label="Region">{station.region}</InfoRow>
+            <div className="pt-3 pb-2 flex flex-col items-start gap-2.5">
+              <a
+                href={`https://maps.google.com/?q=${encodeURIComponent(station.address)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={LINK}
+              >
+                Open in Google Maps
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+              <Link href={batteriesIn(station.code)} className={LINK}>
+                Show all batteries in this station
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </>
+        ) : vehicle ? (
+          <>
+            <InfoRow label="VIN">
+              <span className="font-mono text-xs tabular-nums">
+                <CopyButton value={vehicle.vin} label="VIN" onWhite />
+              </span>
+            </InfoRow>
+            <InfoRow label="Plate">{vehicle.plate}</InfoRow>
+            <InfoRow label="Model">{vehicle.model}</InfoRow>
+            <InfoRow label="Vehicle IMEI">
+              <span className="font-mono text-xs tabular-nums">
+                <CopyButton value={vehicle.imei} label="vehicle IMEI" onWhite />
+              </span>
+            </InfoRow>
+            <div className="pt-3 pb-2 flex flex-col items-start gap-2.5">
+              {/* Asset Tracking keeps its search in its store, not the URL, so set it on the way there. */}
+              <Link
+                href="/asset-tracking"
+                onClick={() => {
+                  const { resetFilters, setFilter } = useAssetTrackingStore.getState();
+                  resetFilters();
+                  setFilter("search", vehicle.vin);
+                }}
+                className={LINK}
+              >
+                Open in Asset Tracking
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+              <Link href={batteriesIn(vehicle.vin)} className={LINK}>
+                Show all batteries in this vehicle
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </>
+        ) : (
+          <p className="py-3 text-sm text-slate-400">Not currently in a vehicle or station</p>
+        )}
+      </div>
+    </div>
   );
 }

@@ -10,6 +10,7 @@ import { useBatteries } from "@/components/battery-tracking/use-batteries";
 import { anyFilter, matches, nextSort, sortRows, type BatteryFilters, type Sort } from "@/components/battery-tracking/filters";
 import { listQuery, readListState } from "@/components/battery-tracking/list-query";
 import { usePerPage } from "@/components/battery-tracking/per-page";
+import { exactAsset, matchesSearch } from "@/components/battery-tracking/search";
 import { useAuthStore } from "@/store/auth";
 
 // The current minute, so "Updated 5 min ago" moves on while the page is open.
@@ -71,15 +72,10 @@ function BatteryTracking() {
   }, [pathname, query]);
 
   const data = useBatteries();
-  const term = search.trim().toLowerCase();
   const rows = data
-    ? sortRows(
-        data.rows.filter(
-          (b) => (!term || b.imei.includes(term) || b.serialNo.toLowerCase().includes(term)) && matches(b, filters, data.loadedAt)
-        ),
-        sort
-      )
+    ? sortRows(data.rows.filter((b) => matchesSearch(b, search) && matches(b, filters, data.loadedAt)), sort)
     : [];
+  const named = exactAsset(search);
 
   return (
     <>
@@ -112,6 +108,25 @@ function BatteryTracking() {
           total={data ? data.rows.length : null}
           year={new Date(data?.loadedAt ?? 0).getUTCFullYear()}
         />
+
+        {/* A search naming one vehicle or station exactly: say so, with a way back to everything. */}
+        {data && named && (
+          <p aria-live="polite" className="-mt-1 text-xs text-slate-600 shrink-0">
+            Showing {rows.length.toLocaleString()} {rows.length === 1 ? "battery" : "batteries"} in{" "}
+            {named.type === "vehicle" ? "vehicle" : "station"}{" "}
+            <span className="font-mono tabular-nums text-slate-800">{named.type === "vehicle" ? named.vin : named.code}</span>
+            <span className="mx-1.5 text-slate-300" aria-hidden>·</span>
+            <button
+              onClick={() => {
+                setSearch("");
+                setPage(1);
+              }}
+              className="font-medium text-zeno-teal hover:underline dark:text-(--sidebar-text) rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
+            >
+              Clear search
+            </button>
+          </p>
+        )}
 
         <BatteryTable
           rows={rows}

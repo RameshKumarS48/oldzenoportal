@@ -1,7 +1,9 @@
 "use client";
 
-import { ExternalLink } from "lucide-react";
+import { Bike, ExternalLink, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CopyButton } from "@/components/ui/CopyButton";
+import type { BatteryAsset } from "@/lib/mock/battery-tracking";
 
 /**
  * How Battery Tracking shows its values, shared by the table and the detail
@@ -93,5 +95,30 @@ export function Location({ text }: { text: string }) {
       <span className="w-20 shrink-0 text-right">{showCoord(long)}</span>
       <ExternalLink className="w-3.5 h-3.5 shrink-0 ml-1.5" />
     </a>
+  );
+}
+
+/**
+ * Where the battery is: a station code or a VIN, after a small station or
+ * vehicle icon, in the IDs' monospace and with their copy button. In neither,
+ * the muted dash, with the reason on hover.
+ */
+export function Asset({ asset }: { asset: BatteryAsset | null }) {
+  if (!asset) {
+    return (
+      <span title="Not in a vehicle or station" className="text-slate-300">
+        <span aria-hidden>–</span>
+        <span className="sr-only">Not in a vehicle or station</span>
+      </span>
+    );
+  }
+  const station = asset.type === "station";
+  const Icon = station ? Zap : Bike;
+  const value = station ? asset.code : asset.vin;
+  return (
+    <span className="inline-flex items-center gap-1.5 font-mono text-xs tabular-nums text-slate-700">
+      <Icon className="w-3.5 h-3.5 shrink-0 text-slate-400" role="img" aria-label={station ? "Station" : "Vehicle"} />
+      <CopyButton value={value} label={station ? "station code" : "VIN"} />
+    </span>
   );
 }
