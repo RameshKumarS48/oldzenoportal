@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useBatteries } from "@/components/battery-tracking/use-batteries";
 import { stationByCode, vehicleByVin, type BatteryAsset } from "@/lib/mock/battery-tracking";
 import { useAssetTrackingStore } from "@/store/asset-tracking";
+import { slotLabel } from "@/lib/mock/swap-audit";
 import { Dash, LastSeen, mapsUrl, showCoord, Soc, splitLocation } from "@/components/battery-tracking/cells";
 
 // MapLibre needs the browser; loaded as Asset Tracking's Map View loads FleetMap.
@@ -32,10 +33,30 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
-/** The vehicle detail page's "Show on Google Map" link style, lightened in dark mode like the portal's other teal links. */
+/** The vehicle detail page's Google Maps link style, lightened in dark mode like the portal's other teal links. */
 const LINK =
   "inline-flex items-center gap-1.5 text-sm text-zeno-teal dark:text-(--sidebar-text) font-medium hover:underline rounded " +
   "focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40";
+
+/**
+ * The cards' one action style: the small outline Button (ui/button.tsx, size
+ * "sm"), drawn on a link, since Button renders a <button>. Its classes are
+ * repeated here so that file stays untouched; the focus ring is the page's teal
+ * one rather than Button's red. Full width, with the label on the left and the
+ * icon pinned right, so the icons line up from card to card.
+ */
+const ACTION =
+  "flex w-full items-center justify-between gap-2 rounded-lg font-medium transition-colors whitespace-nowrap " +
+  "border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-1.5 text-xs " +
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40 focus-visible:ring-offset-2";
+
+/** A card's footer: its actions, full width and stacked 8px apart, with the same padding on every card. */
+function CardActions({ children }: { children: React.ReactNode }) {
+  return <div className="flex flex-col gap-2 px-5 py-4 border-t border-slate-100">{children}</div>;
+}
+
+/** A button's label, which gives way (truncating) before the icon does. */
+const ActionLabel = ({ children }: { children: React.ReactNode }) => <span className="truncate">{children}</span>;
 
 export default function BatteryDetailPage() {
   return (
@@ -87,6 +108,9 @@ function BatteryDetail() {
   }
 
   const pair = splitLocation(battery.location);
+  // How many batteries share this one's station or vehicle, for its asset card.
+  const assetKey = (a: BatteryAsset | null) => (a ? `${a.type}:${a.type === "station" ? a.code : a.vin}` : "");
+  const assetCount = battery.asset ? data.rows.filter((b) => assetKey(b.asset) === assetKey(battery.asset)).length : 0;
 
   return (
     <>
@@ -140,31 +164,46 @@ function BatteryDetail() {
               <InfoRow label="Longitude">
                 {pair ? <span className="tabular-nums">{showCoord(pair[1])}</span> : <Dash />}
               </InfoRow>
-              {pair && (
-                <div className="pt-3 pb-2">
-                  <a href={mapsUrl(battery.location)} target="_blank" rel="noopener noreferrer" className={LINK}>
-                    Show on Google Maps
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                </div>
-              )}
             </div>
+            {pair && (
+              <CardActions>
+                <a href={mapsUrl(battery.location)} target="_blank" rel="noopener noreferrer" aria-label="Open in Google Maps (new tab)" className={ACTION}>
+                  <ActionLabel>Open in Google Maps</ActionLabel>
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                </a>
+              </CardActions>
+            )}
           </div>
 
-          <AssetCard asset={battery.asset} />
+          <AssetCard asset={battery.asset} count={assetCount} />
         </div>
 
-        {/* The map, framed like the card. */}
-        <div className="h-96 lg:h-auto lg:flex-1 shrink-0 lg:shrink bg-white border border-slate-200 rounded-xl overflow-hidden">
-          {pair ? (
-            <BatteryMap lat={Number(pair[0])} lng={Number(pair[1])} label={`Map of battery ${battery.serialNo} at ${battery.location}`} />
-          ) : (
-            <EmptyState icon={BatteryCharging} title="No location reported" className="h-full" />
-          )}
+        {/* The map, framed like the card, under a heading that says what holds the battery. */}
+        <div className="h-96 lg:h-auto lg:flex-1 shrink-0 lg:shrink flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden">
+          <h2 className="px-5 py-3 border-b border-slate-100 text-sm font-semibold text-slate-800 shrink-0">
+            Last known location
+            {locationSuffix(battery.asset) && (
+              <span className="font-normal text-slate-500"> · {locationSuffix(battery.asset)}</span>
+            )}
+          </h2>
+          <div className="flex-1 min-h-0">
+            {pair ? (
+              <BatteryMap lat={Number(pair[0])} lng={Number(pair[1])} label={`Map of battery ${battery.serialNo} at ${battery.location}`} />
+            ) : (
+              <EmptyState icon={BatteryCharging} title="No location reported" className="h-full" />
+            )}
+          </div>
         </div>
       </div>
     </>
   );
+}
+
+/** "in vehicle KMGY105Z" (the VIN when there's no plate), "at station BS0025", or null when in neither. */
+function locationSuffix(asset: BatteryAsset | null): string | null {
+  if (asset?.type === "station") return `at station ${asset.code}`;
+  if (asset?.type === "vehicle") return `in vehicle ${vehicleByVin(asset.vin)?.plate || asset.vin}`;
+  return null;
 }
 
 /** Battery Tracking's table searched for one vehicle or station. */
@@ -172,9 +211,10 @@ const batteriesIn = (id: string) => `/battery-tracking?q=${encodeURIComponent(id
 
 /**
  * Where the battery is, in a card matching the details card: the station or
- * vehicle holding it, with links out, or a muted line when it's in neither.
+ * vehicle holding it, then its actions, or a muted line when it's in
+ * neither. `count` is how many batteries that station or vehicle holds.
  */
-function AssetCard({ asset }: { asset: BatteryAsset | null }) {
+function AssetCard({ asset, count }: { asset: BatteryAsset | null; count: number }) {
   const station = asset?.type === "station" ? stationByCode(asset.code) : undefined;
   const vehicle = asset?.type === "vehicle" ? vehicleByVin(asset.vin) : undefined;
   const Icon = vehicle ? Bike : Zap;
@@ -189,66 +229,68 @@ function AssetCard({ asset }: { asset: BatteryAsset | null }) {
           </span>
         </div>
       </div>
-      <div className="px-5 py-2">
-        {station ? (
-          <>
+      {station ? (
+        <>
+          <div className="px-5 py-2">
             <InfoRow label="Station">{station.name}</InfoRow>
+            {asset?.type === "station" && <InfoRow label="Slot">{slotLabel(asset.slot)}</InfoRow>}
             <InfoRow label="Address">{station.address}</InfoRow>
-            <InfoRow label="Region">{station.region}</InfoRow>
-            <div className="pt-3 pb-2 flex flex-col items-start gap-2.5">
-              <a
-                href={`https://maps.google.com/?q=${encodeURIComponent(station.address)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={LINK}
-              >
-                Open in Google Maps
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-              <Link href={batteriesIn(station.code)} className={LINK}>
-                Show all batteries in this station
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          </>
-        ) : vehicle ? (
-          <>
+          </div>
+          <CardActions>
+            <a
+              href={`https://maps.google.com/?q=${encodeURIComponent(station.address)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open in Google Maps (new tab)"
+              className={ACTION}
+            >
+              <ActionLabel>Open in Google Maps</ActionLabel>
+              <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden />
+            </a>
+            <Link href={batteriesIn(station.code)} className={ACTION}>
+              <ActionLabel>Batteries in this station ({count})</ActionLabel>
+              <ArrowRight className="w-3.5 h-3.5 shrink-0" aria-hidden />
+            </Link>
+          </CardActions>
+        </>
+      ) : vehicle ? (
+        <>
+          <div className="px-5 py-2">
             <InfoRow label="VIN">
               <span className="font-mono text-xs tabular-nums">
                 <CopyButton value={vehicle.vin} label="VIN" onWhite />
               </span>
             </InfoRow>
             <InfoRow label="Plate">{vehicle.plate}</InfoRow>
-            <InfoRow label="Model">{vehicle.model}</InfoRow>
             <InfoRow label="Vehicle IMEI">
               <span className="font-mono text-xs tabular-nums">
                 <CopyButton value={vehicle.imei} label="vehicle IMEI" onWhite />
               </span>
             </InfoRow>
-            <div className="pt-3 pb-2 flex flex-col items-start gap-2.5">
-              {/* Asset Tracking keeps its search in its store, not the URL, so set it on the way there. */}
-              <Link
-                href="/asset-tracking"
-                onClick={() => {
-                  const { resetFilters, setFilter } = useAssetTrackingStore.getState();
-                  resetFilters();
-                  setFilter("search", vehicle.vin);
-                }}
-                className={LINK}
-              >
-                Open in Asset Tracking
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-              <Link href={batteriesIn(vehicle.vin)} className={LINK}>
-                Show all batteries in this vehicle
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          </>
-        ) : (
-          <p className="py-3 text-sm text-slate-400">Not currently in a vehicle or station</p>
-        )}
-      </div>
+          </div>
+          <CardActions>
+            {/* Asset Tracking keeps its search in its store, not the URL, so set it on the way there. */}
+            <Link
+              href="/asset-tracking"
+              onClick={() => {
+                const { resetFilters, setFilter } = useAssetTrackingStore.getState();
+                resetFilters();
+                setFilter("search", vehicle.vin);
+              }}
+              className={ACTION}
+            >
+              <ActionLabel>Open in Asset Tracking</ActionLabel>
+              <ArrowRight className="w-3.5 h-3.5 shrink-0" aria-hidden />
+            </Link>
+            <Link href={batteriesIn(vehicle.vin)} className={ACTION}>
+              <ActionLabel>Batteries in this vehicle ({count})</ActionLabel>
+              <ArrowRight className="w-3.5 h-3.5 shrink-0" aria-hidden />
+            </Link>
+          </CardActions>
+        </>
+      ) : (
+        <p className="px-5 py-5 text-sm text-slate-400">Not currently in a vehicle or station</p>
+      )}
     </div>
   );
 }

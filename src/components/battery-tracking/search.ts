@@ -1,4 +1,4 @@
-import { STATIONS, VEHICLES, type BatteryAsset, type BatteryRecord } from "@/lib/mock/battery-tracking";
+import { STATIONS, VEHICLES, type AssetRef, type BatteryAsset, type BatteryRecord } from "@/lib/mock/battery-tracking";
 
 /**
  * Battery Tracking's search: serial no., IMEI, VIN or station code, ignoring
@@ -16,8 +16,8 @@ export function matchesSearch(b: BatteryRecord, search: string): boolean {
   return [b.serialNo, b.imei, assetId(b.asset)].some((v) => v && normalize(v).includes(term));
 }
 
-/** The vehicle or station a search names exactly, for the "Showing N batteries in…" line. */
-export function exactAsset(search: string): BatteryAsset | null {
+/** The vehicle or station a search names exactly, for its chip above the table. */
+export function exactAsset(search: string): AssetRef | null {
   const term = normalize(search);
   if (!term) return null;
   const vehicle = VEHICLES.find((v) => normalize(v.vin) === term);

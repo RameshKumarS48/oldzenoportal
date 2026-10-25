@@ -4,6 +4,7 @@ import { Bike, ExternalLink, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CopyButton } from "@/components/ui/CopyButton";
 import type { BatteryAsset } from "@/lib/mock/battery-tracking";
+import { slotLabel } from "@/lib/mock/swap-audit";
 
 /**
  * How Battery Tracking shows its values, shared by the table and the detail
@@ -56,8 +57,8 @@ export function Soc({ value, className }: { value: number | null; className?: st
 }
 
 /**
- * The table's "lat, long" link to Google Maps, in the vehicle page's "Show on
- * Google Map" style, lightened in dark mode like the portal's other teal links.
+ * The table's "lat, long" link to Google Maps ("Open in Google Maps" on hover),
+ * in the vehicle page's Google Maps link style, lightened in dark mode like the portal's other teal links.
  * Latitude and longitude each sit right-aligned in a fixed slot, sized for the
  * widest valid value ("−90.00000" in 72px, "−180.00000" in 80px), so the
  * decimal points line up down the column whatever the sign. The link and a
@@ -84,7 +85,8 @@ export function Location({ text }: { text: string }) {
       href={mapsUrl(text)}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label={`${text}, open in Google Maps (new tab)`}
+      title="Open in Google Maps"
+      aria-label={`${text}. Open in Google Maps (new tab)`}
       onCopy={onCopy}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
@@ -99,8 +101,9 @@ export function Location({ text }: { text: string }) {
 }
 
 /**
- * Where the battery is: a station code or a VIN, after a small station or
- * vehicle icon, in the IDs' monospace and with their copy button. In neither,
+ * Where the battery is: a station code and its slot ("BS0019 · S03", the
+ * slot muted, labelled as Swap Audit labels slots) or a VIN, after a small station or vehicle icon, in the IDs'
+ * monospace. The code or VIN has their copy button; the slot isn't copied. In neither,
  * the muted dash, with the reason on hover.
  */
 export function Asset({ asset }: { asset: BatteryAsset | null }) {
@@ -119,6 +122,7 @@ export function Asset({ asset }: { asset: BatteryAsset | null }) {
     <span className="inline-flex items-center gap-1.5 font-mono text-xs tabular-nums text-slate-700">
       <Icon className="w-3.5 h-3.5 shrink-0 text-slate-400" role="img" aria-label={station ? "Station" : "Vehicle"} />
       <CopyButton value={value} label={station ? "station code" : "VIN"} />
+      {station && <span className="text-slate-400">· {slotLabel(asset.slot)}</span>}
     </span>
   );
 }

@@ -7,10 +7,11 @@ import { Topbar } from "@/components/layout/Topbar";
 import { BatteryTable } from "@/components/battery-tracking/BatteryTable";
 import { BatteryFilterBar } from "@/components/battery-tracking/BatteryFilterBar";
 import { useBatteries } from "@/components/battery-tracking/use-batteries";
-import { anyFilter, matches, nextSort, sortRows, type BatteryFilters, type Sort } from "@/components/battery-tracking/filters";
+import { assetTypeLabel, lastSeenActive, matches, nextSort, sortRows, type BatteryFilters, type Sort } from "@/components/battery-tracking/filters";
 import { listQuery, readListState } from "@/components/battery-tracking/list-query";
 import { usePerPage } from "@/components/battery-tracking/per-page";
 import { exactAsset, matchesSearch } from "@/components/battery-tracking/search";
+import { FilterChip, searchChip } from "@/components/battery-tracking/FilterChip";
 import { useAuthStore } from "@/store/auth";
 
 // The current minute, so "Updated 5 min ago" moves on while the page is open.
@@ -54,7 +55,7 @@ function BatteryTracking() {
   // which applies when the URL doesn't name one.
   const [initial] = useState(() => readListState(new URLSearchParams(params.toString())));
   const [search, setSearch] = useState(initial.search);
-  const [filters, setFilters] = useState<BatteryFilters>({ lastSeen: initial.lastSeen, range: initial.range });
+  const [filters, setFilters] = useState<BatteryFilters>({ lastSeen: initial.lastSeen, range: initial.range, asset: initial.asset });
   const [sort, setSort] = useState<Sort>(initial.sort);
   const [page, setPage] = useState(initial.page);
   const [perPageInUrl, setPerPageInUrl] = useState(initial.perPage);
@@ -63,7 +64,7 @@ function BatteryTracking() {
   const perPage = perPageInUrl ?? savedPerPage;
   const now = useSyncExternalStore(subscribeMinute, currentMinute, noMinute);
 
-  const state = { search, lastSeen: filters.lastSeen, range: filters.range, sort, page, perPage: perPageInUrl };
+  const state = { search, lastSeen: filters.lastSeen, range: filters.range, asset: filters.asset, sort, page, perPage: perPageInUrl };
   const query = listQuery(state);
   useEffect(() => {
     if (window.location.pathname + window.location.search !== pathname + query) {
@@ -109,23 +110,30 @@ function BatteryTracking() {
           year={new Date(data?.loadedAt ?? 0).getUTCFullYear()}
         />
 
-        {/* A search naming one vehicle or station exactly: say so, with a way back to everything. */}
-        {data && named && (
-          <p aria-live="polite" className="-mt-1 text-xs text-slate-600 shrink-0">
-            Showing {rows.length.toLocaleString()} {rows.length === 1 ? "battery" : "batteries"} in{" "}
-            {named.type === "vehicle" ? "vehicle" : "station"}{" "}
-            <span className="font-mono tabular-nums text-slate-800">{named.type === "vehicle" ? named.vin : named.code}</span>
-            <span className="mx-1.5 text-slate-300" aria-hidden>·</span>
-            <button
-              onClick={() => {
-                setSearch("");
-                setPage(1);
-              }}
-              className="font-medium text-zeno-teal hover:underline dark:text-(--sidebar-text) rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
-            >
-              Clear search
-            </button>
-          </p>
+        {/* The active chips: a search naming one vehicle or station exactly (× clears the search), and Asset type. */}
+        {data && (named || filters.asset) && (
+          <div className="flex flex-wrap items-center gap-2 -mt-1 shrink-0">
+            {named && (
+              <FilterChip
+                {...searchChip(named)}
+                onRemove={() => {
+                  setSearch("");
+                  setPage(1);
+                }}
+              />
+            )}
+            {filters.asset && (
+              <FilterChip
+                label="Asset"
+                value={assetTypeLabel(filters.asset)}
+                removeLabel="Remove Asset filter"
+                onRemove={() => {
+                  setFilters({ ...filters, asset: "" });
+                  setPage(1);
+                }}
+              />
+            )}
+          </div>
         )}
 
         <BatteryTable
@@ -133,7 +141,7 @@ function BatteryTracking() {
           loading={!data}
           sort={sort}
           onSort={(column) => setSort((s) => nextSort(s, column))}
-          filteredColumn={anyFilter(filters) ? "lastSeen" : null}
+          filteredColumn={lastSeenActive(filters) ? "lastSeen" : null}
           page={page}
           perPage={perPage}
           onPage={setPage}

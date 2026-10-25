@@ -2,7 +2,7 @@
 
 import { Search, X } from "lucide-react";
 import { DateRangeFilter } from "@/components/swap-transactions/DateRangeFilter";
-import { anyFilter, describeFilter, NO_FILTERS, type BatteryFilters, type LastSeenPreset } from "./filters";
+import { anyFilter, ASSET_TYPES, describeFilter, NO_FILTERS, type AssetType, type BatteryFilters, type LastSeenPreset } from "./filters";
 
 // Swap Audit's filter bar (SwapAuditTable.tsx): a white card holding compact
 // text-xs controls. Its styles are repeated here so that file stays untouched.
@@ -21,8 +21,8 @@ const CLEAR =
 
 /**
  * Battery Tracking's filter bar, in Swap Audit's pattern: search, Swap
- * Transactions' time filter for Last Seen, Clear filters while it's set, and the
- * count on the right. The presets apply at once; a custom range on Apply.
+ * Transactions' time filter for Last Seen, Asset type, Clear filters while
+ * either filter is set, and the count on the right. The presets apply at once; a custom range on Apply.
  */
 export function BatteryFilterBar({
   search,
@@ -65,9 +65,19 @@ export function BatteryFilterBar({
       <DateRangeFilter
         value={filters.lastSeen}
         range={filters.range}
-        onChange={(v, r) => onFilters({ lastSeen: v as LastSeenPreset, range: r })}
+        onChange={(v, r) => onFilters({ ...filters, lastSeen: v as LastSeenPreset, range: r })}
         className={CONTROL}
       />
+
+      {/* Asset type, in the same native dropdown and style; it applies on selection. */}
+      <select
+        aria-label="Asset type"
+        value={filters.asset}
+        onChange={(e) => onFilters({ ...filters, asset: e.target.value as AssetType })}
+        className={CONTROL}
+      >
+        {ASSET_TYPES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+      </select>
 
       {filtered && (
         <button onClick={() => onFilters(NO_FILTERS)} className={CLEAR}>
