@@ -26,9 +26,11 @@ import {
   upcomingAssignments,
   versionAt,
 } from "@/lib/pricing/engine";
-import { eatLocalToIso, fmtEat, fmtRate, fmtWindow } from "@/lib/pricing/format";
+import { eatLocalToIso, fmtEat } from "@/lib/pricing/format";
+import { fmtSlabs, fmtRateWindow, fmtWindowCount, sortWindows } from "@/lib/pricing/windows";
 import type { PricingPlan } from "@/lib/pricing/types";
 import { DayBandBar } from "@/components/pricing-plans/DayBandBar";
+import { WindowRates } from "@/components/pricing-plans/WindowRates";
 import { NotificationPreview } from "@/components/pricing-plans/NotificationPreview";
 import { ChangeHistory } from "@/components/pricing-plans/ChangeHistory";
 import { PlanFormModal } from "@/components/pricing-plans/PlanFormModal";
@@ -140,17 +142,10 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
                 <h3 className="text-sm font-semibold text-slate-700">{current ? "Rates in force" : "Starting rates"}</h3>
                 <span className="text-[11px] text-slate-400">since {fmtEat(shown.effectiveFrom)}</span>
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                <Stat label="Standard rate" value={fmtRate(shown.standardRate)} />
-                <Stat label="Custom window" value={fmtWindow(shown.customWindowStart, shown.customWindowEnd)} />
-                <Stat label="Custom rate" value={fmtRate(shown.customRate)} accent />
-              </div>
-              <DayBandBar
-                standardRate={shown.standardRate}
-                customRate={shown.customRate}
-                start={shown.customWindowStart}
-                end={shown.customWindowEnd}
-              />
+              {/* "Now" only applies to rates already in force. */}
+              <DayBandBar windows={shown.windows} now={current ? now : undefined} />
+              <WindowRates windows={shown.windows} now={current ? now : undefined} />
+              <p className="text-[11px] text-slate-400">KES per kWh. Slab 1 is a rider&apos;s first 3 kWh each day; slab 2 is everything after.</p>
               <p className="text-xs text-slate-500">
                 {plan.isDefault
                   ? `Prices every station without another plan: ${stationCount} today.`
@@ -164,11 +159,7 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-amber-800">
                     <CalendarClock className="w-4 h-4" /> Scheduled for {fmtEat(upcoming.effectiveFrom)}
                   </h3>
-                  <div className="grid grid-cols-3 gap-3">
-                    <Stat label="Standard rate" value={fmtRate(upcoming.standardRate)} />
-                    <Stat label="Custom window" value={fmtWindow(upcoming.customWindowStart, upcoming.customWindowEnd)} />
-                    <Stat label="Custom rate" value={fmtRate(upcoming.customRate)} accent />
-                  </div>
+                  <WindowRates windows={upcoming.windows} />
                   <NotificationPreview text={upcoming.notificationText} leadHours={upcoming.notifyLeadHours} effectiveFrom={upcoming.effectiveFrom} />
                 </div>
               )}
@@ -176,8 +167,8 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
                 <h3 className="text-sm font-semibold text-slate-700">How a swap is billed</h3>
                 <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
                   <li>The plan and its rates are locked when the rider taps their RFID card.</li>
-                  <li>Standard or Custom window is decided by when the swap completes.</li>
-                  <li>Amount = billed kWh × that rate. A change that starts mid-swap doesn&apos;t touch it.</li>
+                  <li>The time window is decided by when the swap completes.</li>
+                  <li>Slab 1 applies to a rider&apos;s first 3 kWh that day, slab 2 to the rest. A change that starts mid-swap doesn&apos;t touch it.</li>
                 </ul>
                 {!upcoming && (
                   <NotificationPreview text={shown.notificationText} leadHours={shown.notifyLeadHours} effectiveFrom={shown.effectiveFrom} />
@@ -195,9 +186,7 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   <th className="px-4 py-2.5">Effective from</th>
-                  <th className="px-4 py-2.5 text-right">Standard</th>
-                  <th className="px-4 py-2.5">Custom window</th>
-                  <th className="px-4 py-2.5 text-right">Custom</th>
+                  <th className="px-4 py-2.5">Windows · slab 1 / slab 2</th>
                   <th className="px-4 py-2.5">Notice</th>
                   <th className="px-4 py-2.5">Created by</th>
                   <th className="px-4 py-2.5" />
@@ -207,11 +196,19 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
                 {sortedVersions(plan).reverse().map((v) => {
                   const state = v.id === current?.id ? "In force" : new Date(v.effectiveFrom) > new Date(now) ? "Scheduled" : "Superseded";
                   return (
-                    <tr key={v.id}>
+                    <tr key={v.id} className="align-top">
                       <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{fmtEat(v.effectiveFrom)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">{fmtRate(v.standardRate)}</td>
-                      <td className="px-4 py-3 tabular-nums whitespace-nowrap">{fmtWindow(v.customWindowStart, v.customWindowEnd)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-teal-700 whitespace-nowrap">{fmtRate(v.customRate)}</td>
+                      <td className="px-4 py-3">
+                        <p className="text-[11px] text-slate-400 mb-1">{fmtWindowCount(v.windows.length)}</p>
+                        <ul className="space-y-0.5 text-xs tabular-nums whitespace-nowrap">
+                          {sortWindows(v.windows).map((w) => (
+                            <li key={w.start}>
+                              <span className="text-slate-500">{fmtRateWindow(w)}</span>
+                              <span className="ml-3 text-slate-800">{fmtSlabs(w)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </td>
                       <td className="px-4 py-3 text-xs text-slate-500">{v.notifyLeadHours} h</td>
                       <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{v.createdBy} · {fmtEat(v.createdAt)}</td>
                       <td className="px-4 py-3">
@@ -254,15 +251,6 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
         No station has ever been on this plan, so no swap was priced with it. This can&apos;t be undone.
       </ConfirmModal>
     </>
-  );
-}
-
-function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div>
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</p>
-      <p className={cn("text-sm font-semibold tabular-nums mt-0.5", accent ? "text-teal-700" : "text-slate-800")}>{value}</p>
-    </div>
   );
 }
 
