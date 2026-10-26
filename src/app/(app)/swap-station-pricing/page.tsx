@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Plus } from "lucide-react";
 import { AccessGuard } from "@/components/ui/AccessGuard";
 import { Topbar } from "@/components/layout/Topbar";
 import { Button } from "@/components/ui/button";
+import { InfoTip } from "@/components/ui/InfoTip";
 import { SearchInput } from "@/components/ui/FilterControls";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { useAccess } from "@/lib/access";
@@ -19,12 +20,20 @@ import {
   versionAt,
   sortedVersions,
 } from "@/lib/pricing/engine";
-import { fmtEat, fmtRate, fmtWindow } from "@/lib/pricing/format";
+import { fmtEat } from "@/lib/pricing/format";
+import { fmtHHmmss, fmtSlabs, fmtWindowCount, parseHHmmss, windowAt } from "@/lib/pricing/windows";
 import { PlanFormModal } from "@/components/pricing-plans/PlanFormModal";
 import { PlanStatusBadge, usePricingBook } from "@/components/pricing-plans/shared";
 import { usePricingStore } from "@/store/pricing-plans";
 
 const STATUS_ORDER = { default: 0, active: 1, scheduled: 2, inactive: 3 } as const;
+
+const SLABS_TIP = "Slab 1: a rider’s first 3 kWh each day. Slab 2: everything after.";
+
+/** "15 Nov 2026" in EAT. */
+function fmtEatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Africa/Nairobi" });
+}
 
 export default function PricingPlansPage() {
   const router = useRouter();
@@ -33,7 +42,13 @@ export default function PricingPlansPage() {
   const canWrite = useAccess().canWrite("pricing");
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
-  const [now] = useState(() => new Date().toISOString());
+  const [now, setNow] = useState(() => new Date().toISOString());
+
+  // Price now follows the clock: re-read it every minute so "until" rolls over.
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date().toISOString()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const rows = useMemo(() => {
     return book.plans
@@ -47,12 +62,20 @@ export default function PricingPlansPage() {
         const nextChange = [nextVersion?.effectiveFrom, nextMove?.effectiveFrom]
           .filter((x): x is string => !!x)
           .sort()[0];
+        // The window pricing swaps right now, and the second the next one takes over.
+        const current = windowAt(version.windows, now);
+        const until = current ? fmtHHmmss(parseHHmmss(current.end) + 1) : null;
+        // A scheduled plan goes live once both its first stations and its first rates have started.
+        const startsAt = [nextMove?.effectiveFrom, sortedVersions(plan)[0]?.effectiveFrom]
+          .filter((x): x is string => !!x)
+          .sort()
+          .at(-1);
         const lastUpdated = changes
           .filter((c) => c.planId === plan.id)
           .map((c) => c.at)
           .sort()
           .at(-1);
-        return { plan, status, version, stations, nextChange, lastUpdated };
+        return { plan, status, version, stations, nextChange, current, until, startsAt, lastUpdated };
       })
       .filter(({ plan }) => {
         const q = query.trim().toLowerCase();
@@ -74,7 +97,7 @@ export default function PricingPlansPage() {
       <main className="flex flex-col flex-1 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3.5 border-b border-slate-200 bg-white shrink-0">
           <p className="text-xs text-slate-400 max-w-md">
-            Custom Pricing: a Standard rate plus a Custom rate window per plan, assigned to swap stations. KES per kWh, EAT.
+            Custom Pricing: time-of-day windows, each with two slab rates, per plan, assigned to swap stations. KES per kWh, EAT.
           </p>
           <div className="flex items-center gap-3">
             <SearchInput value={query} onChange={setQuery} placeholder="Search plans…" className="w-56" />
@@ -101,16 +124,27 @@ export default function PricingPlansPage() {
           </StatGrid>
 
           <div className="bg-white border border-slate-200 rounded-xl overflow-auto">
-            <table className="w-full text-sm min-w-[900px]">
+            <table className="w-full table-fixed text-sm min-w-[760px]">
+              <colgroup>
+                <col className="w-[34%]" />
+                <col className="w-[16%]" />
+                <col className="w-[22%]" />
+                <col className="w-[10%]" />
+                <col className="w-[18%]" />
+                <col className="w-10" />
+              </colgroup>
               <thead className="bg-slate-50 border-b border-slate-200">
-                <tr className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <tr className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider align-top">
                   <th className="px-4 py-2.5">Plan</th>
                   <th className="px-4 py-2.5">Status</th>
-                  <th className="px-4 py-2.5 text-right">Standard rate</th>
-                  <th className="px-4 py-2.5">Custom window</th>
-                  <th className="px-4 py-2.5 text-right">Custom rate</th>
+                  <th className="px-4 py-2.5">
+                    <span className="inline-flex items-center gap-1">
+                      Price now
+                      <InfoTip content={SLABS_TIP} placement="top" />
+                    </span>
+                    <span className="block mt-0.5 font-medium normal-case tracking-normal">KES/kWh · slab 1 / slab 2</span>
+                  </th>
                   <th className="px-4 py-2.5 text-right">Stations</th>
-                  <th className="px-4 py-2.5">Next scheduled change</th>
                   <th className="px-4 py-2.5">Last updated</th>
                   <th className="px-2 py-2.5" />
                 </tr>
@@ -118,10 +152,10 @@ export default function PricingPlansPage() {
               <tbody className="divide-y divide-slate-100">
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-4 py-14 text-center text-slate-400 text-sm">No plan matches “{query}”.</td>
+                    <td colSpan={6} className="px-4 py-14 text-center text-slate-400 text-sm">No plan matches “{query}”.</td>
                   </tr>
                 )}
-                {rows.map(({ plan, status, version, stations, nextChange, lastUpdated }) => (
+                {rows.map(({ plan, status, version, stations, nextChange, current, until, startsAt, lastUpdated }) => (
                   <tr
                     key={plan.id}
                     className="hover:bg-slate-50 cursor-pointer"
@@ -133,14 +167,25 @@ export default function PricingPlansPage() {
                       </Link>
                       <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">{plan.description}</p>
                     </td>
-                    <td className="px-4 py-3"><PlanStatusBadge status={status} /></td>
-                    <td className="px-4 py-3 text-right tabular-nums text-slate-700 whitespace-nowrap">{fmtRate(version.standardRate)}</td>
-                    <td className="px-4 py-3 tabular-nums text-slate-600 whitespace-nowrap">{fmtWindow(version.customWindowStart, version.customWindowEnd)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums font-medium text-teal-700 whitespace-nowrap">{fmtRate(version.customRate)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-slate-700">{stations}</td>
-                    <td className="px-4 py-3 text-xs whitespace-nowrap">
-                      {nextChange ? <span className="text-amber-700">{fmtEat(nextChange)}</span> : <span className="text-slate-300">–</span>}
+                    <td className="px-4 py-3">
+                      <PlanStatusBadge status={status} />
+                      {(status === "active" || status === "default") && nextChange && (
+                        <p className="text-[11px] text-slate-400 mt-1 whitespace-nowrap">Changes {fmtEatDate(nextChange)}</p>
+                      )}
                     </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {status === "scheduled" ? (
+                        <p className="text-slate-400">{startsAt ? `Starts ${fmtEatDate(startsAt)}` : "Not started"}</p>
+                      ) : current ? (
+                        <p className="tabular-nums text-slate-700">
+                          {fmtSlabs(current)} <span className="text-slate-400">· until {until}</span>
+                        </p>
+                      ) : (
+                        <p className="text-slate-300">–</p>
+                      )}
+                      <p className="text-[11px] text-slate-400 mt-0.5">{fmtWindowCount(version.windows.length)}</p>
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-slate-700">{stations}</td>
                     <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{lastUpdated ? fmtEat(lastUpdated) : "–"}</td>
                     <td className="px-2 py-3 text-slate-300"><ChevronRight className="w-4 h-4" /></td>
                   </tr>
