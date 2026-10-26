@@ -114,6 +114,8 @@ export function validateWindows(windows: RateWindow[]): string | null {
   // Sorted by start, each window must begin the second after the previous one
   // ends, and the last must end the second before the first begins.
   const sorted = sortWindows(windows);
+  const shared = sorted.find((w, i) => i > 0 && w.start === sorted[i - 1].start);
+  if (shared) return `Two windows start at ${shared.start}.`;
   for (let i = 0; i < sorted.length; i++) {
     const cur = sorted[i];
     const next = sorted[(i + 1) % sorted.length];

@@ -1,17 +1,59 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Plus, X } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/store/toast";
 import { DEFAULT_LEAD_HOURS, usePricingStore, type VersionInput } from "@/store/pricing-plans";
 import { sortedVersions } from "@/lib/pricing/engine";
 import { eatLocalToIso, fmtEat } from "@/lib/pricing/format";
-import { fmtRateWindow, fmtSlabs, riderMessage, sameWindows, sortWindows } from "@/lib/pricing/windows";
+import {
+  MAX_WINDOWS,
+  fmtHHmmss,
+  parseHHmmss,
+  riderMessage,
+  sameWindows,
+  sortWindows,
+  validateWindows,
+  windowSeconds,
+} from "@/lib/pricing/windows";
 import type { PricingPlan, RateWindow } from "@/lib/pricing/types";
+import { cn } from "@/lib/utils";
+import { DayBandBar } from "./DayBandBar";
 import { NotificationPreview } from "./NotificationPreview";
 import { inputCls, labelCls, nextEffectiveLocal, useActorName } from "./shared";
+
+/** A window as the form edits it: its start and two rates. Its end is the second before the next start. */
+interface WindowRow {
+  key: string;
+  start: string;
+  slab1: string;
+  slab2: string;
+}
+
+let rowSeq = 0;
+const rowKey = () => `w${++rowSeq}`;
+
+/** `<input type="time" step="1">` can drop ":00" seconds; keep "HH:mm:ss". */
+function withSeconds(t: string): string {
+  return t.length === 5 ? `${t}:00` : t;
+}
+
+/**
+ * Rows chained into windows: sorted by start, each ends the second before the
+ * next one starts and the last wraps to the first, so they always cover the
+ * day once. Only the start times and rates can be wrong.
+ */
+function rowsToWindows(rows: WindowRow[]): RateWindow[] {
+  const sorted = [...rows].sort((a, b) => a.start.localeCompare(b.start));
+  return sorted.map((r, i) => ({
+    start: r.start,
+    end: fmtHHmmss(parseHHmmss(sorted[(i + 1) % sorted.length].start) - 1),
+    slab1: r.slab1.trim() === "" ? NaN : Number(r.slab1),
+    slab2: r.slab2.trim() === "" ? NaN : Number(r.slab2),
+  }));
+}
 
 function defaultMessage(effectiveLocal: string, windows: RateWindow[]) {
   const when = effectiveLocal
@@ -38,16 +80,43 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
 
   const [name, setName] = useState(plan?.name ?? "");
   const [description, setDescription] = useState(plan?.description ?? "");
-  // Step 1 of the windows rework: shown read-only; window editing comes with the form rework.
-  const [windows] = useState<RateWindow[]>(startingWindows);
+  const [rows, setRows] = useState<WindowRow[]>(() =>
+    sortWindows(startingWindows).map((w) => ({ key: rowKey(), start: w.start, slab1: String(w.slab1), slab2: String(w.slab2) }))
+  );
   const [leadHours, setLeadHours] = useState(String(latest?.notifyLeadHours ?? DEFAULT_LEAD_HOURS));
   const [effectiveLocal, setEffectiveLocal] = useState(() => nextEffectiveLocal(latest?.notifyLeadHours ?? DEFAULT_LEAD_HOURS));
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const windows = rowsToWindows(rows);
+  const windowError = validateWindows(windows);
+  const endOf = new Map(windows.map((w) => [w.start, w.end]));
   const text = message ?? defaultMessage(effectiveLocal, windows);
   const effectiveIso = effectiveLocal ? eatLocalToIso(effectiveLocal) : "";
   const ratesChanged = !latest || !sameWindows(windows, latest.windows) || message !== null;
+
+  const setRow = (key: string, patch: Partial<WindowRow>) =>
+    setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+
+  /** Back into start order once a start time is done changing. */
+  const sortRows = () => setRows((rs) => [...rs].sort((a, b) => a.start.localeCompare(b.start)));
+
+  /** Split the longest window at its midpoint, rounded down to the minute; the new half copies its rates. */
+  function addWindow() {
+    const longest = windows.reduce((a, b) => (windowSeconds(b) > windowSeconds(a) ? b : a));
+    const half = Math.floor(windowSeconds(longest) / 2 / 60) * 60;
+    if (half < 60) return;
+    const source = rows.find((r) => r.start === longest.start);
+    const start = fmtHHmmss(parseHHmmss(longest.start) + half);
+    setRows((rs) =>
+      [...rs, { key: rowKey(), start, slab1: source?.slab1 ?? "", slab2: source?.slab2 ?? "" }].sort((a, b) =>
+        a.start.localeCompare(b.start)
+      )
+    );
+  }
+
+  /** The window before it takes over the removed one's time. */
+  const removeWindow = (key: string) => setRows((rs) => rs.filter((r) => r.key !== key));
 
   function handleSave() {
     const version: VersionInput = {
@@ -102,15 +171,73 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
         </section>
 
         <section className="space-y-3">
-          <h3 className="text-xs font-semibold text-slate-700">Rates (KES per kWh, EAT · slab 1 / slab 2)</h3>
-          <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 text-sm">
-            {sortWindows(windows).map((w) => (
-              <li key={w.start} className="flex justify-between px-3 py-2 tabular-nums">
-                <span className="text-slate-600">{fmtRateWindow(w)}</span>
-                <span className="text-slate-800">{fmtSlabs(w)}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="flex items-baseline justify-between gap-3">
+            <h3 className="text-xs font-semibold text-slate-700">Time windows (EAT) and rates (KES per kWh)</h3>
+            <p className="text-[11px] text-slate-400">Slab 1: first 3 kWh a day · Slab 2: after</p>
+          </div>
+          <div className="space-y-2">
+            <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2">
+              <span className={labelCls}>From</span>
+              <span className={labelCls}>Until</span>
+              <span className={labelCls}>Slab 1</span>
+              <span className={labelCls}>Slab 2</span>
+              <span />
+            </div>
+            {rows.map((r) => {
+              const end = endOf.get(r.start);
+              const bad = (v: string) => !(Number(v) > 0);
+              return (
+                <div key={r.key} className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2 items-center">
+                  <input
+                    className={cn(inputCls, "tabular-nums")}
+                    type="time"
+                    step={1}
+                    aria-label="Window starts"
+                    value={r.start}
+                    onChange={(e) => e.target.value && setRow(r.key, { start: withSeconds(e.target.value) })}
+                    onBlur={sortRows}
+                  />
+                  <span className="px-1 text-sm tabular-nums text-slate-500">{end ?? "–"}</span>
+                  <input
+                    className={cn(inputCls, "tabular-nums", bad(r.slab1) && "border-red-300")}
+                    type="number"
+                    min={1}
+                    step="0.5"
+                    aria-label={`Slab 1 rate from ${r.start}`}
+                    value={r.slab1}
+                    onChange={(e) => setRow(r.key, { slab1: e.target.value })}
+                  />
+                  <input
+                    className={cn(inputCls, "tabular-nums", bad(r.slab2) && "border-red-300")}
+                    type="number"
+                    min={1}
+                    step="0.5"
+                    aria-label={`Slab 2 rate from ${r.start}`}
+                    value={r.slab2}
+                    onChange={(e) => setRow(r.key, { slab2: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeWindow(r.key)}
+                    disabled={rows.length === 1}
+                    aria-label={`Remove the window from ${r.start}`}
+                    title="Remove window: the one before it takes over its time"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              );
+            })}
+            <div className="flex items-center justify-between gap-3">
+              <Button variant="ghost" size="sm" onClick={addWindow} disabled={rows.length >= MAX_WINDOWS}>
+                <Plus className="w-3.5 h-3.5" /> Add window
+              </Button>
+              <p className="text-[11px] text-slate-400">Each window runs until the second before the next one starts.</p>
+            </div>
+            {windowError && <p className="text-xs text-red-600">{windowError}</p>}
+          </div>
+          <DayBandBar windows={windows.map((w) => ({ ...w, slab1: w.slab1 || 0, slab2: w.slab2 || 0 }))} />
         </section>
 
         <section className="space-y-3">
@@ -136,7 +263,14 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
         </section>
 
         <section className="space-y-2">
-          <label className={labelCls}>Rider message</label>
+          <div className="flex items-baseline justify-between">
+            <label className={labelCls}>Rider message</label>
+            {message !== null && (
+              <button type="button" onClick={() => setMessage(null)} className="text-[11px] font-medium text-zeno-teal hover:underline">
+                Use suggested message
+              </button>
+            )}
+          </div>
           <textarea
             className={`${inputCls} min-h-[64px]`}
             value={text}
