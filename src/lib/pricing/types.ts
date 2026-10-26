@@ -1,25 +1,45 @@
 /**
  * Custom Pricing: time-of-day swap pricing, configured as plans.
  *
- * A plan charges a Standard rate all day, except inside one Custom rate window
- * (e.g. 22:00–06:00) where its Custom rate applies. Rates are KES per kWh and
- * every clock time is EAT (UTC+3), Kenya's only zone.
+ * A plan's rates are a list of time windows that cover the whole day, each
+ * with a slab 1 rate (a rider's first 3 kWh each day) and a slab 2 rate
+ * (everything after). Rates are KES per kWh and every clock time is EAT
+ * (UTC+3), Kenya's only zone. See `windows.ts` for the rules.
  *
  * Nothing here is edited in place. A rate change is a new `PlanVersion` and a
  * station move is a new `StationAssignment`, each with its own `effectiveFrom`,
  * so any past moment can be priced exactly as it was then.
  */
 
+/** @deprecated Legacy: read only by engine.ts, SwapRecordsTable and check-pricing.mjs. */
 export type RateSlot = "standard" | "custom_window";
+
+/**
+ * One stretch of the day and its rates. "HH:mm:ss" EAT, both ends included;
+ * an end before the start wraps past midnight (22:00:00–05:59:59).
+ */
+export interface RateWindow {
+  start: string;
+  end: string;
+  /** KES/kWh for a rider's first 3 kWh each day. */
+  slab1: number;
+  /** KES/kWh for everything after. */
+  slab2: number;
+}
 
 export interface PlanVersion {
   id: string;
   /** ISO datetime the version takes over from the previous one. */
   effectiveFrom: string;
+  /** Cover every second of the day exactly once. What every pricing screen reads. */
+  windows: RateWindow[];
+  /** @deprecated Legacy: read only by engine.ts, SwapRecordsTable and check-pricing.mjs. */
   standardRate: number;
-  /** "HH:mm", EAT. A window may wrap past midnight (22:00 → 06:00). */
+  /** @deprecated Legacy: "HH:mm", exclusive end, may wrap past midnight. */
   customWindowStart: string;
+  /** @deprecated Legacy: "HH:mm", exclusive end, may wrap past midnight. */
   customWindowEnd: string;
+  /** @deprecated Legacy: read only by engine.ts, SwapRecordsTable and check-pricing.mjs. */
   customRate: number;
   /** Riders must hear about the change at least this many hours before it applies. */
   notifyLeadHours: number;

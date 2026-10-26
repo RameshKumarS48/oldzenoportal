@@ -2,7 +2,16 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { SEED_ASSIGNMENTS, SEED_CHANGES, SEED_PLANS } from "@/lib/mock/pricing-plans";
 import { normaliseStationId, resolvePlan, sortedVersions, versionAt } from "@/lib/pricing/engine";
-import { fmtEat, fmtRate, fmtWindow } from "@/lib/pricing/format";
+import { fmtEat } from "@/lib/pricing/format";
+import {
+  fmtRateWindow,
+  fmtWindowCount,
+  legacyFromWindows,
+  sameWindows,
+  sortWindows,
+  validateWindows,
+  windowsSummary,
+} from "@/lib/pricing/windows";
 import type {
   PlanChange,
   PlanVersion,
@@ -15,10 +24,8 @@ import type {
 export const ASSIGNMENT_LEAD_HOURS = 24;
 export const DEFAULT_LEAD_HOURS = 24;
 
-export type VersionInput = Pick<
-  PlanVersion,
-  "effectiveFrom" | "standardRate" | "customWindowStart" | "customWindowEnd" | "customRate" | "notifyLeadHours" | "notificationText"
->;
+/** What the forms send: windows only. The legacy rate fields are filled in on save. */
+export type VersionInput = Pick<PlanVersion, "effectiveFrom" | "windows" | "notifyLeadHours" | "notificationText">;
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -30,13 +37,9 @@ function hoursFromNow(iso: string): number {
   return (new Date(iso).getTime() - Date.now()) / 3600_000;
 }
 
-const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
-
 export function validateVersion(v: VersionInput): string | null {
-  if (!(v.standardRate > 0)) return "Enter a Standard rate above zero.";
-  if (!(v.customRate > 0)) return "Enter a Custom rate above zero.";
-  if (!HHMM.test(v.customWindowStart) || !HHMM.test(v.customWindowEnd)) return "Enter the custom window as HH:mm.";
-  if (v.customWindowStart === v.customWindowEnd) return "The custom window can't start and end at the same time.";
+  const windowError = validateWindows(v.windows);
+  if (windowError) return windowError;
   if (Number.isNaN(new Date(v.effectiveFrom).getTime())) return "Pick when the rates take effect.";
   if (!(v.notifyLeadHours >= 1)) return "Riders need at least 1 hour's notice.";
   if (hoursFromNow(v.effectiveFrom) < v.notifyLeadHours) {
@@ -47,23 +50,34 @@ export function validateVersion(v: VersionInput): string | null {
 }
 
 function rateSummary(v: VersionInput): string {
-  return `Standard ${fmtRate(v.standardRate)}, Custom window ${fmtWindow(v.customWindowStart, v.customWindowEnd)} at ${fmtRate(v.customRate)}`;
+  return `${fmtWindowCount(v.windows.length)}, ${windowsSummary(v.windows)}`;
 }
 
-/** Describe what moved between two versions, for the change log. */
+/**
+ * Describe what moved between two versions, for the change log. Same window
+ * times: each rate that changed. New times: the whole new set.
+ */
 function diffSummary(prev: PlanVersion, next: VersionInput): { kind: PlanChange["kind"]; summary: string } {
-  const parts: string[] = [];
-  if (prev.standardRate !== next.standardRate) parts.push(`Standard rate KES ${prev.standardRate} → ${next.standardRate}/kWh`);
-  if (prev.customRate !== next.customRate) parts.push(`Custom rate KES ${prev.customRate} → ${next.customRate}/kWh`);
-  const windowMoved = prev.customWindowStart !== next.customWindowStart || prev.customWindowEnd !== next.customWindowEnd;
-  if (windowMoved) {
-    parts.push(`Custom window ${fmtWindow(prev.customWindowStart, prev.customWindowEnd)} → ${fmtWindow(next.customWindowStart, next.customWindowEnd)}`);
+  if (sameWindows(prev.windows, next.windows)) {
+    return { kind: "rates_changed", summary: "Re-issued the same rates with a new rider message" };
   }
-  const ratesMoved = prev.standardRate !== next.standardRate || prev.customRate !== next.customRate;
-  return {
-    kind: windowMoved && !ratesMoved ? "window_changed" : "rates_changed",
-    summary: parts.length ? parts.join("; ") : "Re-issued the same rates with a new rider message",
-  };
+  const before = sortWindows(prev.windows);
+  const after = sortWindows(next.windows);
+  const sameTimes = before.length === after.length && before.every((w, i) => w.start === after[i].start && w.end === after[i].end);
+  if (sameTimes) {
+    const parts = before
+      .map((w, i) => ({ w, n: after[i] }))
+      .filter(({ w, n }) => w.slab1 !== n.slab1 || w.slab2 !== n.slab2)
+      .map(({ w, n }) => `${fmtRateWindow(w)} ${w.slab1}/${w.slab2} → ${n.slab1}/${n.slab2}`);
+    return { kind: "rates_changed", summary: parts.join("; ") };
+  }
+  const count = before.length === after.length ? fmtWindowCount(after.length) : `Windows ${before.length} → ${after.length}`;
+  return { kind: "window_changed", summary: `${count}: ${windowsSummary(after)}` };
+}
+
+/** A new version as stored: the windows plus the legacy fields derived from them. */
+function toVersion(v: VersionInput, by: string, at: string): PlanVersion {
+  return { ...v, ...legacyFromWindows(v.windows), id: uid("pv"), createdBy: by, createdAt: at };
 }
 
 interface PricingState extends PricingBook {
@@ -106,7 +120,7 @@ export const usePricingStore = create<PricingState>()(
             description: description.trim(),
             isDefault: false,
             createdAt: now,
-            versions: [{ ...version, id: uid("pv"), createdBy: by, createdAt: now }],
+            versions: [toVersion(version, by, now)],
           };
           set((s) => ({ plans: [...s.plans, plan] }));
           log({ planId, by, kind: "created", summary: `Created plan: ${rateSummary(version)}`, effectiveFrom: version.effectiveFrom });
@@ -125,7 +139,7 @@ export const usePricingStore = create<PricingState>()(
           set((s) => ({
             plans: s.plans.map((p) =>
               p.id === planId
-                ? { ...p, versions: [...p.versions, { ...version, id: uid("pv"), createdBy: by, createdAt: now }] }
+                ? { ...p, versions: [...p.versions, toVersion(version, by, now)] }
                 : p
             ),
           }));
@@ -238,7 +252,8 @@ export const usePricingStore = create<PricingState>()(
     },
     {
       name: "zeno-pricing-plans",
-      version: 1,
+      // 2: versions carry `windows`; anything saved before is reset to the seed.
+      version: 2,
       partialize: (s) => ({ plans: s.plans, assignments: s.assignments, changes: s.changes }),
       migrate: () => ({ plans: SEED_PLANS, assignments: SEED_ASSIGNMENTS, changes: SEED_CHANGES }),
     }

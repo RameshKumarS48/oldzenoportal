@@ -8,16 +8,16 @@ import { toast } from "@/store/toast";
 import { DEFAULT_LEAD_HOURS, usePricingStore, type VersionInput } from "@/store/pricing-plans";
 import { sortedVersions } from "@/lib/pricing/engine";
 import { eatLocalToIso, fmtEat } from "@/lib/pricing/format";
-import type { PricingPlan } from "@/lib/pricing/types";
-import { DayBandBar } from "./DayBandBar";
+import { fmtRateWindow, fmtSlabs, riderMessage, sameWindows, sortWindows } from "@/lib/pricing/windows";
+import type { PricingPlan, RateWindow } from "@/lib/pricing/types";
 import { NotificationPreview } from "./NotificationPreview";
 import { inputCls, labelCls, nextEffectiveLocal, useActorName } from "./shared";
 
-function defaultMessage(f: { effectiveLocal: string; standardRate: string; customRate: string; start: string; end: string }) {
-  const when = f.effectiveLocal
-    ? new Date(eatLocalToIso(f.effectiveLocal)).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Africa/Nairobi" })
+function defaultMessage(effectiveLocal: string, windows: RateWindow[]) {
+  const when = effectiveLocal
+    ? new Date(eatLocalToIso(effectiveLocal)).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Africa/Nairobi" })
     : "the effective date";
-  return `From ${when}, swaps at this station cost KES ${f.standardRate || "–"}/kWh, and KES ${f.customRate || "–"}/kWh between ${f.start} and ${f.end}.`;
+  return riderMessage(when, windows);
 }
 
 /**
@@ -32,36 +32,27 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
   const actor = useActorName();
 
   const latest = plan ? sortedVersions(plan).at(-1) : undefined;
+  // A new plan starts from Default's latest windows.
+  const defaultPlan = usePricingStore((s) => s.plans.find((p) => p.isDefault));
+  const startingWindows = latest?.windows ?? (defaultPlan ? sortedVersions(defaultPlan).at(-1)?.windows : undefined) ?? [];
 
   const [name, setName] = useState(plan?.name ?? "");
   const [description, setDescription] = useState(plan?.description ?? "");
-  const [standardRate, setStandardRate] = useState(String(latest?.standardRate ?? 90));
-  const [customRate, setCustomRate] = useState(String(latest?.customRate ?? 70));
-  const [start, setStart] = useState(latest?.customWindowStart ?? "22:00");
-  const [end, setEnd] = useState(latest?.customWindowEnd ?? "06:00");
+  // Step 1 of the windows rework: shown read-only; window editing comes with the form rework.
+  const [windows] = useState<RateWindow[]>(startingWindows);
   const [leadHours, setLeadHours] = useState(String(latest?.notifyLeadHours ?? DEFAULT_LEAD_HOURS));
   const [effectiveLocal, setEffectiveLocal] = useState(() => nextEffectiveLocal(latest?.notifyLeadHours ?? DEFAULT_LEAD_HOURS));
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const fields = { effectiveLocal, standardRate, customRate, start, end };
-  const text = message ?? defaultMessage(fields);
+  const text = message ?? defaultMessage(effectiveLocal, windows);
   const effectiveIso = effectiveLocal ? eatLocalToIso(effectiveLocal) : "";
-  const ratesChanged =
-    !latest ||
-    Number(standardRate) !== latest.standardRate ||
-    Number(customRate) !== latest.customRate ||
-    start !== latest.customWindowStart ||
-    end !== latest.customWindowEnd ||
-    message !== null;
+  const ratesChanged = !latest || !sameWindows(windows, latest.windows) || message !== null;
 
   function handleSave() {
     const version: VersionInput = {
       effectiveFrom: effectiveIso,
-      standardRate: Number(standardRate),
-      customRate: Number(customRate),
-      customWindowStart: start,
-      customWindowEnd: end,
+      windows,
       notifyLeadHours: Number(leadHours),
       notificationText: text,
     };
@@ -84,9 +75,6 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
     }
     onClose();
   }
-
-  const nStd = Number(standardRate) || 0;
-  const nCus = Number(customRate) || 0;
 
   return (
     <Modal open onClose={onClose} title={plan ? `Edit ${plan.name}` : "New pricing plan"} className="max-w-2xl">
@@ -114,26 +102,15 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
         </section>
 
         <section className="space-y-3">
-          <h3 className="text-xs font-semibold text-slate-700">Rates (KES per kWh, EAT)</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div>
-              <label className={labelCls}>Standard rate</label>
-              <input className={inputCls} type="number" min={1} step="0.5" value={standardRate} onChange={(e) => setStandardRate(e.target.value)} />
-            </div>
-            <div>
-              <label className={labelCls}>Custom window from</label>
-              <input className={inputCls} type="time" value={start} onChange={(e) => setStart(e.target.value)} />
-            </div>
-            <div>
-              <label className={labelCls}>Custom window to</label>
-              <input className={inputCls} type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
-            </div>
-            <div>
-              <label className={labelCls}>Custom rate</label>
-              <input className={inputCls} type="number" min={1} step="0.5" value={customRate} onChange={(e) => setCustomRate(e.target.value)} />
-            </div>
-          </div>
-          <DayBandBar standardRate={nStd} customRate={nCus} start={start} end={end} />
+          <h3 className="text-xs font-semibold text-slate-700">Rates (KES per kWh, EAT · slab 1 / slab 2)</h3>
+          <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 text-sm">
+            {sortWindows(windows).map((w) => (
+              <li key={w.start} className="flex justify-between px-3 py-2 tabular-nums">
+                <span className="text-slate-600">{fmtRateWindow(w)}</span>
+                <span className="text-slate-800">{fmtSlabs(w)}</span>
+              </li>
+            ))}
+          </ul>
         </section>
 
         <section className="space-y-3">

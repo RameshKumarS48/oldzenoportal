@@ -1,6 +1,7 @@
 import type { PlanChangeKind, RateSlot, SwapEvent } from "./types";
 import type { PlanStatus } from "./engine";
 
+/** Legacy: Swap Transactions still labels swaps Standard / Custom window. */
 export const SLOT_LABELS: Record<RateSlot, string> = {
   standard: "Standard",
   custom_window: "Custom window",
@@ -28,7 +29,7 @@ export const STATUS_META: Record<PlanStatus, { label: string; badge: string }> =
 export const CHANGE_LABELS: Record<PlanChangeKind, string> = {
   created: "Plan created",
   rates_changed: "Rates changed",
-  window_changed: "Custom window changed",
+  window_changed: "Windows changed",
   stations_assigned: "Stations assigned",
   stations_unassigned: "Stations removed",
   renamed: "Plan renamed",

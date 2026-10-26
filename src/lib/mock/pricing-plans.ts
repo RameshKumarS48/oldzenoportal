@@ -2,12 +2,17 @@
  * Seed for Custom Pricing. Kenya only, KES per kWh, all times EAT.
  *
  * Today's flat swap rate works out to ~90 KES/kWh (total_points / total_kWh on
- * the swap sample), so Default keeps 90 as its Standard rate and old swap
- * amounts stay where they were.
+ * the swap sample), so Default's daytime slab 1 stays at 90.
+ *
+ * Every pricing screen reads a version's `windows`. The Standard / Custom
+ * fields beside them are legacy, kept only for engine.ts, SwapRecordsTable and
+ * check-pricing.mjs; they equal `legacyFromWindows(windows)`, so swap amounts
+ * stay where they were.
  */
 
 import { SWAP_STATIONS, type SwapStation } from "@/lib/mock/kpi-infra";
-import type { PlanChange, PricingPlan, StationAssignment } from "@/lib/pricing/types";
+import { riderMessage, windowsSummary } from "@/lib/pricing/windows";
+import type { PlanChange, PricingPlan, RateWindow, StationAssignment } from "@/lib/pricing/types";
 
 // ── Stations ─────────────────────────────────────────────────────────────────
 
@@ -78,6 +83,21 @@ const VIJAY = "Vijayanand P";
 
 const NOTE_LEAD = 24;
 
+/** Shorthand for a window: start, end (both "HH:mm:ss", inclusive), slab 1, slab 2. */
+const w = (start: string, end: string, slab1: number, slab2: number): RateWindow => ({ start, end, slab1, slab2 });
+
+const DEFAULT_WINDOWS = [w("06:00:00", "21:59:59", 90, 70), w("22:00:00", "05:59:59", 70, 55)];
+const CBD_WINDOWS = [w("06:00:00", "16:59:59", 100, 80), w("17:00:00", "21:59:59", 110, 90), w("22:00:00", "05:59:59", 70, 55)];
+const CBD_NOV_WINDOWS = [w("06:00:00", "16:59:59", 105, 85), w("17:00:00", "21:59:59", 115, 95), w("22:00:00", "05:59:59", 70, 55)];
+const UPCOUNTRY_WINDOWS = [w("06:00:00", "21:59:59", 80, 65), w("22:00:00", "05:59:59", 60, 50)];
+const NIGHT_RIDER_WINDOWS = [w("05:00:00", "16:59:59", 90, 70), w("17:00:00", "22:59:59", 95, 75), w("23:00:00", "04:59:59", 55, 45)];
+const NOV_REVISION_WINDOWS = [
+  w("06:00:00", "07:59:59", 100, 80),
+  w("08:00:00", "16:59:59", 95, 75),
+  w("17:00:00", "21:59:59", 105, 85),
+  w("22:00:00", "05:59:59", 65, 50),
+];
+
 export const SEED_PLANS: PricingPlan[] = [
   {
     id: "pp-default",
@@ -89,12 +109,14 @@ export const SEED_PLANS: PricingPlan[] = [
       {
         id: "pv-default-1",
         effectiveFrom: "2026-01-01T00:00:00+03:00",
+        windows: DEFAULT_WINDOWS,
+        // Legacy, for engine.ts / SwapRecordsTable / check-pricing.mjs only.
         standardRate: 90,
         customWindowStart: "22:00",
         customWindowEnd: "06:00",
         customRate: 70,
         notifyLeadHours: NOTE_LEAD,
-        notificationText: "Zeno swaps cost KES 90/kWh, and KES 70/kWh between 22:00 and 06:00.",
+        notificationText: riderMessage("1 Jan", DEFAULT_WINDOWS),
         createdBy: RAMESH,
         createdAt: "2025-12-20T10:00:00+03:00",
       },
@@ -110,24 +132,28 @@ export const SEED_PLANS: PricingPlan[] = [
       {
         id: "pv-nbo-cbd-1",
         effectiveFrom: "2026-09-01T00:00:00+03:00",
+        windows: CBD_WINDOWS,
+        // Legacy, for engine.ts / SwapRecordsTable / check-pricing.mjs only.
         standardRate: 100,
         customWindowStart: "22:00",
         customWindowEnd: "06:00",
         customRate: 70,
         notifyLeadHours: NOTE_LEAD,
-        notificationText: "From 1 Sep, swaps at this station cost KES 100/kWh, and KES 70/kWh between 22:00 and 06:00.",
+        notificationText: riderMessage("1 Sep", CBD_WINDOWS),
         createdBy: WILLIE,
         createdAt: "2026-08-25T11:20:00+03:00",
       },
       {
         id: "pv-nbo-cbd-2",
         effectiveFrom: "2026-11-15T00:00:00+03:00",
+        windows: CBD_NOV_WINDOWS,
+        // Legacy, for engine.ts / SwapRecordsTable / check-pricing.mjs only.
         standardRate: 105,
         customWindowStart: "22:00",
         customWindowEnd: "06:00",
         customRate: 70,
         notifyLeadHours: NOTE_LEAD,
-        notificationText: "From 15 Nov, swaps at this station cost KES 105/kWh, and KES 70/kWh between 22:00 and 06:00.",
+        notificationText: riderMessage("15 Nov", CBD_NOV_WINDOWS),
         createdBy: RAMESH,
         createdAt: "2026-10-20T09:05:00+03:00",
       },
@@ -143,12 +169,14 @@ export const SEED_PLANS: PricingPlan[] = [
       {
         id: "pv-upcountry-1",
         effectiveFrom: "2026-09-15T00:00:00+03:00",
+        windows: UPCOUNTRY_WINDOWS,
+        // Legacy, for engine.ts / SwapRecordsTable / check-pricing.mjs only.
         standardRate: 80,
         customWindowStart: "22:00",
         customWindowEnd: "06:00",
         customRate: 60,
         notifyLeadHours: NOTE_LEAD,
-        notificationText: "Good news: from 15 Sep, swaps here cost KES 80/kWh, and KES 60/kWh between 22:00 and 06:00.",
+        notificationText: riderMessage("15 Sep", UPCOUNTRY_WINDOWS),
         createdBy: VIJAY,
         createdAt: "2026-09-08T14:00:00+03:00",
       },
@@ -164,12 +192,14 @@ export const SEED_PLANS: PricingPlan[] = [
       {
         id: "pv-night-rider-1",
         effectiveFrom: "2026-09-10T00:00:00+03:00",
+        windows: NIGHT_RIDER_WINDOWS,
+        // Legacy, for engine.ts / SwapRecordsTable / check-pricing.mjs only.
         standardRate: 90,
         customWindowStart: "23:00",
         customWindowEnd: "05:00",
         customRate: 55,
         notifyLeadHours: NOTE_LEAD,
-        notificationText: "Night Rider: from 10 Sep, swap here between 23:00 and 05:00 for KES 55/kWh.",
+        notificationText: riderMessage("10 Sep", NIGHT_RIDER_WINDOWS),
         createdBy: RAMESH,
         createdAt: "2026-09-05T16:45:00+03:00",
       },
@@ -185,12 +215,14 @@ export const SEED_PLANS: PricingPlan[] = [
       {
         id: "pv-nov-revision-1",
         effectiveFrom: "2026-11-01T00:00:00+03:00",
+        windows: NOV_REVISION_WINDOWS,
+        // Legacy, for engine.ts / SwapRecordsTable / check-pricing.mjs only.
         standardRate: 95,
         customWindowStart: "22:00",
         customWindowEnd: "06:00",
         customRate: 65,
         notifyLeadHours: NOTE_LEAD,
-        notificationText: "From 1 Nov, swaps at this station cost KES 95/kWh, and KES 65/kWh between 22:00 and 06:00.",
+        notificationText: riderMessage("1 Nov", NOV_REVISION_WINDOWS),
         createdBy: WILLIE,
         createdAt: "2026-10-21T15:30:00+03:00",
       },
@@ -227,27 +259,27 @@ export const SEED_ASSIGNMENTS: StationAssignment[] = [
 
 export const SEED_CHANGES: PlanChange[] = [
   { id: "pc-01", planId: "pp-default", at: "2025-12-20T10:00:00+03:00", by: RAMESH, kind: "created",
-    summary: "Created Default: Standard KES 90/kWh, Custom window 22:00–06:00 at KES 70/kWh", effectiveFrom: "2026-01-01T00:00:00+03:00" },
+    summary: `Created Default: 2 windows, ${windowsSummary(DEFAULT_WINDOWS)}`, effectiveFrom: "2026-01-01T00:00:00+03:00" },
 
   { id: "pc-02", planId: "pp-nbo-cbd", at: "2026-08-25T11:20:00+03:00", by: WILLIE, kind: "created",
-    summary: "Created plan: Standard KES 100/kWh, Custom window 22:00–06:00 at KES 70/kWh", effectiveFrom: "2026-09-01T00:00:00+03:00" },
+    summary: `Created plan: 3 windows, ${windowsSummary(CBD_WINDOWS)}`, effectiveFrom: "2026-09-01T00:00:00+03:00" },
   { id: "pc-03", planId: "pp-nbo-cbd", at: "2026-08-25T11:24:00+03:00", by: WILLIE, kind: "stations_assigned",
     summary: `Assigned 5 stations: ${CBD.join(", ")}`, effectiveFrom: "2026-09-01T00:00:00+03:00" },
   { id: "pc-04", planId: "pp-nbo-cbd", at: "2026-10-20T09:05:00+03:00", by: RAMESH, kind: "rates_changed",
-    summary: "Standard rate KES 100 → 105/kWh", effectiveFrom: "2026-11-15T00:00:00+03:00" },
+    summary: "06:00:00–16:59:59 100/80 → 105/85; 17:00:00–21:59:59 110/90 → 115/95", effectiveFrom: "2026-11-15T00:00:00+03:00" },
 
   { id: "pc-05", planId: "pp-upcountry", at: "2026-09-08T14:00:00+03:00", by: VIJAY, kind: "created",
-    summary: "Created plan: Standard KES 80/kWh, Custom window 22:00–06:00 at KES 60/kWh", effectiveFrom: "2026-09-15T00:00:00+03:00" },
+    summary: `Created plan: 2 windows, ${windowsSummary(UPCOUNTRY_WINDOWS)}`, effectiveFrom: "2026-09-15T00:00:00+03:00" },
   { id: "pc-06", planId: "pp-upcountry", at: "2026-09-08T14:06:00+03:00", by: VIJAY, kind: "stations_assigned",
     summary: `Assigned all Nanyuki and Nyeri stations (${UPCOUNTRY.length})`, effectiveFrom: "2026-09-15T00:00:00+03:00" },
 
   { id: "pc-07", planId: "pp-night-rider", at: "2026-09-05T16:45:00+03:00", by: RAMESH, kind: "created",
-    summary: "Created plan: Standard KES 90/kWh, Custom window 23:00–05:00 at KES 55/kWh", effectiveFrom: "2026-09-10T00:00:00+03:00" },
+    summary: `Created plan: 3 windows, ${windowsSummary(NIGHT_RIDER_WINDOWS)}`, effectiveFrom: "2026-09-10T00:00:00+03:00" },
   { id: "pc-08", planId: "pp-night-rider", at: "2026-09-05T16:50:00+03:00", by: RAMESH, kind: "stations_assigned",
     summary: `Assigned 3 stations: ${NIGHT_RIDER.join(", ")}`, effectiveFrom: "2026-09-10T00:00:00+03:00" },
 
   { id: "pc-09", planId: "pp-nov-revision", at: "2026-10-21T15:30:00+03:00", by: WILLIE, kind: "created",
-    summary: "Created plan: Standard KES 95/kWh, Custom window 22:00–06:00 at KES 65/kWh", effectiveFrom: "2026-11-01T00:00:00+03:00" },
+    summary: `Created plan: 4 windows, ${windowsSummary(NOV_REVISION_WINDOWS)}`, effectiveFrom: "2026-11-01T00:00:00+03:00" },
   { id: "pc-10", planId: "pp-nov-revision", at: "2026-10-21T15:34:00+03:00", by: WILLIE, kind: "stations_assigned",
     summary: `Assigned 3 stations: ${QUICKMART.join(", ")}`, effectiveFrom: "2026-11-01T00:00:00+03:00" },
 ];
