@@ -3,46 +3,28 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CalendarClock, Pencil, Plus, Trash2, Undo2, X } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
 import { AccessGuard } from "@/components/ui/AccessGuard";
 import { Topbar } from "@/components/layout/Topbar";
 import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
-import { Modal } from "@/components/ui/modal";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "@/store/toast";
 import { useAccess } from "@/lib/access";
 import { cn } from "@/lib/utils";
-import { ASSIGNMENT_LEAD_HOURS, usePricingStore } from "@/store/pricing-plans";
+import { usePricingStore } from "@/store/pricing-plans";
 import { ALL_STATION_IDS, PRICING_STATIONS } from "@/lib/mock/pricing-plans";
-import {
-  assignmentAt,
-  nextVersionAfter,
-  planStatus,
-  resolvePlan,
-  sortedVersions,
-  stationsOnPlan,
-  upcomingAssignments,
-  versionAt,
-} from "@/lib/pricing/engine";
-import { eatLocalToIso, fmtEat } from "@/lib/pricing/format";
+import { assignmentAt, planStatus, sortedVersions, stationsOnPlan, versionAt } from "@/lib/pricing/engine";
+import { fmtEat } from "@/lib/pricing/format";
 import { fmtSlabs, fmtRateWindow, fmtWindowCount, sortWindows } from "@/lib/pricing/windows";
 import type { PricingPlan } from "@/lib/pricing/types";
 import { DayBandBar } from "@/components/pricing-plans/DayBandBar";
 import { WindowRates } from "@/components/pricing-plans/WindowRates";
-import { NotificationPreview } from "@/components/pricing-plans/NotificationPreview";
 import { ChangeHistory } from "@/components/pricing-plans/ChangeHistory";
 import { PlanFormModal } from "@/components/pricing-plans/PlanFormModal";
 import { AssignStationsModal } from "@/components/pricing-plans/AssignStationsModal";
-import {
-  PlanStatusBadge,
-  inputCls,
-  labelCls,
-  nextEffectiveLocal,
-  useActorName,
-  usePricingBook,
-} from "@/components/pricing-plans/shared";
+import { PlanStatusBadge, useActorName, usePricingBook } from "@/components/pricing-plans/shared";
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -86,9 +68,8 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
   const [now] = useState(() => new Date().toISOString());
 
   const status = planStatus(book, plan, ALL_STATION_IDS, now);
-  const current = versionAt(plan, now);
-  const upcoming = nextVersionAfter(plan, now);
-  const shown = current ?? sortedVersions(plan)[0];
+  // Changes apply when saved, so a plan's latest version is in force.
+  const current = versionAt(plan, now) ?? sortedVersions(plan)[0];
   const stationCount = stationsOnPlan(book, plan.id, ALL_STATION_IDS, now).length;
   const deletable = !plan.isDefault && !book.assignments.some((a) => a.planId === plan.id);
 
@@ -139,12 +120,11 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
           <div className="grid gap-4 lg:grid-cols-2">
             <section className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
               <div className="flex items-baseline justify-between">
-                <h3 className="text-sm font-semibold text-slate-700">{current ? "Rates in force" : "Starting rates"}</h3>
-                <span className="text-[11px] text-slate-400">since {fmtEat(shown.effectiveFrom)}</span>
+                <h3 className="text-sm font-semibold text-slate-700">Rates in force</h3>
+                <span className="text-[11px] text-slate-400">Updated {fmtEat(current.effectiveFrom)}</span>
               </div>
-              {/* "Now" only applies to rates already in force. */}
-              <DayBandBar windows={shown.windows} now={current ? now : undefined} />
-              <WindowRates windows={shown.windows} now={current ? now : undefined} />
+              <DayBandBar windows={current.windows} now={now} />
+              <WindowRates windows={current.windows} now={now} />
               <p className="text-[11px] text-slate-400">KES per kWh. Slab 1 is a rider&apos;s first 3 kWh each day; slab 2 is everything after.</p>
               <p className="text-xs text-slate-500">
                 {plan.isDefault
@@ -154,15 +134,6 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
             </section>
 
             <section className="space-y-4">
-              {upcoming && (
-                <div className="bg-amber-50/60 border border-amber-200 rounded-xl p-5 space-y-3">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-amber-800">
-                    <CalendarClock className="w-4 h-4" /> Scheduled for {fmtEat(upcoming.effectiveFrom)}
-                  </h3>
-                  <WindowRates windows={upcoming.windows} />
-                  <NotificationPreview text={upcoming.notificationText} leadHours={upcoming.notifyLeadHours} effectiveFrom={upcoming.effectiveFrom} />
-                </div>
-              )}
               <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
                 <h3 className="text-sm font-semibold text-slate-700">How a swap is billed</h3>
                 <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
@@ -170,9 +141,6 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
                   <li>The time window is decided by when the swap completes.</li>
                   <li>Slab 1 applies to a rider&apos;s first 3 kWh that day, slab 2 to the rest. A change that starts mid-swap doesn&apos;t touch it.</li>
                 </ul>
-                {!upcoming && (
-                  <NotificationPreview text={shown.notificationText} leadHours={shown.notifyLeadHours} effectiveFrom={shown.effectiveFrom} />
-                )}
               </div>
             </section>
           </div>
@@ -182,19 +150,18 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
 
         {tab === "versions" && (
           <div className="bg-white border border-slate-200 rounded-xl overflow-auto">
-            <table className="w-full text-sm min-w-[760px]">
+            <table className="w-full text-sm min-w-[680px]">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   <th className="px-4 py-2.5">Effective from</th>
                   <th className="px-4 py-2.5">Windows · slab 1 / slab 2</th>
-                  <th className="px-4 py-2.5">Notice</th>
                   <th className="px-4 py-2.5">Created by</th>
                   <th className="px-4 py-2.5" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {sortedVersions(plan).reverse().map((v) => {
-                  const state = v.id === current?.id ? "In force" : new Date(v.effectiveFrom) > new Date(now) ? "Scheduled" : "Superseded";
+                  const state = v.id === current.id ? "In force" : "Superseded";
                   return (
                     <tr key={v.id} className="align-top">
                       <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{fmtEat(v.effectiveFrom)}</td>
@@ -209,14 +176,12 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
                           ))}
                         </ul>
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-500">{v.notifyLeadHours} h</td>
                       <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{v.createdBy} · {fmtEat(v.createdAt)}</td>
                       <td className="px-4 py-3">
                         <span
                           className={cn(
                             "px-2 py-0.5 rounded-full text-[11px] font-medium",
                             state === "In force" && "bg-emerald-50 text-emerald-700",
-                            state === "Scheduled" && "bg-amber-50 text-amber-700",
                             state === "Superseded" && "bg-slate-100 text-slate-500"
                           )}
                         >
@@ -266,8 +231,6 @@ function StationsTab({
   onAssign: () => void;
 }) {
   const book = usePricingBook();
-  const cancelAssignment = usePricingStore((s) => s.cancelAssignment);
-  const actor = useActorName();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [removing, setRemoving] = useState(false);
 
@@ -279,16 +242,6 @@ function StationsTab({
       })),
     [book, plan.id, now]
   );
-
-  // Moves still to come: stations joining this plan, and stations leaving it.
-  const joining = upcomingAssignments(book, plan.id, now);
-  const leaving = book.assignments
-    .filter((a) => new Date(a.effectiveFrom) > new Date(now) && a.planId !== plan.id)
-    .filter((a) => resolvePlan(book, a.stationId, new Date(new Date(a.effectiveFrom).getTime() - 1000).toISOString()).plan.id === plan.id);
-  const scheduled = [
-    ...joining.map((a) => ({ a, direction: "joins" as const })),
-    ...leaving.map((a) => ({ a, direction: "leaves" as const })),
-  ].sort((x, y) => x.a.effectiveFrom.localeCompare(y.a.effectiveFrom));
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -303,42 +256,6 @@ function StationsTab({
 
   return (
     <div className="space-y-4">
-      {scheduled.length > 0 && (
-        <section className="bg-white border border-amber-200 rounded-xl overflow-hidden">
-          <h3 className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-amber-800 bg-amber-50/60 border-b border-amber-200">
-            <CalendarClock className="w-3.5 h-3.5" /> Scheduled station moves
-          </h3>
-          <ul className="divide-y divide-slate-100">
-            {scheduled.map(({ a, direction }) => {
-              const s = STATION_BY_ID.get(a.stationId);
-              const target = a.planId ? book.plans.find((p) => p.id === a.planId)?.name : "Default";
-              return (
-                <li key={a.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-xs">
-                  <span className="font-mono text-slate-700">{a.stationId}</span>
-                  <span className="text-slate-500">{s?.shortAddress}</span>
-                  <span className={direction === "joins" ? "text-emerald-700 font-medium" : "text-amber-700 font-medium"}>
-                    {direction === "joins" ? "joins this plan" : `moves to ${target}`}
-                  </span>
-                  <span className="text-slate-400">on {fmtEat(a.effectiveFrom)} · by {a.assignedBy}</span>
-                  {canWrite && (
-                    <button
-                      onClick={() => {
-                        const res = cancelAssignment(a.id, actor);
-                        if (res.ok) toast.info("Move cancelled", `${a.stationId} stays where it is.`);
-                        else toast.error("Can't cancel", res.error);
-                      }}
-                      className="ml-auto inline-flex items-center gap-1 text-slate-400 hover:text-zeno-red"
-                    >
-                      <X className="w-3.5 h-3.5" /> Cancel
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
-
       <section className="bg-white border border-slate-200 rounded-xl overflow-hidden">
         <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-slate-200">
           <h3 className="text-xs font-semibold text-slate-700">
@@ -432,35 +349,29 @@ function MoveToDefaultModal({
 }) {
   const assignStations = usePricingStore((s) => s.assignStations);
   const actor = useActorName();
-  const [effectiveLocal, setEffectiveLocal] = useState(() => nextEffectiveLocal(ASSIGNMENT_LEAD_HOURS));
-  const [error, setError] = useState<string | null>(null);
+  const count = `${ids.length} station${ids.length === 1 ? "" : "s"}`;
 
   function handleConfirm() {
-    const iso = eatLocalToIso(effectiveLocal);
-    const res = assignStations(null, ids, iso, actor);
-    if (!res.ok) return setError(res.error);
-    toast.success(
-      `${ids.length} station${ids.length === 1 ? "" : "s"} scheduled`,
-      `They leave ${planName} for Default on ${fmtEat(iso)}.`
-    );
+    const res = assignStations(null, ids, actor);
+    if (!res.ok) {
+      toast.error("Can't move stations", res.error);
+      return onClose();
+    }
+    toast.success(`${count} moved`, `They left ${planName} for Default from now.`);
     onDone();
   }
 
   return (
-    <Modal open onClose={onClose} title={`Move ${ids.length} station${ids.length === 1 ? "" : "s"} to Default`}>
-      <div className="space-y-4">
-        <p className="text-xs text-slate-600">{ids.join(", ")}</p>
-        <div>
-          <label className={labelCls}>Effective from (EAT)</label>
-          <input className={inputCls} type="datetime-local" value={effectiveLocal} onChange={(e) => setEffectiveLocal(e.target.value)} />
-          <p className="text-[11px] text-slate-400 mt-1">At least {ASSIGNMENT_LEAD_HOURS} h from now, so riders get notice.</p>
-        </div>
-        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button variant="teal" onClick={handleConfirm}>Schedule move</Button>
-        </div>
-      </div>
-    </Modal>
+    <ConfirmModal
+      open
+      title={`Move ${count} to Default?`}
+      confirmLabel="Confirm"
+      tone="neutral"
+      onClose={onClose}
+      onConfirm={handleConfirm}
+    >
+      Their new rates apply to swaps from now.
+      <span className="block mt-2 text-xs text-slate-500">{ids.join(", ")}</span>
+    </ConfirmModal>
   );
 }

@@ -12,28 +12,16 @@ import { SearchInput } from "@/components/ui/FilterControls";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { useAccess } from "@/lib/access";
 import { ALL_STATION_IDS } from "@/lib/mock/pricing-plans";
-import {
-  nextVersionAfter,
-  planStatus,
-  stationsOnPlan,
-  upcomingAssignments,
-  versionAt,
-  sortedVersions,
-} from "@/lib/pricing/engine";
-import { fmtEat } from "@/lib/pricing/format";
+import { planStatus, stationsOnPlan, versionAt, sortedVersions } from "@/lib/pricing/engine";
+import { displayStatus, fmtEat } from "@/lib/pricing/format";
 import { fmtHHmmss, fmtSlabs, fmtWindowCount, parseHHmmss, windowAt } from "@/lib/pricing/windows";
 import { PlanFormModal } from "@/components/pricing-plans/PlanFormModal";
 import { PlanStatusBadge, usePricingBook } from "@/components/pricing-plans/shared";
 import { usePricingStore } from "@/store/pricing-plans";
 
-const STATUS_ORDER = { default: 0, active: 1, scheduled: 2, inactive: 3 } as const;
+const STATUS_ORDER = { default: 0, active: 1, inactive: 2 } as const;
 
 const SLABS_TIP = "Slab 1: a rider’s first 3 kWh each day. Slab 2: everything after.";
-
-/** "15 Nov 2026" in EAT. */
-function fmtEatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Africa/Nairobi" });
-}
 
 export default function PricingPlansPage() {
   const router = useRouter();
@@ -53,29 +41,19 @@ export default function PricingPlansPage() {
   const rows = useMemo(() => {
     return book.plans
       .map((plan) => {
-        const status = planStatus(book, plan, ALL_STATION_IDS, now);
-        // A plan that hasn't started yet shows the rates it will start with.
+        const status = displayStatus(planStatus(book, plan, ALL_STATION_IDS, now));
+        // Changes apply when saved, so the latest version is the one in force.
         const version = versionAt(plan, now) ?? sortedVersions(plan)[0];
         const stations = stationsOnPlan(book, plan.id, ALL_STATION_IDS, now).length;
-        const nextVersion = nextVersionAfter(plan, now);
-        const nextMove = upcomingAssignments(book, plan.id, now)[0];
-        const nextChange = [nextVersion?.effectiveFrom, nextMove?.effectiveFrom]
-          .filter((x): x is string => !!x)
-          .sort()[0];
         // The window pricing swaps right now, and the second the next one takes over.
         const current = windowAt(version.windows, now);
         const until = current ? fmtHHmmss(parseHHmmss(current.end) + 1) : null;
-        // A scheduled plan goes live once both its first stations and its first rates have started.
-        const startsAt = [nextMove?.effectiveFrom, sortedVersions(plan)[0]?.effectiveFrom]
-          .filter((x): x is string => !!x)
-          .sort()
-          .at(-1);
         const lastUpdated = changes
           .filter((c) => c.planId === plan.id)
           .map((c) => c.at)
           .sort()
           .at(-1);
-        return { plan, status, version, stations, nextChange, current, until, startsAt, lastUpdated };
+        return { plan, status, version, stations, current, until, lastUpdated };
       })
       .filter(({ plan }) => {
         const q = query.trim().toLowerCase();
@@ -86,10 +64,6 @@ export default function PricingPlansPage() {
 
   const defaultId = book.plans.find((p) => p.isDefault)?.id;
   const onDefault = defaultId ? stationsOnPlan(book, defaultId, ALL_STATION_IDS, now).length : 0;
-  const scheduledCount = book.plans.reduce(
-    (n, p) => n + (nextVersionAfter(p, now) ? 1 : 0) + upcomingAssignments(book, p.id, now).length,
-    0
-  );
 
   return (
     <AccessGuard module="pricing">
@@ -111,16 +85,10 @@ export default function PricingPlansPage() {
         </div>
 
         <div className="flex flex-col flex-1 overflow-auto p-5 gap-4">
-          <StatGrid cols={4}>
+          <StatGrid cols={3}>
             <StatCard label="Pricing plans" value={book.plans.length} />
             <StatCard label="Stations on custom plans" value={ALL_STATION_IDS.length - onDefault} valueColor="text-teal-700" />
             <StatCard label="Stations on Default" value={onDefault} />
-            <StatCard
-              label="Scheduled changes"
-              value={scheduledCount}
-              valueColor={scheduledCount > 0 ? "text-amber-600" : undefined}
-              sublabel="Rate versions and station moves"
-            />
           </StatGrid>
 
           <div className="bg-white border border-slate-200 rounded-xl overflow-auto">
@@ -155,7 +123,7 @@ export default function PricingPlansPage() {
                     <td colSpan={6} className="px-4 py-14 text-center text-slate-400 text-sm">No plan matches “{query}”.</td>
                   </tr>
                 )}
-                {rows.map(({ plan, status, version, stations, nextChange, current, until, startsAt, lastUpdated }) => (
+                {rows.map(({ plan, status, version, stations, current, until, lastUpdated }) => (
                   <tr
                     key={plan.id}
                     className="hover:bg-slate-50 cursor-pointer"
@@ -169,14 +137,9 @@ export default function PricingPlansPage() {
                     </td>
                     <td className="px-4 py-3">
                       <PlanStatusBadge status={status} />
-                      {(status === "active" || status === "default") && nextChange && (
-                        <p className="text-[11px] text-slate-400 mt-1 whitespace-nowrap">Changes {fmtEatDate(nextChange)}</p>
-                      )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      {status === "scheduled" ? (
-                        <p className="text-slate-400">{startsAt ? `Starts ${fmtEatDate(startsAt)}` : "Not started"}</p>
-                      ) : current ? (
+                      {current ? (
                         <p className="tabular-nums text-slate-700">
                           {fmtSlabs(current)} <span className="text-slate-400">· until {until}</span>
                         </p>

@@ -82,12 +82,6 @@ export function windowsSummary(windows: RateWindow[]): string {
   return sortWindows(windows).map((w) => `${fmtRateWindow(w)} ${w.slab1}/${w.slab2}`).join(" · ");
 }
 
-/** What riders are told. `when` is a date such as "15 Nov". */
-export function riderMessage(when: string, windows: RateWindow[]): string {
-  const list = sortWindows(windows).map((w) => `${fmtRateWindow(w)} ${w.slab1}/${w.slab2}`).join(", ");
-  return `From ${when}, swaps at this station cost, in KES/kWh for your first 3 kWh of the day / after that: ${list}.`;
-}
-
 export function sameWindows(a: RateWindow[], b: RateWindow[]): boolean {
   const x = sortWindows(a);
   const y = sortWindows(b);

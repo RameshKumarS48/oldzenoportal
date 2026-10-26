@@ -41,9 +41,6 @@ export interface PlanVersion {
   customWindowEnd: string;
   /** @deprecated Legacy: read only by engine.ts, SwapRecordsTable and check-pricing.mjs. */
   customRate: number;
-  /** Riders must hear about the change at least this many hours before it applies. */
-  notifyLeadHours: number;
-  notificationText: string;
   createdBy: string;
   createdAt: string;
 }
