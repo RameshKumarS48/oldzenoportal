@@ -1,11 +1,25 @@
 import { inRateWindow, eatSecondOfDay, fmtRateWindow, sortWindows } from "@/lib/pricing/windows";
 import type { RateWindow } from "@/lib/pricing/types";
+import { cn } from "@/lib/utils";
+import { WindowSwatch } from "./DayBandBar";
 
 /**
  * A version's windows and their two slab rates, earliest first. With `now`,
- * the window in force at that EAT time is tagged.
+ * the window in force at that EAT time is tagged. Swatches use the day bar's
+ * colours in time order; `highlighted` and `onHighlight` (a window's start)
+ * link a row to its band.
  */
-export function WindowRates({ windows, now }: { windows: RateWindow[]; now?: string }) {
+export function WindowRates({
+  windows,
+  now,
+  highlighted,
+  onHighlight,
+}: {
+  windows: RateWindow[];
+  now?: string;
+  highlighted?: string | null;
+  onHighlight?: (start: string | null) => void;
+}) {
   const second = now ? eatSecondOfDay(now) : null;
   return (
     <table className="w-full text-sm">
@@ -17,9 +31,15 @@ export function WindowRates({ windows, now }: { windows: RateWindow[]; now?: str
         </tr>
       </thead>
       <tbody className="divide-y divide-slate-100">
-        {sortWindows(windows).map((w) => (
-          <tr key={w.start}>
+        {sortWindows(windows).map((w, i) => (
+          <tr
+            key={w.start}
+            onMouseEnter={() => onHighlight?.(w.start)}
+            onMouseLeave={() => onHighlight?.(null)}
+            className={cn("transition-colors", highlighted === w.start && "bg-slate-50")}
+          >
             <td className="py-2 tabular-nums text-slate-600 whitespace-nowrap">
+              <WindowSwatch color={i} className="mr-2 align-[-1px]" />
               {fmtRateWindow(w)}
               {second !== null && inRateWindow(second, w) && (
                 <span className="ml-2 px-1.5 py-0.5 rounded bg-slate-100 text-[10px] font-semibold text-slate-600">Now</span>

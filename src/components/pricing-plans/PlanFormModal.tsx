@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, ArrowRight, Info, Plus, X } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -8,52 +8,37 @@ import { toast } from "@/store/toast";
 import { usePricingStore, type VersionInput } from "@/store/pricing-plans";
 import { ALL_STATION_IDS } from "@/lib/mock/pricing-plans";
 import { sortedVersions, stationsOnPlan } from "@/lib/pricing/engine";
+import { fmtRateWindow, fmtSlabs, sameWindows, sortWindows } from "@/lib/pricing/windows";
 import {
-  MAX_WINDOWS,
-  fmtHHmmss,
-  fmtRateWindow,
-  fmtSlabs,
-  parseHHmmss,
-  sameWindows,
-  sortWindows,
-  validateWindows,
-  windowSeconds,
-} from "@/lib/pricing/windows";
+  fromChoices,
+  rateError,
+  removeRow,
+  rowEnd,
+  rowsToWindows,
+  setFrom,
+  setUntil,
+  splitBlocked,
+  splitLongest,
+  untilChoices,
+  untilValue,
+  windowsToRows,
+  type HourRow,
+  type MovedField,
+  type RowsChange,
+} from "@/lib/pricing/hour-rows";
 import type { PricingPlan, RateWindow } from "@/lib/pricing/types";
 import { cn } from "@/lib/utils";
-import { DayBandBar } from "./DayBandBar";
+import { DayBandBar, WindowSwatch } from "./DayBandBar";
+import { HourSelect } from "./HourSelect";
 import { inputCls, labelCls, useActorName, usePricingBook } from "./shared";
-
-/** A window as the form edits it: its start and two rates. Its end is the second before the next start. */
-interface WindowRow {
-  key: string;
-  start: string;
-  slab1: string;
-  slab2: string;
-}
 
 let rowSeq = 0;
 const rowKey = () => `w${++rowSeq}`;
 
-/** `<input type="time" step="1">` can drop ":00" seconds; keep "HH:mm:ss". */
-function withSeconds(t: string): string {
-  return t.length === 5 ? `${t}:00` : t;
-}
+const ROW_GRID = "grid grid-cols-[0.75rem_minmax(0,1.15fr)_minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2";
 
-/**
- * Rows chained into windows: sorted by start, each ends the second before the
- * next one starts and the last wraps to the first, so they always cover the
- * day once. Only the start times and rates can be wrong.
- */
-function rowsToWindows(rows: WindowRow[]): RateWindow[] {
-  const sorted = [...rows].sort((a, b) => a.start.localeCompare(b.start));
-  return sorted.map((r, i) => ({
-    start: r.start,
-    end: fmtHHmmss(parseHHmmss(sorted[(i + 1) % sorted.length].start) - 1),
-    slab1: r.slab1.trim() === "" ? NaN : Number(r.slab1),
-    slab2: r.slab2.trim() === "" ? NaN : Number(r.slab2),
-  }));
-}
+/** The app's selection highlight, for a field an edit just moved. */
+const MOVED_FIELD = "bg-teal-50 border-teal-300";
 
 /**
  * Before → after, one row per window time range. A range only in one set
@@ -99,9 +84,10 @@ function RatesDiff({ before, after }: { before?: RateWindow[]; after: RateWindow
 }
 
 /**
- * New plan, or new rates for an existing one. Saving asks for confirmation,
- * then applies at once: an existing plan gets a new version in force from now,
- * so swaps already priced (or in progress) keep the rates they started on.
+ * New plan, or new rates for an existing one. Windows are edited in whole
+ * hours and always cover the day (see hour-rows.ts). Saving asks for
+ * confirmation, then applies at once: an existing plan gets a new version in
+ * force from now, so swaps already priced (or in progress) keep their rates.
  */
 export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onClose: () => void }) {
   const createPlan = usePricingStore((s) => s.createPlan);
@@ -111,55 +97,91 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
   const book = usePricingBook();
 
   const latest = plan ? sortedVersions(plan).at(-1) : undefined;
-  // A new plan starts from Default's latest windows.
-  const defaultPlan = usePricingStore((s) => s.plans.find((p) => p.isDefault));
-  const startingWindows = latest?.windows ?? (defaultPlan ? sortedVersions(defaultPlan).at(-1)?.windows : undefined) ?? [];
 
   const [name, setName] = useState(plan?.name ?? "");
-  const [description, setDescription] = useState(plan?.description ?? "");
-  const [rows, setRows] = useState<WindowRow[]>(() =>
-    sortWindows(startingWindows).map((w) => ({ key: rowKey(), start: w.start, slab1: String(w.slab1), slab2: String(w.slab2) }))
+  // A new plan starts as one all-day window with no rates yet.
+  const [rows, setRows] = useState<HourRow[]>(() =>
+    latest ? windowsToRows(latest.windows, rowKey) : [{ key: rowKey(), start: 0, slab1: "", slab2: "", color: 0 }]
   );
+  /** Rate inputs left at least once, "key:slab1"; their errors show from then on. */
+  const [touched, setTouched] = useState<Set<string>>(new Set());
+  /** The neighbour the last edit moved; a new object each time, so its timers restart. */
+  const [moved, setMoved] = useState<MovedField | null>(null);
+  /** True for the first ~1.5 s of `moved`: its field and bar boundary are highlighted. */
+  const [flash, setFlash] = useState(false);
+  /** The window under the pointer or focus, by row key, shared by the rows and the bar. */
+  const [highlight, setHighlight] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** Set while the confirmation shows: how many stations the change reaches. */
   const [confirming, setConfirming] = useState<{ stations: number } | null>(null);
 
+  const slabInputs = useRef(new Map<string, HTMLInputElement>());
+  const focusNext = useRef<string | null>(null);
+
   const windows = rowsToWindows(rows);
-  const windowError = validateWindows(windows);
-  const endOf = new Map(windows.map((w) => [w.start, w.end]));
   const ratesChanged = !latest || !sameWindows(windows, latest.windows);
+  const missingRates = rows.some((r) => rateError(r.slab1) || rateError(r.slab2));
+  const blocked = splitBlocked(rows);
+  const locked = rows.length === 1;
 
-  const setRow = (key: string, patch: Partial<WindowRow>) =>
-    setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  // Focus a new row's Slab 1 once it has rendered.
+  useEffect(() => {
+    if (!focusNext.current) return;
+    slabInputs.current.get(focusNext.current)?.focus();
+    focusNext.current = null;
+  });
 
-  /** Back into start order once a start time is done changing. */
-  const sortRows = () => setRows((rs) => [...rs].sort((a, b) => a.start.localeCompare(b.start)));
+  // A moved field stays highlighted ~1.5 s; its note stays 4 s.
+  useEffect(() => {
+    if (!moved) return;
+    const fade = setTimeout(() => setFlash(false), 1500);
+    const hide = setTimeout(() => setMoved(null), 4000);
+    return () => {
+      clearTimeout(fade);
+      clearTimeout(hide);
+    };
+  }, [moved]);
 
-  /** Split the longest window at its midpoint, rounded down to the minute; the new half copies its rates. */
+  const apply = (change: RowsChange) => {
+    setRows(change.rows);
+    setMoved(change.moved);
+    setFlash(true);
+  };
+
+  /** Any other edit clears the last "Moved to…" note. */
+  const clearMoved = () => {
+    setMoved(null);
+    setFlash(false);
+  };
+
+  const setRate = (key: string, field: "slab1" | "slab2", value: string) => {
+    clearMoved();
+    setRows((rs) => rs.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
+  };
+
+  // Where the moved boundary now sits on the bar, in seconds past midnight.
+  const movedIndex = moved ? rows.findIndex((r) => r.key === moved.key) : -1;
+  const pulse =
+    flash && movedIndex >= 0
+      ? (moved!.field === "from" ? rows[movedIndex].start : rowEnd(rows, movedIndex) || 24) * 3600
+      : null;
+
+  const touch = (id: string) => setTouched((t) => (t.has(id) ? t : new Set(t).add(id)));
+
   function addWindow() {
-    const longest = windows.reduce((a, b) => (windowSeconds(b) > windowSeconds(a) ? b : a));
-    const half = Math.floor(windowSeconds(longest) / 2 / 60) * 60;
-    if (half < 60) return;
-    const source = rows.find((r) => r.start === longest.start);
-    const start = fmtHHmmss(parseHHmmss(longest.start) + half);
-    setRows((rs) =>
-      [...rs, { key: rowKey(), start, slab1: source?.slab1 ?? "", slab2: source?.slab2 ?? "" }].sort((a, b) =>
-        a.start.localeCompare(b.start)
-      )
-    );
+    clearMoved();
+    const key = rowKey();
+    focusNext.current = key;
+    setRows((rs) => splitLongest(rs, key));
   }
 
-  /** The window before it takes over the removed one's time. */
-  const removeWindow = (key: string) => setRows((rs) => rs.filter((r) => r.key !== key));
-
-  /** Rate changes and new plans confirm first; a name or description change saves straight away. */
+  /** A name change alone saves straight away; new plans and rate changes confirm first. */
   function handleSave() {
     if (!name.trim()) return setError("Give the plan a name.");
+    if (missingRates) return;
     setError(null);
-    // Already shown under the windows.
-    if (windowError) return;
     if (!ratesChanged && plan) {
-      const res = renamePlan(plan.id, name, description, actor);
+      const res = renamePlan(plan.id, name, actor);
       if (!res.ok) return setError(res.error);
       toast.success("Plan updated", `${name.trim()} was saved.`);
       return onClose();
@@ -177,13 +199,13 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
     };
 
     if (!plan) {
-      const res = createPlan({ name, description, version }, actor);
+      const res = createPlan({ name, version }, actor);
       if (!res.ok) return fail(res.error);
       toast.success("Plan created", `${name.trim()} is ready. Assign stations to put it to use.`);
       return onClose();
     }
 
-    const renamed = renamePlan(plan.id, name, description, actor);
+    const renamed = renamePlan(plan.id, name, actor);
     if (!renamed.ok) return fail(renamed.error);
     const res = addVersion(plan.id, version, actor);
     if (!res.ok) return fail(res.error);
@@ -220,96 +242,152 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
         </div>
       ) : (
         <div className="space-y-5">
-          <section className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Plan name</label>
-              <input
-                className={inputCls}
-                value={name}
-                disabled={plan?.isDefault}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Nairobi CBD"
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Description</label>
-              <input
-                className={inputCls}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Who it's for"
-              />
-            </div>
-          </section>
+          <div className="sm:w-1/2">
+            <label htmlFor="plan-name" className={labelCls}>Plan name</label>
+            <input
+              id="plan-name"
+              className={inputCls}
+              value={name}
+              disabled={plan?.isDefault}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Nairobi CBD"
+            />
+          </div>
 
           <section className="space-y-3">
-            <div className="flex items-baseline justify-between gap-3">
-              <h3 className="text-xs font-semibold text-slate-700">Time windows (EAT) and rates (KES per kWh)</h3>
-              <p className="text-[11px] text-slate-400">Slab 1: first 3 kWh a day · Slab 2: after</p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-xs font-semibold text-slate-700">Time windows (EAT) and rates (KES per kWh)</h3>
+                <p className="mt-0.5 text-[11px] text-slate-400">
+                  Windows always cover the full day. Changing where one ends moves where the next begins.
+                </p>
+              </div>
+              <p className="shrink-0 text-[11px] text-slate-400">Slab 1: first 3 kWh a day · Slab 2: after</p>
             </div>
+
             <div className="space-y-2">
-              <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2">
+              <div className={ROW_GRID}>
+                <span />
                 <span className={labelCls}>From</span>
                 <span className={labelCls}>Until</span>
                 <span className={labelCls}>Slab 1</span>
                 <span className={labelCls}>Slab 2</span>
                 <span />
               </div>
-              {rows.map((r) => {
-                const end = endOf.get(r.start);
-                const bad = (v: string) => !(Number(v) > 0);
+              {rows.map((r, i) => {
+                const w = windows[i];
+                const label = fmtRateWindow(w);
+                const err1 = rateError(r.slab1);
+                const err2 = rateError(r.slab2);
+                const show1 = err1 && (touched.has(`${r.key}:slab1`) || r.slab1 !== "");
+                const show2 = err2 && (touched.has(`${r.key}:slab2`) || r.slab2 !== "");
+                const movedHere = moved?.key === r.key ? moved : null;
                 return (
-                  <div key={r.key} className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2 items-center">
-                    <input
-                      className={cn(inputCls, "tabular-nums")}
-                      type="time"
-                      step={1}
-                      aria-label="Window starts"
-                      value={r.start}
-                      onChange={(e) => e.target.value && setRow(r.key, { start: withSeconds(e.target.value) })}
-                      onBlur={sortRows}
-                    />
-                    <span className="px-1 text-sm tabular-nums text-slate-500">{end ?? "–"}</span>
-                    <input
-                      className={cn(inputCls, "tabular-nums", bad(r.slab1) && "border-red-300")}
-                      type="number"
-                      min={1}
-                      step="0.5"
-                      aria-label={`Slab 1 rate from ${r.start}`}
-                      value={r.slab1}
-                      onChange={(e) => setRow(r.key, { slab1: e.target.value })}
-                    />
-                    <input
-                      className={cn(inputCls, "tabular-nums", bad(r.slab2) && "border-red-300")}
-                      type="number"
-                      min={1}
-                      step="0.5"
-                      aria-label={`Slab 2 rate from ${r.start}`}
-                      value={r.slab2}
-                      onChange={(e) => setRow(r.key, { slab2: e.target.value })}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeWindow(r.key)}
-                      disabled={rows.length === 1}
-                      aria-label={`Remove the window from ${r.start}`}
-                      title="Remove window: the one before it takes over its time"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
+                  <div key={r.key}>
+                    <div
+                      onMouseEnter={() => setHighlight(r.key)}
+                      onMouseLeave={() => setHighlight(null)}
+                      className={cn(ROW_GRID, "items-start rounded-lg -mx-1 px-1 py-1 transition-colors", highlight === r.key && "bg-slate-50")}
                     >
-                      <X className="w-4 h-4" />
-                    </button>
+                      <WindowSwatch color={r.color} className="mt-3" />
+                      <HourSelect
+                        aria-label={`Window ${i + 1} from`}
+                        value={r.start}
+                        options={fromChoices(rows, i)}
+                        onChange={(h) => apply(setFrom(rows, i, h))}
+                        disabled={locked}
+                        className={cn(flash && movedHere?.field === "from" && MOVED_FIELD)}
+                      />
+                      <HourSelect
+                        aria-label={`Window ${i + 1} until`}
+                        value={untilValue(rows, i)}
+                        options={untilChoices(rows, i)}
+                        onChange={(v) => apply(setUntil(rows, i, v))}
+                        disabled={locked}
+                        className={cn(flash && movedHere?.field === "until" && MOVED_FIELD)}
+                      />
+                      {(["slab1", "slab2"] as const).map((field) => {
+                        const err = field === "slab1" ? err1 : err2;
+                        const show = field === "slab1" ? show1 : show2;
+                        const errId = `${r.key}-${field}-error`;
+                        return (
+                          <div key={field}>
+                            <input
+                              ref={(el) => {
+                                if (field !== "slab1") return;
+                                if (el) slabInputs.current.set(r.key, el);
+                                else slabInputs.current.delete(r.key);
+                              }}
+                              className={cn(inputCls, "tabular-nums", show && "border-red-300")}
+                              inputMode="numeric"
+                              aria-label={`${field === "slab1" ? "Slab 1" : "Slab 2"} rate, ${label}`}
+                              aria-invalid={show ? true : undefined}
+                              aria-describedby={show ? errId : undefined}
+                              value={r[field]}
+                              onChange={(e) => setRate(r.key, field, e.target.value)}
+                              onBlur={() => touch(`${r.key}:${field}`)}
+                            />
+                            {show && <p id={errId} className="mt-1 text-[11px] text-red-600">{err}</p>}
+                          </div>
+                        );
+                      })}
+                      {locked ? (
+                        <span />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            clearMoved();
+                            setRows((rs) => removeRow(rs, r.key));
+                          }}
+                          aria-label={`Remove window ${label}`}
+                          title="Remove window: the one before it takes over its hours"
+                          className="flex h-9 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    {/* Read out by the live region below, so hidden from screen readers here. */}
+                    {movedHere && (
+                      <p aria-hidden="true" className="pl-6 pb-1 text-[11px] text-slate-500">{movedHere.note}</p>
+                    )}
                   </div>
                 );
               })}
-              <div className="flex items-center justify-between gap-3">
-                <Button variant="ghost" size="sm" onClick={addWindow} disabled={rows.length >= MAX_WINDOWS}>
-                  <Plus className="w-3.5 h-3.5" /> Add window
-                </Button>
-                <p className="text-[11px] text-slate-400">Each window runs until the second before the next one starts.</p>
-              </div>
-              {windowError && <p className="text-xs text-red-600">{windowError}</p>}
+
+              <p aria-live="polite" className="sr-only">{moved?.note ?? ""}</p>
+
+              {locked && (
+                <p className="text-[11px] text-slate-400">One rate all day. Add a window to charge a different rate at certain hours.</p>
+              )}
+
+              <button
+                type="button"
+                onClick={addWindow}
+                disabled={!!blocked}
+                className={cn(
+                  "flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed px-3 py-2 text-sm transition-colors",
+                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40",
+                  blocked
+                    ? "cursor-not-allowed border-slate-200 text-slate-400"
+                    : "border-slate-300 text-slate-500 hover:border-zeno-teal hover:bg-teal-50/50 hover:text-zeno-teal"
+                )}
+              >
+                {blocked ?? (
+                  <>
+                    <Plus className="w-3.5 h-3.5" /> Add window
+                  </>
+                )}
+              </button>
             </div>
-            <DayBandBar windows={windows.map((w) => ({ ...w, slab1: w.slab1 || 0, slab2: w.slab2 || 0 }))} />
+
+            <DayBandBar
+              items={rows.map((r, i) => ({ id: r.key, window: windows[i], color: r.color }))}
+              highlighted={highlight}
+              onHighlight={setHighlight}
+              pulse={pulse}
+            />
           </section>
 
           {error && (
@@ -319,9 +397,10 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
             </p>
           )}
 
-          <div className="flex justify-end gap-2 pt-1">
+          <div className="flex items-center justify-end gap-3 pt-1">
+            {missingRates && <p className="mr-auto text-[11px] text-slate-400">Enter both rates for every window to save.</p>}
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button variant="teal" onClick={handleSave}>
+            <Button variant="teal" onClick={handleSave} disabled={missingRates}>
               {plan ? "Save" : "Create plan"}
             </Button>
           </div>

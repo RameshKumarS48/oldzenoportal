@@ -14,7 +14,7 @@ import { useAccess } from "@/lib/access";
 import { ALL_STATION_IDS } from "@/lib/mock/pricing-plans";
 import { planStatus, stationsOnPlan, versionAt, sortedVersions } from "@/lib/pricing/engine";
 import { displayStatus, fmtEat } from "@/lib/pricing/format";
-import { fmtHHmmss, fmtSlabs, fmtWindowCount, parseHHmmss, windowAt } from "@/lib/pricing/windows";
+import { fmtHHmmss, fmtSlabs, fmtWindowCount, windowAt, windowBoundary } from "@/lib/pricing/windows";
 import { PlanFormModal } from "@/components/pricing-plans/PlanFormModal";
 import { PlanStatusBadge, usePricingBook } from "@/components/pricing-plans/shared";
 import { usePricingStore } from "@/store/pricing-plans";
@@ -47,7 +47,7 @@ export default function PricingPlansPage() {
         const stations = stationsOnPlan(book, plan.id, ALL_STATION_IDS, now).length;
         // The window pricing swaps right now, and the second the next one takes over.
         const current = windowAt(version.windows, now);
-        const until = current ? fmtHHmmss(parseHHmmss(current.end) + 1) : null;
+        const until = current ? fmtHHmmss(windowBoundary(current)) : null;
         const lastUpdated = changes
           .filter((c) => c.planId === plan.id)
           .map((c) => c.at)
@@ -57,7 +57,7 @@ export default function PricingPlansPage() {
       })
       .filter(({ plan }) => {
         const q = query.trim().toLowerCase();
-        return !q || plan.name.toLowerCase().includes(q) || plan.description.toLowerCase().includes(q);
+        return !q || plan.name.toLowerCase().includes(q);
       })
       .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.plan.name.localeCompare(b.plan.name));
   }, [book, changes, query, now]);
@@ -133,7 +133,6 @@ export default function PricingPlansPage() {
                       <Link href={`/swap-station-pricing/${plan.id}`} className="font-medium text-slate-800 hover:underline" onClick={(e) => e.stopPropagation()}>
                         {plan.name}
                       </Link>
-                      <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">{plan.description}</p>
                     </td>
                     <td className="px-4 py-3">
                       <PlanStatusBadge status={status} />

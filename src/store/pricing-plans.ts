@@ -69,9 +69,9 @@ function toVersion(v: VersionInput, by: string, at: string): PlanVersion {
 
 interface PricingState extends PricingBook {
   changes: PlanChange[];
-  createPlan: (input: { name: string; description: string; version: VersionInput }, by: string) => Result & { planId?: string };
+  createPlan: (input: { name: string; version: VersionInput }, by: string) => Result & { planId?: string };
   addVersion: (planId: string, version: VersionInput, by: string) => Result;
-  renamePlan: (planId: string, name: string, description: string, by: string) => Result;
+  renamePlan: (planId: string, name: string, by: string) => Result;
   /** Move stations onto a plan, or back to Default with `planId: null`, from now. */
   assignStations: (planId: string | null, stationIds: string[], by: string) => Result;
   deletePlan: (planId: string) => Result;
@@ -90,7 +90,7 @@ export const usePricingStore = create<PricingState>()(
         assignments: SEED_ASSIGNMENTS,
         changes: SEED_CHANGES,
 
-        createPlan: ({ name, description, version }, by) => {
+        createPlan: ({ name, version }, by) => {
           const trimmed = name.trim();
           if (!trimmed) return { ok: false, error: "Give the plan a name." };
           if (get().plans.some((p) => p.name.toLowerCase() === trimmed.toLowerCase())) {
@@ -104,7 +104,6 @@ export const usePricingStore = create<PricingState>()(
           const plan: PricingPlan = {
             id: planId,
             name: trimmed,
-            description: description.trim(),
             isDefault: false,
             createdAt: now,
             versions: [toVersion(version, by, now)],
@@ -135,7 +134,7 @@ export const usePricingStore = create<PricingState>()(
           return { ok: true };
         },
 
-        renamePlan: (planId, name, description, by) => {
+        renamePlan: (planId, name, by) => {
           const plan = get().plans.find((p) => p.id === planId);
           if (!plan) return { ok: false, error: "That plan no longer exists." };
           const trimmed = name.trim();
@@ -143,13 +142,13 @@ export const usePricingStore = create<PricingState>()(
           if (get().plans.some((p) => p.id !== planId && p.name.toLowerCase() === trimmed.toLowerCase())) {
             return { ok: false, error: `A plan called "${trimmed}" already exists.` };
           }
-          if (trimmed === plan.name && description.trim() === plan.description) return { ok: true };
+          if (trimmed === plan.name) return { ok: true };
           set((s) => ({
-            plans: s.plans.map((p) => (p.id === planId ? { ...p, name: trimmed, description: description.trim() } : p)),
+            plans: s.plans.map((p) => (p.id === planId ? { ...p, name: trimmed } : p)),
           }));
           log({
             planId, by, kind: "renamed",
-            summary: trimmed === plan.name ? "Updated the description" : `Renamed "${plan.name}" → "${trimmed}"`,
+            summary: `Renamed "${plan.name}" → "${trimmed}"`,
           });
           return { ok: true };
         },
@@ -215,8 +214,9 @@ export const usePricingStore = create<PricingState>()(
     },
     {
       name: "zeno-pricing-plans",
-      // 2: versions carry `windows`. 3: nothing is scheduled. Anything saved before is reset to the seed.
-      version: 3,
+      // 2: versions carry `windows`. 3: nothing is scheduled. 4–5: history time format.
+      // Anything saved before is reset to the seed.
+      version: 5,
       partialize: (s) => ({ plans: s.plans, assignments: s.assignments, changes: s.changes }),
       migrate: () => ({ plans: SEED_PLANS, assignments: SEED_ASSIGNMENTS, changes: SEED_CHANGES }),
     }

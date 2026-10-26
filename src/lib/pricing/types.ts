@@ -48,7 +48,6 @@ export interface PlanVersion {
 export interface PricingPlan {
   id: string;
   name: string;
-  description: string;
   /** The fallback for any station without an assignment. Exactly one plan has this. */
   isDefault: boolean;
   /** Append-only, any order. */

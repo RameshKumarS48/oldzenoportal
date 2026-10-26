@@ -99,7 +99,6 @@ export const SEED_PLANS: PricingPlan[] = [
   {
     id: "pp-default",
     name: "Default",
-    description: "Applies to every station that isn't on another plan.",
     isDefault: true,
     createdAt: "2026-01-01T00:00:00+03:00",
     versions: [
@@ -120,7 +119,6 @@ export const SEED_PLANS: PricingPlan[] = [
   {
     id: "pp-nbo-cbd",
     name: "Nairobi CBD",
-    description: "Busy central Nairobi stations: higher daytime rate to spread demand.",
     isDefault: false,
     createdAt: "2026-08-25T11:20:00+03:00",
     versions: [
@@ -141,7 +139,6 @@ export const SEED_PLANS: PricingPlan[] = [
   {
     id: "pp-upcountry",
     name: "Upcountry Saver",
-    description: "Lower rates for Nanyuki and Nyeri riders.",
     isDefault: false,
     createdAt: "2026-09-08T14:00:00+03:00",
     versions: [
@@ -162,7 +159,6 @@ export const SEED_PLANS: PricingPlan[] = [
   {
     id: "pp-night-rider",
     name: "Night Rider Promo",
-    description: "Deep late-night rate for night-shift riders at three Nairobi hubs.",
     isDefault: false,
     createdAt: "2026-09-05T16:45:00+03:00",
     versions: [
@@ -183,7 +179,6 @@ export const SEED_PLANS: PricingPlan[] = [
   {
     id: "pp-nov-revision",
     name: "Nov 2026 Revision",
-    description: "Revised rates drafted for the Quickmart stations.",
     isDefault: false,
     createdAt: "2026-10-21T15:30:00+03:00",
     versions: [

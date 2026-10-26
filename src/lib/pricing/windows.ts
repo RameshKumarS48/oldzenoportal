@@ -1,11 +1,15 @@
 /**
  * Time windows: how every swap-station-pricing screen reads a plan's rates.
  *
- * A version's windows cover the whole day exactly once. Times are "HH:mm:ss"
- * EAT and both ends are inclusive, so one window ends the second before the
- * next begins (06:00:00–16:59:59, then 17:00:00–21:59:59) and no second is in
- * two windows. A window whose end is before its start wraps past midnight
- * (22:00:00–05:59:59). One window can cover the whole day: 00:00:00–23:59:59.
+ * A version's windows cover the whole day exactly once. Times are stored as
+ * "HH:mm:ss" EAT with both ends inclusive, so one window ends the second
+ * before the next begins (06:00:00–16:59:59, then 17:00:00–21:59:59) and no
+ * second is in two windows. A window whose end is before its start wraps past
+ * midnight (22:00:00–05:59:59). One window can cover the whole day:
+ * 00:00:00–23:59:59.
+ *
+ * Screens show the same "HH:mm:ss" times, inclusive ends and all:
+ * "06:00:00 → 16:59:59", "22:00:00 → 05:59:59", "00:00:00 → 23:59:59".
  *
  * Each window has two rates in KES per kWh: slab 1 for a rider's first
  * 3 kWh each day, slab 2 for everything after.
@@ -15,6 +19,24 @@ import type { PlanVersion, RateWindow } from "./types";
 
 export const DAY_SECONDS = 86_400;
 export const MAX_WINDOWS = 6;
+/** Rates are whole KES per kWh in this range. */
+export const MIN_RATE = 1;
+export const MAX_RATE = 500;
+
+/** Is the rate a whole number from MIN_RATE to MAX_RATE? */
+export function isValidRate(n: number): boolean {
+  return Number.isInteger(n) && n >= MIN_RATE && n <= MAX_RATE;
+}
+
+/** Hour h (0–24) as a window start, "06:00:00"; 24 is midnight, "00:00:00". */
+export function hourStart(h: number): string {
+  return fmtHHmmss(h * 3600);
+}
+
+/** The inclusive end of a window that runs until hour h (1–24), "05:59:59"; 24 gives "23:59:59". */
+export function hourEnd(h: number): string {
+  return fmtHHmmss(h * 3600 - 1);
+}
 
 const EAT_OFFSET_S = 3 * 3600;
 const HHMMSS = /^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/;
@@ -64,8 +86,14 @@ export function sortWindows(windows: RateWindow[]): RateWindow[] {
   return [...windows].sort((a, b) => parseHHmmss(a.start) - parseHHmmss(b.start));
 }
 
+/** The second a window hands over to the next, 1–86400. */
+export function windowBoundary(w: RateWindow): number {
+  return parseHHmmss(w.end) + 1;
+}
+
+/** "07:00:00 → 15:59:59": the start and the inclusive end. */
 export function fmtRateWindow(w: RateWindow): string {
-  return `${w.start}–${w.end}`;
+  return `${w.start} → ${w.end}`;
 }
 
 /** "100 / 80": slab 1 / slab 2. */
@@ -77,7 +105,7 @@ export function fmtWindowCount(n: number): string {
   return `${n} window${n === 1 ? "" : "s"}`;
 }
 
-/** "06:00:00–16:59:59 100/80 · 17:00:00–21:59:59 110/90", for the change log. */
+/** "06:00:00 → 16:59:59 100/80 · 17:00:00 → 21:59:59 110/90", for the change log. */
 export function windowsSummary(windows: RateWindow[]): string {
   return sortWindows(windows).map((w) => `${fmtRateWindow(w)} ${w.slab1}/${w.slab2}`).join(" · ");
 }
@@ -100,8 +128,11 @@ export function validateWindows(windows: RateWindow[]): string | null {
   if (windows.length > MAX_WINDOWS) return `Use at most ${MAX_WINDOWS} time windows.`;
   for (const w of windows) {
     if (!isHHmmss(w.start) || !isHHmmss(w.end)) return "Enter each window's times as HH:mm:ss.";
-    if (!(Number.isFinite(w.slab1) && w.slab1 > 0) || !(Number.isFinite(w.slab2) && w.slab2 > 0)) {
-      return `Enter slab 1 and slab 2 rates above zero for ${fmtRateWindow(w)}.`;
+    if (!w.start.endsWith(":00:00") || !w.end.endsWith(":59:59")) {
+      return `Windows run in whole hours: ${w.start}–${w.end} doesn't.`;
+    }
+    if (!isValidRate(w.slab1) || !isValidRate(w.slab2)) {
+      return `Slab 1 and slab 2 for ${fmtRateWindow(w)} must be whole numbers from ${MIN_RATE} to ${MAX_RATE}.`;
     }
   }
 
@@ -116,16 +147,13 @@ export function validateWindows(windows: RateWindow[]): string | null {
     const expected = (parseHHmmss(cur.end) + 1) % DAY_SECONDS;
     const nextStart = parseHHmmss(next.start);
     if (nextStart === expected) continue;
-    if (sorted.length === 1) {
-      return `One window must cover the whole day: end it at ${fmtHHmmss(parseHHmmss(cur.start) - 1)}.`;
-    }
+    if (sorted.length === 1) return "One window must cover the whole day.";
     // Seconds from this window's start to the next one's; a shared start is a full overlap.
     const gap = (nextStart - parseHHmmss(cur.start) + DAY_SECONDS) % DAY_SECONDS;
     if (gap === 0 || windowSeconds(cur) > gap) {
       return `${fmtRateWindow(cur)} overlaps ${fmtRateWindow(next)}.`;
     }
-    const last = (nextStart - 1 + DAY_SECONDS) % DAY_SECONDS;
-    return `No rate covers ${last === expected ? fmtHHmmss(expected) : `${fmtHHmmss(expected)}–${fmtHHmmss(last)}`}.`;
+    return `No rate covers ${fmtHHmmss(expected)} → ${fmtHHmmss(nextStart - 1)}.`;
   }
   return null;
 }

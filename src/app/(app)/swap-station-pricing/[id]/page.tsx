@@ -33,6 +33,8 @@ const TABS = [
   { key: "history", label: "History" },
 ];
 
+const DEFAULT_NOTE = "Applies to every station that isn’t on another plan.";
+
 const STATION_BY_ID = new Map(PRICING_STATIONS.map((s) => [s.id, s]));
 
 export default function PricingPlanDetailPage() {
@@ -65,6 +67,8 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
   const [editing, setEditing] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  /** The window under the pointer, by start, shared by the day bar and the rates table. */
+  const [highlight, setHighlight] = useState<string | null>(null);
   const [now] = useState(() => new Date().toISOString());
 
   const status = planStatus(book, plan, ALL_STATION_IDS, now);
@@ -93,7 +97,7 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
               <h2 className="font-semibold text-slate-800 truncate">{plan.name}</h2>
               <PlanStatusBadge status={status} />
             </div>
-            <p className="text-xs text-slate-400 truncate">{plan.description}</p>
+            {plan.isDefault && <p className="text-xs text-slate-400 truncate">{DEFAULT_NOTE}</p>}
           </div>
         </div>
         {canWrite && (
@@ -123,8 +127,13 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
                 <h3 className="text-sm font-semibold text-slate-700">Rates in force</h3>
                 <span className="text-[11px] text-slate-400">Updated {fmtEat(current.effectiveFrom)}</span>
               </div>
-              <DayBandBar windows={current.windows} now={now} />
-              <WindowRates windows={current.windows} now={now} />
+              <DayBandBar
+                items={sortWindows(current.windows).map((w, i) => ({ id: w.start, window: w, color: i }))}
+                now={now}
+                highlighted={highlight}
+                onHighlight={setHighlight}
+              />
+              <WindowRates windows={current.windows} now={now} highlighted={highlight} onHighlight={setHighlight} />
               <p className="text-[11px] text-slate-400">KES per kWh. Slab 1 is a rider&apos;s first 3 kWh each day; slab 2 is everything after.</p>
               <p className="text-xs text-slate-500">
                 {plan.isDefault
