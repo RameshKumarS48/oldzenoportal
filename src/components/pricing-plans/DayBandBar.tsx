@@ -3,26 +3,35 @@
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
+  BASE_LABEL,
   DAY_SECONDS,
   eatSecondOfDay,
   fmtHHmmss,
   fmtRateWindow,
   parseHHmmss,
   windowBoundary,
+  type SplitVersion,
 } from "@/lib/pricing/windows";
 import type { RateWindow } from "@/lib/pricing/types";
 
 /**
- * One colour per window: Tailwind teal 800, 300, 600, 200, 700, 400. The order
- * alternates dark and light so neighbours (and the last against the first,
- * around midnight) stay easy to tell apart.
+ * One colour per custom window: Tailwind teal 800, 300, 600, 200, 700, 400.
+ * The order alternates dark and light so neighbours (and the last against the
+ * first, around midnight) stay easy to tell apart.
  */
 export const WINDOW_COLORS = ["#115e59", "#5eead4", "#0d9488", "#99f6e4", "#0f766e", "#2dd4bf"];
 
-const colorOf = (i: number) => WINDOW_COLORS[i % WINDOW_COLORS.length];
+/** The rest-of-day hours: Tailwind slate 300, neutral against the teals. */
+export const BASE_COLOR = "#cbd5e1";
+
+/** The id every rest-of-day band shares, so they highlight together with their row. */
+export const BASE_ID = "base";
+
+/** A custom window's colour by index, or the rest-of-day grey. */
+const colorOf = (color: number | "base") => (color === "base" ? BASE_COLOR : WINDOW_COLORS[color % WINDOW_COLORS.length]);
 
 /** The small square that ties a row to its band. */
-export function WindowSwatch({ color, className }: { color: number; className?: string }) {
+export function WindowSwatch({ color, className }: { color: number | "base"; className?: string }) {
   return (
     <span
       aria-hidden="true"
@@ -33,10 +42,18 @@ export function WindowSwatch({ color, className }: { color: number; className?: 
 }
 
 export interface BandItem {
-  /** Stable across edits (a form row's key), so a moving boundary animates. */
+  /** Stable across edits (a form row's key), so a moving boundary animates. BASE_ID for the rest of the day. */
   id: string;
   window: RateWindow;
-  color: number;
+  color: number | "base";
+}
+
+/** A saved version's bands: grey rest-of-day hours, then the custom windows coloured in time order. */
+export function versionBands({ baseWindows, custom }: Pick<SplitVersion, "baseWindows" | "custom">): BandItem[] {
+  return [
+    ...baseWindows.map((w) => ({ id: BASE_ID, window: w, color: "base" as const })),
+    ...custom.map((w, i) => ({ id: w.start, window: w, color: i })),
+  ];
 }
 
 /** Rough width of a boundary label ("16:00:00") at 10px, with breathing room. */
@@ -48,29 +65,27 @@ const boundaryLabel = (at: number) => fmtHHmmss(at >= DAY_SECONDS ? DAY_SECONDS 
 const rate = (n: number) => (Number.isFinite(n) ? String(n) : "–");
 
 /**
- * The day as a 24 h strip: one coloured band per window, no text inside.
+ * The day as a 24 h strip: one band per window, no text inside; the rest of
+ * the day is grey and each custom window has its colour.
  * A window that crosses midnight is two bands, one at each end. Under it,
  * the boundary times sit at their boundaries; where two would overlap, a real
  * boundary beats the day's ends, then the earlier one wins.
  *
- * Hovering or focusing a band shows "21:00:00 → 06:59:59 · 90 / 70" and reports its
- * window through `onHighlight`; `highlighted` (an id) outlines that window.
- * `pulse` (seconds past midnight) flashes a boundary that just moved, and
- * `now` marks the current EAT time.
+ * Hovering or focusing a band shows "17:00:00–19:59:59 · 110 / 90" (or
+ * "Rest of the day · 90 / 70") and reports its id through `onHighlight`;
+ * `highlighted` (an id) outlines it. `now` marks the current EAT time.
  */
 export function DayBandBar({
   items,
   now,
   highlighted,
   onHighlight,
-  pulse,
   className,
 }: {
   items: BandItem[];
   now?: string;
   highlighted?: string | null;
   onHighlight?: (id: string | null) => void;
-  pulse?: number | null;
   className?: string;
 }) {
   const barRef = useRef<HTMLDivElement>(null);
@@ -103,7 +118,7 @@ export function DayBandBar({
 
   function show(item: BandItem, el: HTMLElement) {
     const r = el.getBoundingClientRect();
-    setTip({ text: tipText(item.window), x: r.left + r.width / 2, y: r.top });
+    setTip({ text: tipText(item), x: r.left + r.width / 2, y: r.top });
     onHighlight?.(item.id);
   }
 
@@ -119,10 +134,10 @@ export function DayBandBar({
           const on = highlighted === band.id;
           return (
             <div
-              key={`${band.id}-${band.side}`}
+              key={band.color === "base" ? `${band.id}-${band.window.start}-${band.side}` : `${band.id}-${band.side}`}
               role={band.focusable ? "img" : undefined}
               tabIndex={band.focusable ? 0 : undefined}
-              aria-label={band.focusable ? tipText(band.window) : undefined}
+              aria-label={band.focusable ? tipText(band) : undefined}
               aria-hidden={band.focusable ? undefined : true}
               onMouseEnter={(e) => show(band, e.currentTarget)}
               onMouseLeave={hide}
@@ -138,13 +153,6 @@ export function DayBandBar({
             />
           );
         })}
-        {pulse != null && (
-          <div
-            className="absolute -inset-y-px z-10 w-0.5 -translate-x-1/2 bg-slate-900 animate-pulse pointer-events-none transition-[left] duration-300 ease-out"
-            style={{ left: `${(pulse / DAY_SECONDS) * 100}%` }}
-            aria-hidden="true"
-          />
-        )}
         {marker !== null && (
           <div
             className="absolute -inset-y-px z-20 w-0.5 -translate-x-1/2 bg-zeno-red pointer-events-none"
@@ -179,8 +187,8 @@ export function DayBandBar({
   );
 }
 
-function tipText(w: RateWindow): string {
-  return `${fmtRateWindow(w)} · ${rate(w.slab1)} / ${rate(w.slab2)}`;
+function tipText({ window: w, color }: BandItem): string {
+  return `${color === "base" ? BASE_LABEL : fmtRateWindow(w)} · ${rate(w.slab1)} / ${rate(w.slab2)}`;
 }
 
 /**

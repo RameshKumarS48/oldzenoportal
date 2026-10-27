@@ -12,7 +12,7 @@ import { useAccess } from "@/lib/access";
 import { ALL_STATION_IDS } from "@/lib/mock/pricing-plans";
 import { planStatus, stationsOnPlan, versionAt, sortedVersions } from "@/lib/pricing/engine";
 import { displayStatus, fmtEat } from "@/lib/pricing/format";
-import { fmtHHmmss, fmtSlabs, fmtWindowCount, windowAt, windowBoundary } from "@/lib/pricing/windows";
+import { fmtCustomCount, fmtHHmmss, fmtSlabs, splitVersion, windowAt, windowBoundary } from "@/lib/pricing/windows";
 import { PlanFormModal } from "@/components/pricing-plans/PlanFormModal";
 import { PlanStatusBadge, usePricingBook } from "@/components/pricing-plans/shared";
 import { usePricingStore } from "@/store/pricing-plans";
@@ -151,7 +151,7 @@ export default function PricingPlansPage() {
                       ) : (
                         <p className="text-slate-300">–</p>
                       )}
-                      <p className="text-[11px] text-slate-400 mt-0.5">{fmtWindowCount(version.windows.length)}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">{fmtCustomCount(splitVersion(version).custom.length)}</p>
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-slate-700">{stations}</td>
                     <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{lastUpdated ? fmtEat(lastUpdated) : "–"}</td>

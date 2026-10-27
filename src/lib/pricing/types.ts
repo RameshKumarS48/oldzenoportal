@@ -25,6 +25,12 @@ export interface RateWindow {
   slab1: number;
   /** KES/kWh for everything after. */
   slab2: number;
+  /**
+   * True for the hours no custom window claims, which take the plan's
+   * rest-of-day rates. Unset only on data saved before it existed; see
+   * `splitVersion` in windows.ts.
+   */
+  isBase?: boolean;
 }
 
 export interface PlanVersion {
@@ -33,6 +39,12 @@ export interface PlanVersion {
   effectiveFrom: string;
   /** Cover every second of the day exactly once. What every pricing screen reads. */
   windows: RateWindow[];
+  /**
+   * The rest-of-day rates. Kept here as well as on the `isBase` windows, so
+   * they survive when custom windows fill the whole day and no base window is left.
+   */
+  baseSlab1?: number;
+  baseSlab2?: number;
   /** @deprecated Legacy: read only by engine.ts, SwapRecordsTable and check-pricing.mjs. */
   standardRate: number;
   /** @deprecated Legacy: "HH:mm", exclusive end, may wrap past midnight. */

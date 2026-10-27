@@ -17,9 +17,9 @@ import { usePricingStore } from "@/store/pricing-plans";
 import { ALL_STATION_IDS, PRICING_STATIONS } from "@/lib/mock/pricing-plans";
 import { assignmentAt, planStatus, sortedVersions, stationsOnPlan, versionAt } from "@/lib/pricing/engine";
 import { fmtEat } from "@/lib/pricing/format";
-import { fmtSlabs, fmtRateWindow, fmtWindowCount, sortWindows } from "@/lib/pricing/windows";
+import { BASE_LABEL, fmtCustomCount, fmtRateWindow, fmtSlabs, splitVersion } from "@/lib/pricing/windows";
 import type { PricingPlan } from "@/lib/pricing/types";
-import { DayBandBar } from "@/components/pricing-plans/DayBandBar";
+import { DayBandBar, versionBands } from "@/components/pricing-plans/DayBandBar";
 import { WindowRates } from "@/components/pricing-plans/WindowRates";
 import { ChangeHistory } from "@/components/pricing-plans/ChangeHistory";
 import { PlanFormModal } from "@/components/pricing-plans/PlanFormModal";
@@ -67,13 +67,14 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
   const [editing, setEditing] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  /** The window under the pointer, by start, shared by the day bar and the rates table. */
+  /** The window under the pointer (BASE_ID or a start), shared by the day bar and the rates table. */
   const [highlight, setHighlight] = useState<string | null>(null);
   const [now] = useState(() => new Date().toISOString());
 
   const status = planStatus(book, plan, ALL_STATION_IDS, now);
   // Changes apply when saved, so a plan's latest version is in force.
   const current = versionAt(plan, now) ?? sortedVersions(plan)[0];
+  const split = splitVersion(current);
   const stationCount = stationsOnPlan(book, plan.id, ALL_STATION_IDS, now).length;
   const deletable = !plan.isDefault && !book.assignments.some((a) => a.planId === plan.id);
 
@@ -127,13 +128,8 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
                 <h3 className="text-sm font-semibold text-slate-700">Rates in force</h3>
                 <span className="text-[11px] text-slate-400">Updated {fmtEat(current.effectiveFrom)}</span>
               </div>
-              <DayBandBar
-                items={sortWindows(current.windows).map((w, i) => ({ id: w.start, window: w, color: i }))}
-                now={now}
-                highlighted={highlight}
-                onHighlight={setHighlight}
-              />
-              <WindowRates windows={current.windows} now={now} highlighted={highlight} onHighlight={setHighlight} />
+              <DayBandBar items={versionBands(split)} now={now} highlighted={highlight} onHighlight={setHighlight} />
+              <WindowRates split={split} now={now} highlighted={highlight} onHighlight={setHighlight} />
               <p className="text-[11px] text-slate-400">KES per kWh. Slab 1 is a rider&apos;s first 3 kWh each day; slab 2 is everything after.</p>
               <p className="text-xs text-slate-500">
                 {plan.isDefault
@@ -171,13 +167,18 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
               <tbody className="divide-y divide-slate-100">
                 {sortedVersions(plan).reverse().map((v) => {
                   const state = v.id === current.id ? "In force" : "Superseded";
+                  const { base, custom } = splitVersion(v);
                   return (
                     <tr key={v.id} className="align-top">
                       <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{fmtEat(v.effectiveFrom)}</td>
                       <td className="px-4 py-3">
-                        <p className="text-[11px] text-slate-400 mb-1">{fmtWindowCount(v.windows.length)}</p>
+                        <p className="text-[11px] text-slate-400 mb-1">{fmtCustomCount(custom.length)}</p>
                         <ul className="space-y-0.5 text-xs tabular-nums whitespace-nowrap">
-                          {sortWindows(v.windows).map((w) => (
+                          <li>
+                            <span className="text-slate-500">{BASE_LABEL}</span>
+                            <span className="ml-3 text-slate-800">{base ? fmtSlabs(base) : "–"}</span>
+                          </li>
+                          {custom.map((w) => (
                             <li key={w.start}>
                               <span className="text-slate-500">{fmtRateWindow(w)}</span>
                               <span className="ml-3 text-slate-800">{fmtSlabs(w)}</span>

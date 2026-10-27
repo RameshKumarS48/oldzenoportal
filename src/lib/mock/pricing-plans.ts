@@ -4,14 +4,15 @@
  * Today's flat swap rate works out to ~90 KES/kWh (total_points / total_kWh on
  * the swap sample), so Default's daytime slab 1 stays at 90.
  *
- * Every pricing screen reads a version's `windows`. The Standard / Custom
+ * Every pricing screen reads a version's `windows`: the rest-of-day hours
+ * (`b`, isBase) and the custom windows (`w`). The Standard / Custom
  * fields beside them are legacy, kept only for engine.ts, SwapRecordsTable and
  * check-pricing.mjs; they equal `legacyFromWindows(windows)`, so swap amounts
  * stay where they were.
  */
 
 import { SWAP_STATIONS, type SwapStation } from "@/lib/mock/kpi-infra";
-import { windowsSummary } from "@/lib/pricing/windows";
+import { versionSummary } from "@/lib/pricing/windows";
 import type { PlanChange, PricingPlan, RateWindow, StationAssignment } from "@/lib/pricing/types";
 
 // ── Stations ─────────────────────────────────────────────────────────────────
@@ -81,16 +82,18 @@ const RAMESH = "Ramesh Kumar";
 const WILLIE = "Willie Omondi";
 const VIJAY = "Vijayanand P";
 
-/** Shorthand for a window: start, end (both "HH:mm:ss", inclusive), slab 1, slab 2. */
-const w = (start: string, end: string, slab1: number, slab2: number): RateWindow => ({ start, end, slab1, slab2 });
+/** Shorthand for a custom window: start, end (both "HH:mm:ss", inclusive), slab 1, slab 2. */
+const w = (start: string, end: string, slab1: number, slab2: number): RateWindow => ({ start, end, slab1, slab2, isBase: false });
+/** The same for rest-of-day hours. */
+const b = (start: string, end: string, slab1: number, slab2: number): RateWindow => ({ start, end, slab1, slab2, isBase: true });
 
-const DEFAULT_WINDOWS = [w("06:00:00", "21:59:59", 90, 70), w("22:00:00", "05:59:59", 70, 55)];
-const CBD_WINDOWS = [w("06:00:00", "16:59:59", 100, 80), w("17:00:00", "21:59:59", 110, 90), w("22:00:00", "05:59:59", 70, 55)];
-const UPCOUNTRY_WINDOWS = [w("06:00:00", "21:59:59", 80, 65), w("22:00:00", "05:59:59", 60, 50)];
-const NIGHT_RIDER_WINDOWS = [w("05:00:00", "16:59:59", 90, 70), w("17:00:00", "22:59:59", 95, 75), w("23:00:00", "04:59:59", 55, 45)];
+const DEFAULT_WINDOWS = [b("06:00:00", "21:59:59", 90, 70), w("22:00:00", "05:59:59", 70, 55)];
+const CBD_WINDOWS = [b("06:00:00", "16:59:59", 100, 80), w("17:00:00", "21:59:59", 110, 90), w("22:00:00", "05:59:59", 70, 55)];
+const UPCOUNTRY_WINDOWS = [b("06:00:00", "21:59:59", 80, 65), w("22:00:00", "05:59:59", 60, 50)];
+const NIGHT_RIDER_WINDOWS = [b("05:00:00", "16:59:59", 90, 70), w("17:00:00", "22:59:59", 95, 75), w("23:00:00", "04:59:59", 55, 45)];
 const NOV_REVISION_WINDOWS = [
   w("06:00:00", "07:59:59", 100, 80),
-  w("08:00:00", "16:59:59", 95, 75),
+  b("08:00:00", "16:59:59", 95, 75),
   w("17:00:00", "21:59:59", 105, 85),
   w("22:00:00", "05:59:59", 65, 50),
 ];
@@ -106,6 +109,8 @@ export const SEED_PLANS: PricingPlan[] = [
         id: "pv-default-1",
         effectiveFrom: "2026-01-01T00:00:00+03:00",
         windows: DEFAULT_WINDOWS,
+        baseSlab1: 90,
+        baseSlab2: 70,
         // Legacy, for engine.ts / SwapRecordsTable / check-pricing.mjs only.
         standardRate: 90,
         customWindowStart: "22:00",
@@ -126,6 +131,8 @@ export const SEED_PLANS: PricingPlan[] = [
         id: "pv-nbo-cbd-1",
         effectiveFrom: "2026-09-01T00:00:00+03:00",
         windows: CBD_WINDOWS,
+        baseSlab1: 100,
+        baseSlab2: 80,
         // Legacy, for engine.ts / SwapRecordsTable / check-pricing.mjs only.
         standardRate: 100,
         customWindowStart: "22:00",
@@ -146,6 +153,8 @@ export const SEED_PLANS: PricingPlan[] = [
         id: "pv-upcountry-1",
         effectiveFrom: "2026-09-15T00:00:00+03:00",
         windows: UPCOUNTRY_WINDOWS,
+        baseSlab1: 80,
+        baseSlab2: 65,
         // Legacy, for engine.ts / SwapRecordsTable / check-pricing.mjs only.
         standardRate: 80,
         customWindowStart: "22:00",
@@ -166,6 +175,8 @@ export const SEED_PLANS: PricingPlan[] = [
         id: "pv-night-rider-1",
         effectiveFrom: "2026-09-10T00:00:00+03:00",
         windows: NIGHT_RIDER_WINDOWS,
+        baseSlab1: 90,
+        baseSlab2: 70,
         // Legacy, for engine.ts / SwapRecordsTable / check-pricing.mjs only.
         standardRate: 90,
         customWindowStart: "23:00",
@@ -186,6 +197,8 @@ export const SEED_PLANS: PricingPlan[] = [
         id: "pv-nov-revision-1",
         effectiveFrom: "2026-10-21T15:30:00+03:00",
         windows: NOV_REVISION_WINDOWS,
+        baseSlab1: 95,
+        baseSlab2: 75,
         // Legacy, for engine.ts / SwapRecordsTable / check-pricing.mjs only.
         standardRate: 95,
         customWindowStart: "22:00",
@@ -225,23 +238,23 @@ export const SEED_ASSIGNMENTS: StationAssignment[] = [
 
 export const SEED_CHANGES: PlanChange[] = [
   { id: "pc-01", planId: "pp-default", at: "2025-12-20T10:00:00+03:00", by: RAMESH, kind: "created",
-    summary: `Created Default: 2 windows, ${windowsSummary(DEFAULT_WINDOWS)}`, effectiveFrom: "2026-01-01T00:00:00+03:00" },
+    summary: `Created Default: ${versionSummary({ windows: DEFAULT_WINDOWS })}`, effectiveFrom: "2026-01-01T00:00:00+03:00" },
 
   { id: "pc-02", planId: "pp-nbo-cbd", at: "2026-08-25T11:20:00+03:00", by: WILLIE, kind: "created",
-    summary: `Created plan: 3 windows, ${windowsSummary(CBD_WINDOWS)}`, effectiveFrom: "2026-09-01T00:00:00+03:00" },
+    summary: `Created plan: ${versionSummary({ windows: CBD_WINDOWS })}`, effectiveFrom: "2026-09-01T00:00:00+03:00" },
   { id: "pc-03", planId: "pp-nbo-cbd", at: "2026-08-25T11:24:00+03:00", by: WILLIE, kind: "stations_assigned",
     summary: `Moved 5 stations here: ${CBD.join(", ")}`, effectiveFrom: "2026-09-01T00:00:00+03:00" },
 
   { id: "pc-05", planId: "pp-upcountry", at: "2026-09-08T14:00:00+03:00", by: VIJAY, kind: "created",
-    summary: `Created plan: 2 windows, ${windowsSummary(UPCOUNTRY_WINDOWS)}`, effectiveFrom: "2026-09-15T00:00:00+03:00" },
+    summary: `Created plan: ${versionSummary({ windows: UPCOUNTRY_WINDOWS })}`, effectiveFrom: "2026-09-15T00:00:00+03:00" },
   { id: "pc-06", planId: "pp-upcountry", at: "2026-09-08T14:06:00+03:00", by: VIJAY, kind: "stations_assigned",
     summary: `Moved all Nanyuki and Nyeri stations here (${UPCOUNTRY.length})`, effectiveFrom: "2026-09-15T00:00:00+03:00" },
 
   { id: "pc-07", planId: "pp-night-rider", at: "2026-09-05T16:45:00+03:00", by: RAMESH, kind: "created",
-    summary: `Created plan: 3 windows, ${windowsSummary(NIGHT_RIDER_WINDOWS)}`, effectiveFrom: "2026-09-10T00:00:00+03:00" },
+    summary: `Created plan: ${versionSummary({ windows: NIGHT_RIDER_WINDOWS })}`, effectiveFrom: "2026-09-10T00:00:00+03:00" },
   { id: "pc-08", planId: "pp-night-rider", at: "2026-09-05T16:50:00+03:00", by: RAMESH, kind: "stations_assigned",
     summary: `Moved 3 stations here: ${NIGHT_RIDER.join(", ")}`, effectiveFrom: "2026-09-10T00:00:00+03:00" },
 
   { id: "pc-09", planId: "pp-nov-revision", at: "2026-10-21T15:30:00+03:00", by: WILLIE, kind: "created",
-    summary: `Created plan: 4 windows, ${windowsSummary(NOV_REVISION_WINDOWS)}`, effectiveFrom: "2026-10-21T15:30:00+03:00" },
+    summary: `Created plan: ${versionSummary({ windows: NOV_REVISION_WINDOWS })}`, effectiveFrom: "2026-10-21T15:30:00+03:00" },
 ];

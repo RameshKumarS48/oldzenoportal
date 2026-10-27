@@ -28,6 +28,7 @@ export function HourSelect({
   options,
   onChange,
   disabled,
+  autoFocus,
   className,
   "aria-label": ariaLabel,
 }: {
@@ -35,6 +36,8 @@ export function HourSelect({
   options: HourOption[];
   onChange: (value: number) => void;
   disabled?: boolean;
+  /** Focus the button when it mounts, as for a row just added. */
+  autoFocus?: boolean;
   /** Extra trigger classes, e.g. a brief highlight; colours fade over 700 ms. */
   className?: string;
   "aria-label": string;
@@ -142,6 +145,7 @@ export function HourSelect({
         aria-controls={open ? `${id}-list` : undefined}
         aria-activedescendant={open ? `${id}-${active}` : undefined}
         disabled={disabled}
+        autoFocus={autoFocus}
         onClick={() => (open ? close() : openList())}
         onKeyDown={onKeyDown}
         className={cn(TRIGGER, className)}

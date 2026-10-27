@@ -3,13 +3,15 @@ import { persist } from "zustand/middleware";
 import { SEED_ASSIGNMENTS, SEED_CHANGES, SEED_PLANS } from "@/lib/mock/pricing-plans";
 import { normaliseStationId, resolvePlan, sortedVersions, versionAt } from "@/lib/pricing/engine";
 import {
-  fmtRateWindow,
-  fmtWindowCount,
+  BASE_LABEL,
+  MAX_RATE,
+  MIN_RATE,
+  changeParts,
+  isValidRate,
   legacyFromWindows,
-  sameWindows,
-  sortWindows,
+  rateRows,
   validateWindows,
-  windowsSummary,
+  versionSummary,
 } from "@/lib/pricing/windows";
 import type {
   PlanChange,
@@ -20,11 +22,11 @@ import type {
 } from "@/lib/pricing/types";
 
 /**
- * What the forms send: windows only. Every change applies as soon as it's
- * saved, so the store stamps the effective time, and fills in the legacy rate
- * fields from the windows.
+ * What the forms send: the full day's windows and the rest-of-day rates.
+ * Every change applies as soon as it's saved, so the store stamps the
+ * effective time, and fills in the legacy rate fields from the windows.
  */
-export type VersionInput = Pick<PlanVersion, "windows">;
+export type VersionInput = Pick<PlanVersion, "windows" | "baseSlab1" | "baseSlab2">;
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -33,38 +35,26 @@ function uid(prefix: string): string {
 }
 
 export function validateVersion(v: VersionInput): string | null {
+  if (!isValidRate(v.baseSlab1 ?? NaN) || !isValidRate(v.baseSlab2 ?? NaN)) {
+    return `Slab 1 and slab 2 for ${BASE_LABEL} must be whole numbers from ${MIN_RATE} to ${MAX_RATE}.`;
+  }
   return validateWindows(v.windows);
 }
 
-function rateSummary(v: VersionInput): string {
-  return `${fmtWindowCount(v.windows.length)}, ${windowsSummary(v.windows)}`;
-}
-
 /**
- * Describe what moved between two versions, for the change log. Same window
- * times: each rate that changed. New times: the whole new set.
+ * Describe what moved between two versions, for the change log: each rate
+ * that changed, and each custom window added or removed.
  */
 function diffSummary(prev: PlanVersion, next: VersionInput): { kind: PlanChange["kind"]; summary: string } {
-  if (sameWindows(prev.windows, next.windows)) {
-    return { kind: "rates_changed", summary: "Re-saved the same rates" };
-  }
-  const before = sortWindows(prev.windows);
-  const after = sortWindows(next.windows);
-  const sameTimes = before.length === after.length && before.every((w, i) => w.start === after[i].start && w.end === after[i].end);
-  if (sameTimes) {
-    const parts = before
-      .map((w, i) => ({ w, n: after[i] }))
-      .filter(({ w, n }) => w.slab1 !== n.slab1 || w.slab2 !== n.slab2)
-      .map(({ w, n }) => `${fmtRateWindow(w)} ${w.slab1}/${w.slab2} → ${n.slab1}/${n.slab2}`);
-    return { kind: "rates_changed", summary: parts.join("; ") };
-  }
-  const count = before.length === after.length ? fmtWindowCount(after.length) : `Windows ${before.length} → ${after.length}`;
-  return { kind: "window_changed", summary: `${count}: ${windowsSummary(after)}` };
+  const parts = changeParts(prev, next);
+  if (parts.length === 0) return { kind: "rates_changed", summary: "Re-saved the same rates" };
+  const moved = rateRows(prev, next).some((r) => !r.base && (!r.before || !r.after));
+  return { kind: moved ? "window_changed" : "rates_changed", summary: parts.join("; ") };
 }
 
 /** A new version as stored, in force from `at`: the windows plus the legacy fields derived from them. */
 function toVersion(v: VersionInput, by: string, at: string): PlanVersion {
-  return { windows: v.windows, ...legacyFromWindows(v.windows), effectiveFrom: at, id: uid("pv"), createdBy: by, createdAt: at };
+  return { ...v, ...legacyFromWindows(v.windows), effectiveFrom: at, id: uid("pv"), createdBy: by, createdAt: at };
 }
 
 interface PricingState extends PricingBook {
@@ -109,7 +99,7 @@ export const usePricingStore = create<PricingState>()(
             versions: [toVersion(version, by, now)],
           };
           set((s) => ({ plans: [...s.plans, plan] }));
-          log({ planId, by, kind: "created", summary: `Created plan: ${rateSummary(version)}` }, now);
+          log({ planId, by, kind: "created", summary: `Created plan: ${versionSummary(version)}` }, now);
           return { ok: true, planId };
         },
 
@@ -215,8 +205,9 @@ export const usePricingStore = create<PricingState>()(
     {
       name: "zeno-pricing-plans",
       // 2: versions carry `windows`. 3: nothing is scheduled. 4–5: history time format.
+      // 6: rest-of-day rates and `isBase` windows.
       // Anything saved before is reset to the seed.
-      version: 5,
+      version: 6,
       partialize: (s) => ({ plans: s.plans, assignments: s.assignments, changes: s.changes }),
       migrate: () => ({ plans: SEED_PLANS, assignments: SEED_ASSIGNMENTS, changes: SEED_CHANGES }),
     }
