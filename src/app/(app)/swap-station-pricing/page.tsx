@@ -3,13 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, Plus, Search } from "lucide-react";
 import { AccessGuard } from "@/components/ui/AccessGuard";
 import { Topbar } from "@/components/layout/Topbar";
 import { Button } from "@/components/ui/button";
 import { InfoTip } from "@/components/ui/InfoTip";
-import { SearchInput } from "@/components/ui/FilterControls";
-import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { useAccess } from "@/lib/access";
 import { ALL_STATION_IDS } from "@/lib/mock/pricing-plans";
 import { planStatus, stationsOnPlan, versionAt, sortedVersions } from "@/lib/pricing/engine";
@@ -73,23 +71,31 @@ export default function PricingPlansPage() {
           <p className="text-xs text-slate-400 max-w-md">
             Custom Pricing: time-of-day windows, each with two slab rates, per plan, assigned to swap stations. KES per kWh, EAT.
           </p>
-          <div className="flex items-center gap-3">
-            <SearchInput value={query} onChange={setQuery} placeholder="Search plans…" className="w-56" />
-            {canWrite && (
-              <Button variant="primary" onClick={() => setCreating(true)}>
-                <Plus className="w-4 h-4" />
-                New plan
-              </Button>
-            )}
-          </div>
+          {canWrite && (
+            <Button variant="primary" onClick={() => setCreating(true)}>
+              <Plus className="w-4 h-4" />
+              New plan
+            </Button>
+          )}
         </div>
 
         <div className="flex flex-col flex-1 overflow-auto p-5 gap-4">
-          <StatGrid cols={3}>
-            <StatCard label="Pricing plans" value={book.plans.length} />
-            <StatCard label="Stations on custom plans" value={ALL_STATION_IDS.length - onDefault} valueColor="text-teal-700" />
-            <StatCard label="Stations on Default" value={onDefault} />
-          </StatGrid>
+          {/* Battery Tracking's filter bar (BatteryFilterBar.tsx): search, and a count on the right. */}
+          <div className="bg-white rounded-xl border border-slate-200 px-4 py-2.5 flex items-center gap-3 flex-wrap shrink-0">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search plans"
+                aria-label="Search pricing plans by name"
+                className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 focus:border-[#003B49] w-60"
+              />
+            </div>
+            <span className="ml-auto text-xs text-slate-500 tabular-nums">
+              {onDefault.toLocaleString()} {onDefault === 1 ? "station" : "stations"} on Default
+            </span>
+          </div>
 
           <div className="bg-white border border-slate-200 rounded-xl overflow-auto">
             <table className="w-full table-fixed text-sm min-w-[760px]">
