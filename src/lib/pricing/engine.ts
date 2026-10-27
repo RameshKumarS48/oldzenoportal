@@ -1,13 +1,14 @@
 /**
  * The pricing rules, as pure functions over a `PricingBook`. No React and no
  * store, so the same code prices a row in the swap table and runs in the check
- * script (`scripts/check-pricing.ts`).
+ * script (`scripts/check-pricing.mjs`).
  *
  * Billing rule for a swap:
  *   1. The plan and its rate version are locked at the RFID tap, so a change
  *      that takes effect while a swap is in progress never touches it.
- *   2. Standard vs Custom window is decided by the time the swap completes.
- *   3. amount = billed kWh × that rate.
+ *   2. The time window is picked by when the swap completes.
+ *   3. The window's slab 1 rate covers the rider's first SLAB1_DAILY_KWH kWh
+ *      of the EAT day, counting earlier swaps; slab 2 covers the rest.
  */
 
 import type {
@@ -15,11 +16,15 @@ import type {
   PricingBook,
   PricingPlan,
   RateSlot,
+  RateWindow,
   StationAssignment,
   SwapEvent,
 } from "./types";
 
 const EAT_OFFSET_MIN = 180;
+
+/** A rider's first this-many kWh each EAT day are billed at slab 1. */
+export const SLAB1_DAILY_KWH = 3;
 
 // ── Clock ────────────────────────────────────────────────────────────────────
 
@@ -91,6 +96,43 @@ export function slotFor(version: PlanVersion, at: string): RateSlot {
 
 export function rateFor(version: PlanVersion, slot: RateSlot): number {
   return slot === "custom_window" ? version.customRate : version.standardRate;
+}
+
+// The window lookup is repeated from windows.ts so the check script can load
+// this file on its own (Node needs file extensions on relative imports).
+function secondOfDay(hhmmss: string): number {
+  const [h, m, s] = hhmmss.split(":").map(Number);
+  return h * 3600 + m * 60 + (s || 0);
+}
+
+function eatSecond(iso: string): number {
+  const d = new Date(iso);
+  return (d.getUTCHours() * 3600 + d.getUTCMinutes() * 60 + d.getUTCSeconds() + EAT_OFFSET_MIN * 60) % 86_400;
+}
+
+/**
+ * The window in force at `at`, with both slab rates. Versions saved with
+ * `windows` use them (inclusive "HH:mm:ss" ends); older ones fall back to the
+ * single Standard rate and custom window, with one rate for both slabs.
+ */
+export function rateWindowAt(version: PlanVersion, at: string): RateWindow {
+  if (version.windows?.length) {
+    const t = eatSecond(at);
+    const hit = version.windows.find((w) => {
+      const s = secondOfDay(w.start);
+      const e = secondOfDay(w.end);
+      return s <= e ? t >= s && t <= e : t >= s || t <= e;
+    });
+    if (hit) return hit;
+  }
+  const slot = slotFor(version, at);
+  const rate = rateFor(version, slot);
+  if (slot === "standard") return { start: "00:00:00", end: "23:59:59", slab1: rate, slab2: rate, isBase: true };
+  // Legacy ends are exclusive "HH:mm"; windows end on their last second.
+  const last = (secondOfDay(`${version.customWindowEnd}:00`) + 86_399) % 86_400;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const end = `${pad(Math.floor(last / 3600))}:${pad(Math.floor((last % 3600) / 60))}:${pad(last % 60)}`;
+  return { start: `${version.customWindowStart}:00`, end, slab1: rate, slab2: rate, isBase: false };
 }
 
 // ── Stations ─────────────────────────────────────────────────────────────────
@@ -188,8 +230,10 @@ export interface EventPrice {
   planId: string;
   planName: string;
   versionId: string;
+  /** The window this event falls in, with its slab rates. */
+  window: RateWindow;
+  /** Rest of the day or a custom window, for the badge. */
   slot: RateSlot;
-  rate: number;
   /** Only the completed row is what the rider pays. */
   charged: boolean;
 }
@@ -199,9 +243,13 @@ export interface SwapPrice {
   planName: string;
   versionId: string;
   viaDefault: boolean;
+  window: RateWindow;
   slot: RateSlot;
-  rate: number;
   kWh: number;
+  /** The rider's kWh earlier the same EAT day, which uses up slab 1 first. */
+  kWhEarlierToday: number;
+  slab1KWh: number;
+  slab2KWh: number;
   amount: number;
   /**
    * What each event would price at on its own. Earlier rows read the book as
@@ -210,36 +258,50 @@ export interface SwapPrice {
   events: EventPrice[];
 }
 
-export function priceSwap(book: PricingBook, stationId: string, timing: SwapTiming, kWh: number): SwapPrice {
+const slotOf = (w: RateWindow): RateSlot => (w.isBase ? "standard" : "custom_window");
+
+export function priceSwap(
+  book: PricingBook,
+  stationId: string,
+  timing: SwapTiming,
+  kWh: number,
+  kWhEarlierToday = 0
+): SwapPrice {
   const locked = resolvePlan(book, stationId, timing.rfidTapAt);
-  const slot = slotFor(locked.version, timing.completedAt);
-  const rate = rateFor(locked.version, slot);
+  const window = rateWindowAt(locked.version, timing.completedAt);
 
   const events: EventPrice[] = SWAP_EVENTS.map((event) => {
     const at = eventTime(timing, event);
     if (event === "completed") {
       return {
-        event, at, slot, rate, charged: true,
+        event, at, window, slot: slotOf(window), charged: true,
         planId: locked.plan.id, planName: locked.plan.name, versionId: locked.version.id,
       };
     }
     const r = resolvePlan(book, stationId, at);
-    const s = slotFor(r.version, at);
+    const w = rateWindowAt(r.version, at);
     return {
-      event, at, slot: s, rate: rateFor(r.version, s), charged: false,
+      event, at, window: w, slot: slotOf(w), charged: false,
       planId: r.plan.id, planName: r.plan.name, versionId: r.version.id,
     };
   });
+
+  const slab1KWh = Math.min(kWh, Math.max(0, SLAB1_DAILY_KWH - kWhEarlierToday));
+  const slab2KWh = kWh - slab1KWh;
+  const amount = slab1KWh * window.slab1 + slab2KWh * window.slab2;
 
   return {
     planId: locked.plan.id,
     planName: locked.plan.name,
     versionId: locked.version.id,
     viaDefault: locked.viaDefault,
-    slot,
-    rate,
+    window,
+    slot: slotOf(window),
     kWh,
-    amount: Math.round(kWh * rate * 100) / 100,
+    kWhEarlierToday,
+    slab1KWh,
+    slab2KWh,
+    amount: Math.round(amount * 100) / 100,
     events,
   };
 }

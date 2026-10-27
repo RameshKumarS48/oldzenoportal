@@ -78,7 +78,7 @@ check("plan change mid-swap: plan locked at tap, slot from completion", () => {
   }, 2);
   assert.equal(p.planId, "default");
   assert.equal(p.slot, "custom_window");
-  assert.equal(p.rate, 70);
+  assert.equal(p.window.slab1, 70);
   assert.equal(p.amount, 140);
   // The collection row reads the book after midnight and would have used Saver.
   assert.equal(p.events.find((e) => e.event === "collection").planId, "saver");
@@ -94,7 +94,48 @@ check("slot flips when the swap completes after the window opens", () => {
   }, 1);
   assert.equal(p.events[0].slot, "standard");
   assert.equal(p.slot, "custom_window");
-  assert.equal(p.rate, 55);
+  assert.equal(p.window.slab1, 55);
+});
+
+// ── Windows with slab rates (what the plan form saves) ──
+const win = (start, end, slab1, slab2, isBase = false) => ({ start, end, slab1, slab2, isBase });
+const cbd = {
+  ...v("c1", "2026-09-01T00:00:00+03:00", 100, 70),
+  windows: [win("06:00:00", "16:59:59", 100, 80, true), win("17:00:00", "21:59:59", 110, 90), win("22:00:00", "05:59:59", 70, 55)],
+};
+const windowBook = {
+  plans: [book.plans[0], plan("cbd", false, [cbd])],
+  assignments: [assign("BS0027", "cbd", "2026-09-01T00:00:00+03:00")],
+};
+const swapAt = (t) => ({ rfidTapAt: t, depositAt: t, collectionAt: t, completedAt: t });
+
+check("windows are billed at the window the screens show", () => {
+  // The legacy fields alone would bill this at the Standard 100.
+  const p = priceSwap(windowBook, "BS0027", swapAt("2026-10-27T18:30:00+03:00"), 2);
+  assert.equal(p.window.slab1, 110);
+  assert.equal(p.slot, "custom_window");
+  assert.equal(p.amount, 220);
+});
+
+check("inclusive window end: 21:59:59 is still the evening window", () => {
+  assert.equal(priceSwap(windowBook, "BS0027", swapAt("2026-10-27T21:59:59+03:00"), 1).window.slab1, 110);
+  assert.equal(priceSwap(windowBook, "BS0027", swapAt("2026-10-27T22:00:00+03:00"), 1).window.slab1, 70);
+});
+
+check("slab 1 covers the first 3 kWh of the day, slab 2 the rest", () => {
+  const fresh = priceSwap(windowBook, "BS0027", swapAt("2026-10-27T10:00:00+03:00"), 2);
+  assert.equal(fresh.amount, 200); // 2 × 100
+  const split = priceSwap(windowBook, "BS0027", swapAt("2026-10-27T10:00:00+03:00"), 2, 2);
+  assert.equal(split.slab1KWh, 1);
+  assert.equal(split.slab2KWh, 1);
+  assert.equal(split.amount, 180); // 1 × 100 + 1 × 80
+  const spent = priceSwap(windowBook, "BS0027", swapAt("2026-10-27T10:00:00+03:00"), 2, 5);
+  assert.equal(spent.amount, 160); // 2 × 80
+});
+
+check("versions without windows bill one rate for both slabs", () => {
+  const p = priceSwap(book, "BS0099", swapAt("2026-10-27T10:00:00+03:00"), 2, 5);
+  assert.equal(p.amount, 180); // Default legacy 90, slab 2 = slab 1
 });
 
 console.log(`\n${passed} checks passed`);

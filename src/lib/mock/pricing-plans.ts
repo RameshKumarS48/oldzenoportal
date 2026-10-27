@@ -5,10 +5,9 @@
  * the swap sample), so Default's daytime slab 1 stays at 90.
  *
  * Every pricing screen reads a version's `windows`: the rest-of-day hours
- * (`b`, isBase) and the custom windows (`w`). The Standard / Custom
- * fields beside them are legacy, kept only for engine.ts, SwapRecordsTable and
- * check-pricing.mjs; they equal `legacyFromWindows(windows)`, so swap amounts
- * stay where they were.
+ * (`b`, isBase) and the custom windows (`w`), and so does billing. The
+ * Standard / Custom fields beside them are legacy and equal
+ * `legacyFromWindows(windows)`.
  */
 
 import { SWAP_STATIONS, type SwapStation } from "@/lib/mock/kpi-infra";
@@ -111,7 +110,7 @@ export const SEED_PLANS: PricingPlan[] = [
         windows: DEFAULT_WINDOWS,
         baseSlab1: 90,
         baseSlab2: 70,
-        // Legacy, for engine.ts / SwapRecordsTable / check-pricing.mjs only.
+        // Legacy single-rate fields; billing reads `windows`.
         standardRate: 90,
         customWindowStart: "22:00",
         customWindowEnd: "06:00",
@@ -133,7 +132,7 @@ export const SEED_PLANS: PricingPlan[] = [
         windows: CBD_WINDOWS,
         baseSlab1: 100,
         baseSlab2: 80,
-        // Legacy, for engine.ts / SwapRecordsTable / check-pricing.mjs only.
+        // Legacy single-rate fields; billing reads `windows`.
         standardRate: 100,
         customWindowStart: "22:00",
         customWindowEnd: "06:00",
@@ -155,7 +154,7 @@ export const SEED_PLANS: PricingPlan[] = [
         windows: UPCOUNTRY_WINDOWS,
         baseSlab1: 80,
         baseSlab2: 65,
-        // Legacy, for engine.ts / SwapRecordsTable / check-pricing.mjs only.
+        // Legacy single-rate fields; billing reads `windows`.
         standardRate: 80,
         customWindowStart: "22:00",
         customWindowEnd: "06:00",
@@ -177,7 +176,7 @@ export const SEED_PLANS: PricingPlan[] = [
         windows: NIGHT_RIDER_WINDOWS,
         baseSlab1: 90,
         baseSlab2: 70,
-        // Legacy, for engine.ts / SwapRecordsTable / check-pricing.mjs only.
+        // Legacy single-rate fields; billing reads `windows`.
         standardRate: 90,
         customWindowStart: "23:00",
         customWindowEnd: "05:00",
@@ -199,7 +198,7 @@ export const SEED_PLANS: PricingPlan[] = [
         windows: NOV_REVISION_WINDOWS,
         baseSlab1: 95,
         baseSlab2: 75,
-        // Legacy, for engine.ts / SwapRecordsTable / check-pricing.mjs only.
+        // Legacy single-rate fields; billing reads `windows`.
         standardRate: 95,
         customWindowStart: "22:00",
         customWindowEnd: "06:00",

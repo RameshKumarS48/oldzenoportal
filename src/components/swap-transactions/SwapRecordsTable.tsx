@@ -19,9 +19,10 @@ import {
 import { cn } from "@/lib/utils";
 import { DateRangeFilter, inEatRange, type DayRange } from "./DateRangeFilter";
 import { usePricingBook, SlotBadge } from "@/components/pricing-plans/shared";
-import { priceSwapRecord, billingStation } from "@/lib/pricing/swap";
-import type { SwapPrice } from "@/lib/pricing/engine";
-import { EVENT_LABELS, SLOT_LABELS, fmtEatTime, fmtKes, fmtRate } from "@/lib/pricing/format";
+import { priceSwapRecords, billingStation } from "@/lib/pricing/swap";
+import { SLAB1_DAILY_KWH, type SwapPrice } from "@/lib/pricing/engine";
+import { EVENT_LABELS, SLOT_LABELS, fmtEatTime, fmtKes } from "@/lib/pricing/format";
+import { fmtRateWindow, fmtSlabs } from "@/lib/pricing/windows";
 
 // ── Formatting ────────────────────────────────────────────────────────────────
 
@@ -50,7 +51,8 @@ function exportCSV(records: SwapRecord[], prices: Map<string, SwapPrice>) {
     "TotalKWh", "TotalPoints", "BilledKWh",
     "Bins", "DispenseStation", "CollectStation",
     "RfidMismatch", "Skipped", "Flagged", "ManualIgnore", "Status", "ErrorNote",
-    "BillingStation", "PricingPlan", "RateType", "RateKESPerKWh", "AmountKES",
+    "BillingStation", "PricingPlan", "RateType", "Window",
+    "Slab1KESPerKWh", "Slab2KESPerKWh", "Slab1KWh", "Slab2KWh", "AmountKES",
     "RfidTapAt", "DepositAt", "CollectionAt", "CompletedAt",
   ];
   const rows = records.map((r) => {
@@ -63,7 +65,8 @@ function exportCSV(records: SwapRecord[], prices: Map<string, SwapPrice>) {
       r.dispenseStationId, r.collectStationId,
       hasRfidMismatch(r), r.skipped, r.flagged, r.manualIgnore,
       SWAP_STATUS_META[swapStatus(r)].label, r.errorNote ?? "",
-      billingStation(r), p.planName, SLOT_LABELS[p.slot], p.rate, p.amount.toFixed(2),
+      billingStation(r), p.planName, SLOT_LABELS[p.slot], fmtRateWindow(p.window),
+      p.window.slab1, p.window.slab2, p.slab1KWh.toFixed(3), p.slab2KWh.toFixed(3), p.amount.toFixed(2),
       at("rfid_tap"), at("deposit"), at("collection"), at("completed"),
     ];
   });
@@ -89,10 +92,19 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
 }
 
 /**
- * The swap's four station events and the plan and rate each one reads. Only
- * the completed row is billed: its plan was locked at the RFID tap and its
- * rate type comes from the completion time.
+ * The swap's four station events and the plan and window each one reads.
+ * Only the completed row is billed: its plan was locked at the RFID tap and
+ * its window comes from the completion time.
  */
+/** "1.000 kWh × 110 + 1.100 kWh × 90 = KES 209.00", leaving out an empty slab. */
+function billedBreakdown(p: SwapPrice): string {
+  const parts = [
+    ...(p.slab1KWh > 0 || p.slab2KWh === 0 ? [`${p.slab1KWh.toFixed(3)} kWh × ${p.window.slab1}`] : []),
+    ...(p.slab2KWh > 0 ? [`${p.slab2KWh.toFixed(3)} kWh × ${p.window.slab2}`] : []),
+  ];
+  return `${parts.join(" + ")} = ${fmtKes(p.amount, 2)}`;
+}
+
 function PricingTimeline({ record, price }: { record: SwapRecord; price: SwapPrice }) {
   const lockedChanged = price.events.some((e) => !e.charged && e.planId !== price.planId);
   return (
@@ -104,7 +116,7 @@ function PricingTimeline({ record, price }: { record: SwapRecord; price: SwapPri
         <table className="w-full text-[11px] min-w-[640px]">
           <thead>
             <tr className="text-left text-slate-400">
-              {["Event", "Time (EAT)", "Plan", "Rate type", "Rate", ""].map((h) => (
+              {["Event", "Time (EAT)", "Plan", "Window", "Slab 1 / 2 (KES/kWh)", ""].map((h) => (
                 <th key={h} className="pb-1.5 pr-4 font-semibold whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -115,10 +127,13 @@ function PricingTimeline({ record, price }: { record: SwapRecord; price: SwapPri
                 <td className="py-1.5 pr-4 text-slate-700 whitespace-nowrap">{EVENT_LABELS[e.event]}</td>
                 <td className="py-1.5 pr-4 text-slate-600 tabular-nums whitespace-nowrap">{fmtEatTime(e.at)}</td>
                 <td className="py-1.5 pr-4 text-slate-700 whitespace-nowrap">{e.planName}</td>
-                <td className="py-1.5 pr-4"><SlotBadge slot={e.slot} /></td>
-                <td className="py-1.5 pr-4 text-slate-700 tabular-nums whitespace-nowrap">{fmtRate(e.rate)}</td>
+                <td className="py-1.5 pr-4 whitespace-nowrap">
+                  <SlotBadge slot={e.slot} />
+                  <span className="ml-1.5 text-slate-500 tabular-nums">{fmtRateWindow(e.window)}</span>
+                </td>
+                <td className="py-1.5 pr-4 text-slate-700 tabular-nums whitespace-nowrap">{fmtSlabs(e.window)}</td>
                 <td className="py-1.5 pr-4 text-slate-700 whitespace-nowrap">
-                  {e.charged ? `Billed: ${price.kWh.toFixed(3)} kWh × ${e.rate} = ${fmtKes(price.amount, 2)}` : ""}
+                  {e.charged ? `Billed: ${billedBreakdown(price)}` : ""}
                 </td>
               </tr>
             ))}
@@ -126,7 +141,8 @@ function PricingTimeline({ record, price }: { record: SwapRecord; price: SwapPri
         </table>
       </div>
       <p className="text-[11px] text-slate-400 mt-1.5">
-        Plan locked at the RFID tap; rate type set by completion time.
+        Plan locked at the RFID tap; window set by completion time. Slab 1 covers the rider&apos;s first{" "}
+        {SLAB1_DAILY_KWH} kWh of the day ({price.kWhEarlierToday.toFixed(3)} kWh used on earlier swaps).
         {lockedChanged && " The station's plan changed during this swap, so the rider kept the plan in force at the tap."}
       </p>
     </div>
@@ -237,7 +253,7 @@ const STATUS_OPTIONS: [SwapStatus | "", string][] = [
 export function SwapRecordsTable() {
   const records = useSwapTransactionsStore((s) => s.records);
   const book = usePricingBook();
-  const prices = useMemo(() => new Map(records.map((r) => [r.id, priceSwapRecord(book, r)])), [records, book]);
+  const prices = useMemo(() => priceSwapRecords(book, records), [records, book]);
 
   const [search, setSearch]           = useState("");
   const [stationFilter, setStation]   = useState("");
@@ -438,7 +454,7 @@ export function SwapRecordsTable() {
                       <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{price.planName}</td>
                       <td className="px-3 py-2.5 whitespace-nowrap">
                         <SlotBadge slot={price.slot} />
-                        <span className="block text-[10px] text-slate-400 mt-0.5 tabular-nums">{fmtRate(price.rate)}</span>
+                        <span className="block text-[10px] text-slate-400 mt-0.5 tabular-nums">{fmtSlabs(price.window)} KES/kWh</span>
                       </td>
                       <td className="px-3 py-2.5 text-right font-semibold text-slate-700 whitespace-nowrap tabular-nums">
                         {fmtKes(price.amount, 2)}

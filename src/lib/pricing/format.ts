@@ -12,9 +12,9 @@ export function displayStatus(status: PlanStatus): DisplayStatus {
   return status === "scheduled" ? "inactive" : status;
 }
 
-/** Legacy: Swap Transactions still labels swaps Standard / Custom window. */
+/** Swap Transactions' badge: the plan's rest-of-day hours, or one of its custom windows. */
 export const SLOT_LABELS: Record<RateSlot, string> = {
-  standard: "Standard",
+  standard: "Rest of the day",
   custom_window: "Custom window",
 };
 

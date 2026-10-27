@@ -11,7 +11,7 @@
  * so any past moment can be priced exactly as it was then.
  */
 
-/** @deprecated Legacy: read only by engine.ts, SwapRecordsTable and check-pricing.mjs. */
+/** Rest-of-day hours or a custom window: the badge Swap Transactions shows. */
 export type RateSlot = "standard" | "custom_window";
 
 /**
@@ -37,7 +37,7 @@ export interface PlanVersion {
   id: string;
   /** ISO datetime the version takes over from the previous one. */
   effectiveFrom: string;
-  /** Cover every second of the day exactly once. What every pricing screen reads. */
+  /** Cover every second of the day exactly once. What every pricing screen and billing read. */
   windows: RateWindow[];
   /**
    * The rest-of-day rates. Kept here as well as on the `isBase` windows, so
@@ -45,13 +45,13 @@ export interface PlanVersion {
    */
   baseSlab1?: number;
   baseSlab2?: number;
-  /** @deprecated Legacy: read only by engine.ts, SwapRecordsTable and check-pricing.mjs. */
+  /** @deprecated Legacy: billing reads it only for versions without `windows`. */
   standardRate: number;
   /** @deprecated Legacy: "HH:mm", exclusive end, may wrap past midnight. */
   customWindowStart: string;
   /** @deprecated Legacy: "HH:mm", exclusive end, may wrap past midnight. */
   customWindowEnd: string;
-  /** @deprecated Legacy: read only by engine.ts, SwapRecordsTable and check-pricing.mjs. */
+  /** @deprecated Legacy: billing reads it only for versions without `windows`. */
   customRate: number;
   createdBy: string;
   createdAt: string;

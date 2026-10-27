@@ -30,6 +30,28 @@ export function swapTiming(r: SwapRecord): SwapTiming {
   };
 }
 
-export function priceSwapRecord(book: PricingBook, r: SwapRecord): SwapPrice {
-  return priceSwap(book, billingStation(r), swapTiming(r), r.totalKWh);
+/** The EAT calendar day of a moment, "2026-10-27". */
+function eatDay(iso: string): string {
+  return new Date(new Date(iso).getTime() + 3 * 3600_000).toISOString().slice(0, 10);
+}
+
+/**
+ * Price every swap. Slab 1 covers a rider's first kWh of each EAT day, so
+ * swaps are walked in completion order and each one counts what the same
+ * rider (by phone) already used that day. Skipped and manually ignored swaps
+ * are still priced but don't use up anyone's slab 1.
+ */
+export function priceSwapRecords(book: PricingBook, records: SwapRecord[]): Map<string, SwapPrice> {
+  const timed = records
+    .map((r) => ({ r, timing: swapTiming(r) }))
+    .sort((a, b) => new Date(a.timing.completedAt).getTime() - new Date(b.timing.completedAt).getTime());
+  const usedToday = new Map<string, number>();
+  const out = new Map<string, SwapPrice>();
+  for (const { r, timing } of timed) {
+    const key = `${r.phone}|${eatDay(timing.completedAt)}`;
+    const earlier = usedToday.get(key) ?? 0;
+    out.set(r.id, priceSwap(book, billingStation(r), timing, r.totalKWh, earlier));
+    if (!r.skipped && !r.manualIgnore) usedToday.set(key, earlier + r.totalKWh);
+  }
+  return out;
 }

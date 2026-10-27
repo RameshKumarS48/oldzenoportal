@@ -312,13 +312,14 @@ export function validateWindows(windows: RateWindow[]): string | null {
   return null;
 }
 
-/** The fields engine.ts, SwapRecordsTable and check-pricing.mjs still read. */
+/** The single-rate fields older versions priced with; billing now reads `windows` instead. */
 export type LegacyRates = Pick<PlanVersion, "standardRate" | "customWindowStart" | "customWindowEnd" | "customRate">;
 
 /**
- * Legacy single-rate fields from valid windows, so swaps on plans made in the
- * app still price: Standard is slab 1 of the longest window; the custom window
- * is the cheapest other window (by slab 1), as "HH:mm" with an exclusive end.
+ * Legacy single-rate fields from valid windows, kept filled in so the stored
+ * shape stays complete. Lossy: Standard is slab 1 of the longest window and the
+ * custom window is the cheapest other one, so nothing should price from these
+ * when `windows` exist (engine.ts `rateWindowAt` doesn't).
  * An end that isn't a whole minute is rounded down to one.
  */
 export function legacyFromWindows(windows: RateWindow[]): LegacyRates {
