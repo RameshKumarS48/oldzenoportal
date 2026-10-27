@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, ArrowRight, Plus, Wand2, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowRight, CheckCircle2, Plus, X } from "lucide-react";
 import { Callout } from "@/components/ui/callout";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -165,8 +165,8 @@ function RateInput({
 
 /**
  * New plan, or new rates for an existing one. The user sets the time slots
- * they know (up to five, whole hours, never overlapping), then Fill remaining
- * hours with Default copies Default's rates into every other hour. A plan
+ * they know (up to five, whole hours, never overlapping), then Fill with
+ * Default Rate copies Default's rates into every other hour. A plan
  * can't be saved until all 24 hours have a rate (see hour-rows.ts).
  *
  * Saving asks for confirmation, with soft warnings for rates that look like
@@ -435,7 +435,7 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
                 <div>
                   <h3 className="text-xs font-semibold text-slate-700">Your time slots (EAT, KES per kWh)</h3>
                   <p className="mt-0.5 text-[11px] text-slate-400">
-                    Add the hours you want to price differently, up to {MAX_WINDOWS}. Fill the rest from Default.
+                    Add the hours you want to price differently, up to {MAX_WINDOWS}. Fill the rest with the {BASE_LABEL}.
                   </p>
                 </div>
               </div>
@@ -507,23 +507,31 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
 
               {/* Coverage: every hour needs a rate before the plan can be saved. */}
               {gaps.length === 0 ? (
-                <Callout variant="success" role="status">All 24 hours covered</Callout>
+                <p role="status" className="flex items-center gap-1.5 px-1 text-xs font-medium text-emerald-700">
+                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> All 24 hours have a rate
+                </p>
               ) : (
-                <Callout
-                  variant="warning"
-                  role="status"
-                  action={
-                    !editingDefault && (
-                      <Button size="sm" variant="teal" onClick={() => setRows((rs) => fillFromDefault(rs, defaultWindows, rowKey))}>
-                        <Wand2 className="h-3.5 w-3.5" /> Fill remaining hours with Default
-                      </Button>
-                    )
-                  }
-                >
-                  <span className="tabular-nums">
-                    <span className="font-semibold">{covered} of 24 hours covered.</span> No rate yet for {gapText(rows)}.
-                  </span>
-                </Callout>
+                <div role="status" className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-slate-200 px-3 py-2.5">
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <p className="text-xs font-medium text-slate-800 tabular-nums">{covered} of 24 hours have a rate</p>
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+                      <span>Missing</span>
+                      {gaps.map((g) => (
+                        <span
+                          key={g.from}
+                          className="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 font-medium text-amber-800 tabular-nums"
+                        >
+                          {rowLabel(g)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  {!editingDefault && (
+                    <Button size="sm" variant="outline" onClick={() => setRows((rs) => fillFromDefault(rs, defaultWindows, rowKey))}>
+                      Fill with {BASE_LABEL}
+                    </Button>
+                  )}
+                </div>
               )}
 
               {restRows.length > 0 && (
@@ -531,7 +539,7 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
                   <div>
                     <h4 className="text-[11px] font-semibold text-slate-500">{BASE_LABEL}</h4>
                     {!editingDefault && (
-                      <p className="text-[11px] text-slate-400">Copied from Default&apos;s rates at these hours. Change any rate if you need to.</p>
+                      <p className="text-[11px] text-slate-400">Every hour outside your slots. Filled with the Default plan&apos;s rates; change any of them if you need to.</p>
                     )}
                   </div>
                   {restRows.map((r) => {
@@ -578,14 +586,20 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
 
             {error && <Callout variant="danger" role="alert">{error}</Callout>}
 
-            {blocker && (
-              // An unchanged edit isn't a mistake, so it stays quiet.
-              <Callout variant={plan && !ratesChanged && !nameChanged ? "neutral" : "danger"} role="alert">
-                <span className="font-medium">{blocker}</span>
-              </Callout>
-            )}
-
             <div className="flex items-center justify-end gap-3 pt-1">
+              {blocker && (
+                <p
+                  role="alert"
+                  className={cn(
+                    "mr-auto flex items-center gap-1.5 text-xs font-medium",
+                    // An unchanged edit isn't a mistake, so it stays quiet.
+                    plan && !ratesChanged && !nameChanged ? "text-slate-500" : "text-red-600"
+                  )}
+                >
+                  <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
+                  {blocker}
+                </p>
+              )}
               <Button variant="secondary" onClick={requestClose}>Cancel</Button>
               <Button variant="teal" onClick={handleSave} disabled={!canSave}>
                 {plan ? "Save" : "Next: stations"}

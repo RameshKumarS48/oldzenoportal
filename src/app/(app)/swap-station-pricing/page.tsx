@@ -162,7 +162,11 @@ export default function PricingPlansPage() {
                       ) : (
                         <p className="text-slate-300">–</p>
                       )}
-                      <p className="text-[11px] text-slate-400 mt-0.5">{fmtCustomCount(splitVersion(version).custom.length)}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        {plan.isDefault
+                          ? `${version.windows.length} time window${version.windows.length === 1 ? "" : "s"}`
+                          : fmtCustomCount(splitVersion(version).custom.length)}
+                      </p>
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-slate-700">{stations}</td>
                     <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{lastUpdated ? fmtEat(lastUpdated) : "–"}</td>

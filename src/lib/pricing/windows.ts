@@ -29,7 +29,8 @@ export const MAX_WINDOWS = 5;
 export const MIN_RATE = 1;
 export const MAX_RATE = 500;
 
-export const BASE_LABEL = "Rest of the day";
+/** The hours a plan doesn't set itself, priced like the Default plan. */
+export const BASE_LABEL = "Default Rate";
 
 /** Is the rate a whole number from MIN_RATE to MAX_RATE? */
 export function isValidRate(n: number): boolean {
@@ -112,9 +113,9 @@ export function fmtSlabs(w: Pick<RateWindow, "slab1" | "slab2">): string {
 /** "100/80", for the change log. */
 const slabsShort = (r: BaseRates) => `${r.slab1}/${r.slab2}`;
 
-/** "2 slots + rest of the day", or "Rest of the day only". */
+/** "2 slots + Default Rate", or "Default Rate only". */
 export function fmtCustomCount(n: number): string {
-  return n === 0 ? `${BASE_LABEL} only` : `${n} slot${n === 1 ? "" : "s"} + rest of the day`;
+  return n === 0 ? `${BASE_LABEL} only` : `${n} slot${n === 1 ? "" : "s"} + ${BASE_LABEL}`;
 }
 
 // ── Rest of the day and custom windows ───────────────────────────────────────

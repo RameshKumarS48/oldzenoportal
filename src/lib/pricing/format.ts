@@ -14,7 +14,7 @@ export function displayStatus(status: PlanStatus): DisplayStatus {
 
 /** Swap Transactions' badge: the plan's rest-of-day hours, or one of its custom windows. */
 export const SLOT_LABELS: Record<RateSlot, string> = {
-  standard: "Rest of the day",
+  standard: "Default Rate",
   custom_window: "Time slot",
 };
 

@@ -22,18 +22,17 @@ import type { RateWindow } from "@/lib/pricing/types";
 export const WINDOW_COLORS = ["#115e59", "#5eead4", "#0d9488", "#99f6e4", "#0f766e", "#2dd4bf"];
 
 /**
- * The rest-of-day hours are white with a Tailwind slate 500 edge: 4.8:1
- * against white, so the band and its swatch stay visible on a white card.
+ * Default Rate hours are a solid Tailwind slate 400: neutral against the
+ * teal slots, clearly darker than the slate 100 of hours with no rate yet,
+ * and a filled dot, so its swatch never reads as an empty radio button.
  */
-const BASE_EDGE = "#64748b";
-/** A highlighted rest-of-day band: slate 700, as a white ring can't show on white. */
-const BASE_EDGE_ON = "#334155";
+const BASE_FILL = "#94a3b8";
 
 /** A rest-of-day band's id: each stretch has its own row and rates, so its own id. */
 export const baseBandId = (w: Pick<RateWindow, "start">) => `base-${w.start}`;
 
-/** A custom window's colour by index, or white for the rest of the day. */
-const colorOf = (color: number | "base") => (color === "base" ? "#ffffff" : WINDOW_COLORS[color % WINDOW_COLORS.length]);
+/** A slot's colour by index, or slate for Default Rate hours. */
+const colorOf = (color: number | "base") => (color === "base" ? BASE_FILL : WINDOW_COLORS[color % WINDOW_COLORS.length]);
 
 /** The small dot that ties a row to its band; round, so it never reads as a checkbox. */
 export function WindowSwatch({ color, className }: { color: number | "base"; className?: string }) {
@@ -41,7 +40,7 @@ export function WindowSwatch({ color, className }: { color: number | "base"; cla
     <span
       aria-hidden="true"
       className={cn("inline-block w-3 h-3 shrink-0 rounded-full", className)}
-      style={{ backgroundColor: colorOf(color), boxShadow: color === "base" ? `inset 0 0 0 1px ${BASE_EDGE}` : undefined }}
+      style={{ backgroundColor: colorOf(color) }}
     />
   );
 }
@@ -72,14 +71,14 @@ const boundaryLabel = (at: number) => fmtHHmmss(at >= DAY_SECONDS ? DAY_SECONDS 
 const rate = (n: number) => (Number.isFinite(n) ? String(n) : "–");
 
 /**
- * The day as a 24 h strip: one band per window, no text inside; the rest of
- * the day is white with a dark edge and each custom window has its colour.
+ * The day as a 24 h strip: one band per window, no text inside; Default
+ * Rate hours are slate and each slot has its colour.
  * A window that crosses midnight is two bands, one at each end. Under it,
  * the boundary times sit at their boundaries; where two would overlap, a real
  * boundary beats the day's ends, then the earlier one wins.
  *
- * Hovering or focusing a band shows "17:00:00–19:59:59 · 110 / 90" (or
- * "Rest of the day · 90 / 70") and reports its id through `onHighlight`;
+ * Hovering or focusing a band shows its rates ("Slab 1 KES 110 · Slab 2 KES
+ * 90 per kWh") and reports its id through `onHighlight`;
  * `highlighted` (an id) outlines it. `now` marks the current EAT time, with
  * "Now · 14:05:00" above the marker.
  */
@@ -149,7 +148,8 @@ export function DayBandBar({
           )}
         </div>
       )}
-      <div ref={barRef} className="relative h-6 rounded-md bg-slate-200 overflow-hidden">
+      {/* The bar's own colour shows through where an hour has no rate yet. */}
+      <div ref={barRef} className="relative h-6 rounded-md bg-slate-100 overflow-hidden">
         {bands.map((band) => {
           const on = highlighted === band.id;
           const base = band.color === "base";
@@ -158,7 +158,7 @@ export function DayBandBar({
               key={base ? `${band.id}-${band.window.start}-${band.side}` : `${band.id}-${band.side}`}
               role={band.focusable ? "img" : undefined}
               tabIndex={band.focusable ? 0 : undefined}
-              aria-label={band.focusable ? tipText(band) : undefined}
+              aria-label={band.focusable ? ariaText(band) : undefined}
               aria-hidden={band.focusable ? undefined : true}
               onMouseEnter={(e) => show(band, e.currentTarget)}
               onMouseLeave={hide}
@@ -166,15 +166,14 @@ export function DayBandBar({
               onBlur={hide}
               className={cn(
                 "absolute inset-y-0 transition-[left,width,opacity] duration-300 ease-out focus:outline-none",
-                base ? "focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-700" : "border-r border-white focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white",
+                "border-r border-white focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white",
                 highlighted && !on && "opacity-40",
-                on && !base && "ring-2 ring-inset ring-white"
+                on && "ring-2 ring-inset ring-white"
               )}
               style={{
                 left: `${band.a * 100}%`,
                 width: `${(band.b - band.a) * 100}%`,
                 backgroundColor: colorOf(band.color),
-                boxShadow: base ? `inset 0 0 0 ${on ? 2 : 1}px ${on ? BASE_EDGE_ON : BASE_EDGE}` : undefined,
               }}
             />
           );
@@ -214,8 +213,15 @@ export function DayBandBar({
   );
 }
 
-function tipText({ window: w, color }: BandItem): string {
-  return `${color === "base" ? `${BASE_LABEL} ` : ""}${fmtRateWindow(w)} · ${rate(w.slab1)} / ${rate(w.slab2)}`;
+/** The tooltip: the band's rates, which the bar can't show; its times are already on the axis. */
+function tipText({ window: w }: BandItem): string {
+  if (!Number.isFinite(w.slab1) && !Number.isFinite(w.slab2)) return "No rates yet";
+  return `Slab 1 KES ${rate(w.slab1)} · Slab 2 KES ${rate(w.slab2)} per kWh`;
+}
+
+/** For screen readers, which can't see the axis: the times as well as the rates. */
+function ariaText(item: BandItem): string {
+  return `${item.color === "base" ? `${BASE_LABEL}, ` : ""}${fmtRateWindow(item.window)}: ${tipText(item)}`;
 }
 
 /**
