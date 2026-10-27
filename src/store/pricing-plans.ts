@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { ALL_STATION_IDS, SEED_ASSIGNMENTS, SEED_CHANGES, SEED_PLANS } from "@/lib/mock/pricing-plans";
-import { normaliseStationId, resolvePlan, sortedVersions, stationsOnPlan, versionAt } from "@/lib/pricing/engine";
+import { sortedVersions, stationsOnPlan, versionAt } from "@/lib/pricing/engine";
+import { summarizeMoves } from "@/lib/pricing/moves";
 import {
   changeParts,
   legacyFromWindows,
@@ -75,9 +76,52 @@ function toVersion(v: VersionInput, by: string, at: string): PlanVersion {
   return { ...v, ...legacyFromWindows(v.windows), effectiveFrom: at, id: uid("pv"), createdBy: by, createdAt: at };
 }
 
+/**
+ * The assignments and change-log entries for moving `stationIds` onto
+ * `planId` (null for Default) at `at`, read against `book`. Stations already
+ * there are skipped, so nothing is logged for a move that changes nothing.
+ */
+function planMoves(
+  book: PricingBook,
+  planId: string | null,
+  planName: string,
+  stationIds: string[],
+  by: string,
+  at: string
+): { error?: string; rows: StationAssignment[]; logs: Omit<PlanChange, "id">[] } {
+  const summary = summarizeMoves(book, stationIds, planId, ALL_STATION_IDS, at);
+  if (summary.unknown.length > 0) {
+    return { error: `Unknown station${summary.unknown.length === 1 ? "" : "s"}: ${summary.unknown.join(", ")}.`, rows: [], logs: [] };
+  }
+  const ids = summary.moves.map((m) => m.id);
+  const rows: StationAssignment[] = ids.map((stationId) => ({
+    id: uid("sa"), stationId, planId, effectiveFrom: at, assignedBy: by, assignedAt: at,
+  }));
+  const logs: Omit<PlanChange, "id">[] = [];
+  if (planId && ids.length > 0) {
+    logs.push({
+      planId, by, at, effectiveFrom: at, kind: "stations_assigned",
+      summary: `Moved ${ids.length} station${ids.length === 1 ? "" : "s"} here: ${ids.join(", ")}`,
+    });
+  }
+  const leaving = new Map<string, string[]>();
+  for (const m of summary.moves) if (!m.from.isDefault) leaving.set(m.from.id, [...(leaving.get(m.from.id) ?? []), m.id]);
+  leaving.forEach((moved, fromId) => {
+    logs.push({
+      planId: fromId, by, at, effectiveFrom: at, kind: "stations_unassigned",
+      summary: `${moved.join(", ")} moved to ${planName}`,
+    });
+  });
+  return { rows, logs };
+}
+
 interface PricingState extends PricingBook {
   changes: PlanChange[];
-  createPlan: (input: { name: string; version: VersionInput }, by: string) => Result & { planId?: string };
+  /** Create a plan, and move `stationIds` onto it, in one update: all or nothing. */
+  createPlan: (
+    input: { name: string; version: VersionInput; stationIds?: string[] },
+    by: string
+  ) => Result & { planId?: string; moved?: number };
   addVersion: (planId: string, version: VersionInput, by: string) => Result;
   renamePlan: (planId: string, name: string, by: string) => Result;
   /** Move stations onto a plan, or back to Default with `planId: null`, from now. */
@@ -99,7 +143,7 @@ export const usePricingStore = create<PricingState>()(
         assignments: SEED_ASSIGNMENTS,
         changes: SEED_CHANGES,
 
-        createPlan: ({ name, version }, by) => {
+        createPlan: ({ name, version, stationIds = [] }, by) => {
           const trimmed = name.trim();
           const nameError = validatePlanName(trimmed, get().plans);
           if (nameError) return { ok: false, error: nameError };
@@ -115,9 +159,17 @@ export const usePricingStore = create<PricingState>()(
             createdAt: now,
             versions: [toVersion(version, by, now)],
           };
-          set((s) => ({ plans: [...s.plans, plan] }));
-          log({ planId, by, kind: "created", summary: `Created plan: ${versionSummary(version)}` }, now);
-          return { ok: true, planId };
+          // Read the moves against the book with the new plan in it.
+          const book = get();
+          const moved = planMoves({ plans: [...book.plans, plan], assignments: book.assignments }, planId, trimmed, stationIds, by, now);
+          if (moved.error) return { ok: false, error: moved.error };
+          const created: PlanChange = { planId, by, at: now, effectiveFrom: now, kind: "created", summary: `Created plan: ${versionSummary(version)}`, id: uid("pc") };
+          set((s) => ({
+            plans: [...s.plans, plan],
+            assignments: [...s.assignments, ...moved.rows],
+            changes: [...moved.logs.map((l) => ({ ...l, id: uid("pc") })).reverse(), created, ...s.changes],
+          }));
+          return { ok: true, planId, moved: moved.rows.length };
         },
 
         addVersion: (planId, version, by) => {
@@ -159,40 +211,18 @@ export const usePricingStore = create<PricingState>()(
         },
 
         assignStations: (planId, stationIds, by) => {
-          const ids = Array.from(new Set(stationIds.map(normaliseStationId)));
-          if (ids.length === 0) return { ok: false, error: "Select at least one station." };
-          const effectiveFrom = new Date().toISOString();
-          const target = planId ? get().plans.find((p) => p.id === planId) : null;
-          if (planId && !target) return { ok: false, error: "That plan no longer exists." };
-
-          // Where each station is now, for the log.
+          if (stationIds.length === 0) return { ok: false, error: "Select at least one station." };
           const book = get();
-          const leaving = new Map<string, string[]>();
-          for (const id of ids) {
-            const from = resolvePlan(book, id, effectiveFrom).plan;
-            if (from.id === planId || (planId === null && from.isDefault)) continue;
-            leaving.set(from.id, [...(leaving.get(from.id) ?? []), id]);
-          }
-
-          const rows: StationAssignment[] = ids.map((stationId) => ({
-            id: uid("sa"), stationId, planId, effectiveFrom, assignedBy: by, assignedAt: effectiveFrom,
+          const target = planId ? book.plans.find((p) => p.id === planId && !p.archived) : null;
+          if (planId && !target) return { ok: false, error: PLAN_GONE };
+          const at = new Date().toISOString();
+          const moved = planMoves(book, planId, target?.name ?? "Default", stationIds, by, at);
+          if (moved.error) return { ok: false, error: moved.error };
+          if (moved.rows.length === 0) return { ok: false, error: `Those stations are already on ${target?.name ?? "Default"}.` };
+          set((s) => ({
+            assignments: [...s.assignments, ...moved.rows],
+            changes: [...moved.logs.map((l) => ({ ...l, id: uid("pc") })).reverse(), ...s.changes],
           }));
-          set((s) => ({ assignments: [...s.assignments, ...rows] }));
-
-          if (target) {
-            log({
-              planId: target.id, by, kind: "stations_assigned",
-              summary: `Moved ${ids.length} station${ids.length === 1 ? "" : "s"} here: ${ids.join(", ")}`,
-            }, effectiveFrom);
-          }
-          leaving.forEach((moved, fromId) => {
-            const fromPlan = book.plans.find((p) => p.id === fromId);
-            if (!fromPlan || fromPlan.isDefault) return;
-            log({
-              planId: fromId, by, kind: "stations_unassigned",
-              summary: `${moved.join(", ")} moved to ${target?.name ?? "Default"}`,
-            }, effectiveFrom);
-          });
           return { ok: true };
         },
 

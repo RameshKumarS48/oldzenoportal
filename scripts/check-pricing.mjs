@@ -20,6 +20,7 @@ register(
 const { priceSwap, resolvePlan, slotFor, inWindow, planStatus } = await import("../src/lib/pricing/engine.ts");
 const { validateWindows, rateRows, rateWarnings, splitVersion } = await import("../src/lib/pricing/windows.ts");
 const rowsLib = await import("../src/lib/pricing/hour-rows.ts");
+const { summarizeMoves } = await import("../src/lib/pricing/moves.ts");
 
 const v = (id, effectiveFrom, standardRate, customRate, start = "22:00", end = "06:00") => ({
   id, effectiveFrom, standardRate, customRate, customWindowStart: start, customWindowEnd: end,
@@ -271,6 +272,32 @@ check("soft warnings: slab 2 above slab 1, far from Default, same as Default", (
   assert.ok(w2.items.some((i) => i.kind === "far_from_default" && /far from Default/.test(i.title)));
   assert.equal(rateWarnings(DEFAULT_WINDOWS, DEFAULT_WINDOWS).matchesDefault, true);
   assert.equal(rateWarnings(DEFAULT_WINDOWS, null).matchesDefault, false); // editing Default itself
+});
+
+// ── Moving stations (create with stations, assign, move to another plan) ──
+const ALL = ["BS0002", "BS0009", "BS0043", "BS0099"];
+const NOW = "2026-10-27T12:00:00+03:00";
+
+check("moves: codes are upper-cased and de-duplicated; unknown codes are flagged", () => {
+  const m = summarizeMoves(book, ["bs0002", "BS0002", "BS7777"], "pp-new", ALL, NOW);
+  assert.deepEqual(m.moves.map((x) => x.id), ["BS0002"]);
+  assert.equal(m.moves[0].from.id, "saver");
+  assert.deepEqual(m.unknown, ["BS7777"]);
+});
+
+check("moves: stations already on the target change nothing", () => {
+  const m = summarizeMoves(book, ["BS0002", "BS0099"], "saver", ALL, NOW);
+  assert.deepEqual(m.unchanged, ["BS0002"]);
+  assert.deepEqual(m.moves.map((x) => x.id), ["BS0099"]);
+  const toDefault = summarizeMoves(book, ["BS0099"], null, ALL, NOW);
+  assert.deepEqual(toDefault.unchanged, ["BS0099"]); // already on Default
+});
+
+check("moves: a plan whose last station leaves is reported as emptied; Default never is", () => {
+  const m = summarizeMoves(book, ["BS0043"], "pp-new", ALL, NOW); // Night is BS0043's only plan
+  assert.deepEqual(m.emptied.map((p) => p.id), ["night"]);
+  const fromDefault = summarizeMoves(book, ["BS0009", "BS0099"], "saver", ALL, NOW);
+  assert.deepEqual(fromDefault.emptied, []);
 });
 
 console.log(`\n${passed} checks passed`);

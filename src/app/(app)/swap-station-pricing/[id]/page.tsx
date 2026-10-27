@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Pencil, Plus, Undo2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRightLeft, Pencil, Plus, Undo2 } from "lucide-react";
 import { AccessGuard } from "@/components/ui/AccessGuard";
 import { Topbar } from "@/components/layout/Topbar";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { usePricingStore } from "@/store/pricing-plans";
 import { ALL_STATION_IDS, PRICING_STATIONS } from "@/lib/mock/pricing-plans";
 import { assignmentAt, planStatus, sortedVersions, stationsOnPlan, versionAt } from "@/lib/pricing/engine";
+import { summarizeMoves } from "@/lib/pricing/moves";
 import { fmtEat } from "@/lib/pricing/format";
 import { BASE_LABEL, fmtCustomCount, fmtRateWindow, fmtSlabs, sortWindows, splitVersion } from "@/lib/pricing/windows";
 import type { PricingPlan } from "@/lib/pricing/types";
@@ -250,7 +251,10 @@ function StationsTab({
     });
 
   const allSelected = onPlan.length > 0 && onPlan.every((r) => selected.has(r.station.id));
-  const canRemove = canWrite && !plan.isDefault;
+  // Stations on Default can move to another plan; stations elsewhere can also go back to Default.
+  const canRemove = canWrite;
+  const [moving, setMoving] = useState(false);
+  const clearSelection = () => setSelected(new Set());
 
   return (
     <div className="space-y-4">
@@ -260,9 +264,17 @@ function StationsTab({
             On this plan today <span className="text-slate-400 font-normal">· {onPlan.length}</span>
           </h3>
           {canRemove && selected.size > 0 && (
-            <Button size="sm" variant="secondary" onClick={() => setRemoving(true)}>
-              <Undo2 className="w-3.5 h-3.5" /> Move {selected.size} to Default
-            </Button>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">{selected.size} selected</span>
+              <Button size="sm" variant="secondary" onClick={() => setMoving(true)}>
+                <ArrowRightLeft className="w-3.5 h-3.5" /> Move to another plan…
+              </Button>
+              {!plan.isDefault && (
+                <Button size="sm" variant="secondary" onClick={() => setRemoving(true)}>
+                  <Undo2 className="w-3.5 h-3.5" /> Move to Default
+                </Button>
+              )}
+            </div>
           )}
         </div>
         {onPlan.length === 0 ? (
@@ -323,10 +335,23 @@ function StationsTab({
         <MoveToDefaultModal
           ids={Array.from(selected)}
           planName={plan.name}
+          emptiesPlan={allSelected}
           onClose={() => setRemoving(false)}
           onDone={() => {
             setRemoving(false);
-            setSelected(new Set());
+            clearSelection();
+          }}
+        />
+      )}
+      {moving && (
+        <MoveStationsModal
+          ids={Array.from(selected)}
+          from={plan}
+          now={now}
+          onClose={() => setMoving(false)}
+          onDone={() => {
+            setMoving(false);
+            clearSelection();
           }}
         />
       )}
@@ -337,11 +362,14 @@ function StationsTab({
 function MoveToDefaultModal({
   ids,
   planName,
+  emptiesPlan,
   onClose,
   onDone,
 }: {
   ids: string[];
   planName: string;
+  /** Every station on the plan is moving. */
+  emptiesPlan: boolean;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -368,8 +396,92 @@ function MoveToDefaultModal({
       onClose={onClose}
       onConfirm={handleConfirm}
     >
-      Their new rates apply to swaps from now.
+      Their new rates apply to swaps from now. Swaps already in progress keep the plan they started on.
       <span className="block mt-2 text-xs text-slate-500">{ids.join(", ")}</span>
+      {emptiesPlan && (
+        <span className="mt-2 flex items-start gap-1.5 text-xs font-medium text-amber-800">
+          <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0 text-amber-600" /> {planName} will have no stations left.
+        </span>
+      )}
+    </ConfirmModal>
+  );
+}
+
+/**
+ * Move stations from this plan to another one. The target can't be this plan
+ * or a deleted one; the confirmation names any plan left with no stations.
+ */
+function MoveStationsModal({
+  ids,
+  from,
+  now,
+  onClose,
+  onDone,
+}: {
+  ids: string[];
+  from: PricingPlan;
+  now: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const assignStations = usePricingStore((s) => s.assignStations);
+  const book = usePricingBook();
+  const actor = useActorName();
+  const targets = book.plans
+    .filter((p) => !p.archived && p.id !== from.id)
+    .sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.name.localeCompare(b.name));
+  const [targetId, setTargetId] = useState("");
+  const target = targets.find((p) => p.id === targetId);
+  const summary = target
+    ? summarizeMoves(book, ids, target.isDefault ? null : target.id, ALL_STATION_IDS, now)
+    : null;
+  const count = `${ids.length} station${ids.length === 1 ? "" : "s"}`;
+
+  function handleConfirm() {
+    if (!target) return;
+    const res = assignStations(target.isDefault ? null : target.id, ids, actor);
+    if (!res.ok) {
+      toast.error("Can't move stations", res.error);
+      return onClose();
+    }
+    toast.success(`${count} moved`, `They left ${from.name} for ${target.name} from now.`);
+    onDone();
+  }
+
+  return (
+    <ConfirmModal
+      open
+      title={`Move ${count} to another plan`}
+      confirmLabel={target ? `Move to ${target.name}` : "Move"}
+      tone="neutral"
+      confirmDisabled={!target}
+      onClose={onClose}
+      onConfirm={handleConfirm}
+    >
+      <span className="block text-xs text-slate-500">{ids.join(", ")}</span>
+      <label htmlFor="move-target" className="mt-3 block text-xs text-slate-500">Move to</label>
+      <select
+        id="move-target"
+        value={targetId}
+        onChange={(e) => setTargetId(e.target.value)}
+        className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-zeno-teal/20"
+      >
+        <option value="">Choose a plan…</option>
+        {targets.map((p) => (
+          <option key={p.id} value={p.id}>{p.name}</option>
+        ))}
+      </select>
+      {summary && (
+        <span className="mt-3 block">
+          Their new rates apply to swaps from now. Swaps already in progress keep the plan they started on.
+          {summary.emptied.length > 0 && (
+            <span className="mt-2 flex items-start gap-1.5 text-xs font-medium text-amber-800">
+              <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0 text-amber-600" />
+              {summary.emptied.map((p) => p.name).join(", ")} will have no stations left.
+            </span>
+          )}
+        </span>
+      )}
     </ConfirmModal>
   );
 }

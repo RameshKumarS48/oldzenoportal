@@ -45,10 +45,35 @@ import type { PricingPlan } from "@/lib/pricing/types";
 import { cn } from "@/lib/utils";
 import { DayBandBar, WindowSwatch } from "./DayBandBar";
 import { HourSelect } from "./HourSelect";
+import { MoveWarnings, StationPicker } from "./StationPicker";
+import { summarizeMoves } from "@/lib/pricing/moves";
 import { inputCls, labelCls, useActorName, usePricingBook } from "./shared";
 
 let rowSeq = 0;
 const rowKey = () => `w${++rowSeq}`;
+
+/** Stands in for the id of a plan being created, so no station reads as already on it. */
+const NEW_PLAN = "pp-new";
+
+/** "● Rates ─ ○ Stations": where a new plan's two steps are. */
+function Steps({ step }: { step: "rates" | "stations" }) {
+  const dot = (on: boolean, done: boolean) =>
+    cn(
+      "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold",
+      on ? "bg-zeno-teal text-white" : done ? "bg-teal-100 text-zeno-teal" : "bg-slate-100 text-slate-400"
+    );
+  return (
+    <ol className="flex items-center gap-2 text-xs" aria-label="Steps">
+      <li className={cn("flex items-center gap-1.5", step === "rates" ? "font-semibold text-slate-800" : "text-slate-500")}>
+        <span className={dot(step === "rates", step === "stations")}>1</span> Rates
+      </li>
+      <li aria-hidden className="h-px w-8 bg-slate-200" />
+      <li className={cn("flex items-center gap-1.5", step === "stations" ? "font-semibold text-slate-800" : "text-slate-500")}>
+        <span className={dot(step === "stations", false)}>2</span> Stations
+      </li>
+    </ol>
+  );
+}
 
 const ROW_GRID = "grid grid-cols-[0.75rem_minmax(0,1.15fr)_minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2";
 
@@ -170,6 +195,10 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
   const [discarding, setDiscarding] = useState(false);
   /** The slot Add slot just made; its From dropdown takes focus as it mounts. */
   const [added, setAdded] = useState<string | null>(null);
+  /** A new plan is set up in two steps: its rates, then (optionally) its stations. */
+  const [step, setStep] = useState<"rates" | "stations">("rates");
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const moves = summarizeMoves(book, Array.from(picked), NEW_PLAN, ALL_STATION_IDS, now);
 
   const windows = rowsToWindows(rows);
   const version: VersionInput = { windows };
@@ -183,7 +212,7 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
   const badRates = rows.some((r) => [r.slab1, r.slab2].some((v) => v.trim() !== "" && rateError(v)));
   const ratesChanged = !latest || !sameWindows(windows, latest.windows);
   const nameChanged = !!plan && name.trim() !== plan.name;
-  const dirty = snapshot(name, rows) !== initial;
+  const dirty = snapshot(name, rows) !== initial || picked.size > 0;
   const blocked = addBlocked(rows);
 
   // The first thing standing in the way of saving, for the footer.
@@ -230,8 +259,9 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
       toast.success("Plan updated", `${name.trim()} was saved.`);
       return onClose();
     }
-    const stations = plan ? stationsOnPlan(book, plan.id, ALL_STATION_IDS, now).length : 0;
-    setConfirming({ stations });
+    // A new plan picks its stations next; an edit goes straight to confirming.
+    if (!plan) return setStep("stations");
+    setConfirming({ stations: stationsOnPlan(book, plan.id, ALL_STATION_IDS, now).length });
   }
 
   /** A store error goes back to the form, where it can be fixed; a deleted plan closes it. */
@@ -249,9 +279,15 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
     if (saving) return;
     setSaving(true);
     if (!plan) {
-      const res = createPlan({ name, version }, actor);
+      const res = createPlan({ name, version, stationIds: moves.moves.map((m) => m.id) }, actor);
       if (!res.ok) return fail(res.error);
-      toast.success("Plan created", `${name.trim()} is ready. Assign stations to put it to use.`);
+      const n = res.moved ?? 0;
+      toast.success(
+        "Plan created",
+        n > 0
+          ? `${name.trim()} is live on ${n} station${n === 1 ? "" : "s"} from now.`
+          : `${name.trim()} is ready. Assign stations from its Stations tab to put it to use.`
+      );
       return onClose();
     }
     if (nameChanged) {
@@ -303,7 +339,7 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
         open
         onClose={discarding ? () => {} : requestClose}
         title={confirming ? (plan ? "Confirm new rates" : "Confirm new plan") : plan ? `Edit ${plan.name}` : "New pricing plan"}
-        className="max-w-2xl"
+        className={step === "stations" && !confirming ? "max-w-3xl" : "max-w-2xl"}
       >
         {confirming ? (
           <div className="space-y-5">
@@ -345,6 +381,24 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
                 </ul>
               </div>
             )}
+            {!plan ? (
+              <div className="space-y-2">
+                {moves.moves.length === 0 ? (
+                  <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0 text-amber-600" />
+                    No stations yet. This plan won&apos;t price any swaps until you assign some.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm text-slate-700">
+                      <span className="font-semibold">{moves.moves.length} station{moves.moves.length === 1 ? "" : "s"}</span> move to
+                      this plan: <span className="font-mono text-xs text-slate-600">{moves.moves.map((m) => m.id).join(", ")}</span>
+                    </p>
+                    <MoveWarnings summary={moves} />
+                  </>
+                )}
+              </div>
+            ) : (
             <p className="text-sm text-slate-700">
               {editingDefault ? (
                 <>Prices <span className="font-semibold">every station not on another plan ({confirming.stations})</span></>
@@ -355,6 +409,7 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
                 </>
               )}
             </p>
+            )}
             <p className="flex gap-2 rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-slate-600">
               <Info className="h-3.5 w-3.5 shrink-0 mt-px text-slate-400" />
               New rates apply to swaps from now. Earlier swaps, and swaps already in progress, keep their rates.
@@ -362,11 +417,31 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
             {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="secondary" onClick={() => setConfirming(null)} disabled={saving}>Back</Button>
-              <Button variant="teal" onClick={handleConfirm} loading={saving}>Confirm</Button>
+              <Button variant="teal" onClick={handleConfirm} loading={saving}>{plan ? "Confirm" : "Create plan"}</Button>
+            </div>
+          </div>
+        ) : step === "stations" ? (
+          <div className="space-y-4">
+            <Steps step="stations" />
+            <div>
+              <h3 className="text-xs font-semibold text-slate-700">Which stations should use {name.trim()}?</h3>
+              <p className="mt-0.5 text-[11px] text-slate-500">
+                Optional. A station can be on one plan at a time, so picking one here moves it off its current plan. You can
+                also assign stations later from the plan&apos;s Stations tab.
+              </p>
+            </div>
+            <StationPicker targetPlanId={NEW_PLAN} selected={picked} onChange={setPicked} summary={moves} now={now} />
+            <div className="flex items-center justify-end gap-3 pt-1">
+              <Button variant="secondary" className="mr-auto" onClick={() => setStep("rates")}>Back to rates</Button>
+              <Button variant="secondary" onClick={requestClose}>Cancel</Button>
+              <Button variant="teal" onClick={() => setConfirming({ stations: moves.moves.length })}>
+                {moves.moves.length === 0 ? "Review without stations" : `Review · ${moves.moves.length} station${moves.moves.length === 1 ? "" : "s"}`}
+              </Button>
             </div>
           </div>
         ) : (
           <div className="space-y-5">
+            {!plan && <Steps step="rates" />}
             <div className="sm:w-1/2">
               <label htmlFor="plan-name" className={labelCls}>Plan name</label>
               <input
@@ -567,7 +642,7 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
             <div className="flex items-center justify-end gap-3 pt-1">
               <Button variant="secondary" onClick={requestClose}>Cancel</Button>
               <Button variant="teal" onClick={handleSave} disabled={!canSave}>
-                {plan ? "Save" : "Create plan"}
+                {plan ? "Save" : "Next: stations"}
               </Button>
             </div>
           </div>
