@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Check } from "lucide-react";
 import { SearchInput } from "@/components/ui/FilterControls";
+import { Pagination } from "@/components/ui/Pagination";
 import { cn } from "@/lib/utils";
 import { PRICING_REGIONS, PRICING_STATIONS } from "@/lib/mock/pricing-plans";
 import { resolvePlan } from "@/lib/pricing/engine";
@@ -12,23 +13,30 @@ import { usePricingBook } from "./shared";
  * Pick stations to move onto a plan: search by code, short or long address
  * or region, tick them one by one or a whole region at once, and see which
  * plan each is on now ("moves off" marks a station leaving another plan).
- * Stations already on the target can't be picked.
- * Search never clears a selection it hides. `targetPlanId` is null for
- * Default, or an id the book doesn't have yet for a plan being created.
+ * Stations already on the target can't be picked; with `hideAlreadyOnTarget`
+ * they aren't listed at all. `showRegions` adds the whole-region chips.
+ * Search and paging never clear a selection they hide. `targetPlanId` is null
+ * for Default, or an id the book doesn't have yet for a plan being created.
  */
 export function StationPicker({
   targetPlanId,
   selected,
   onChange,
   now,
+  showRegions = true,
+  hideAlreadyOnTarget = false,
 }: {
   targetPlanId: string | null;
   selected: Set<string>;
   onChange: (next: Set<string>) => void;
   now: string;
+  showRegions?: boolean;
+  hideAlreadyOnTarget?: boolean;
 }) {
   const book = usePricingBook();
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
 
   // Each station's plan now, before any move.
   const rows = useMemo(
@@ -37,8 +45,8 @@ export function StationPicker({
         const current = resolvePlan(book, s.id, now).plan;
         const already = targetPlanId === null ? current.isDefault : current.id === targetPlanId;
         return { ...s, current, already };
-      }),
-    [book, now, targetPlanId]
+      }).filter((s) => !(hideAlreadyOnTarget && s.already)),
+    [book, now, targetPlanId, hideAlreadyOnTarget]
   );
 
   const visible = useMemo(() => {
@@ -61,14 +69,48 @@ export function StationPicker({
   const toggle = (id: string) => flip([id], !selected.has(id));
   const pickable = (list: typeof rows) => list.filter((r) => !r.already).map((r) => r.id);
 
-  const visibleIds = pickable(visible);
-  const allVisible = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
-  const hiddenSelected = Array.from(selected).filter((id) => !visible.some((v) => v.id === id)).length;
+  // A shrinking list (a search) can leave the page past the end, so clamp it.
+  const pages = Math.max(1, Math.ceil(visible.length / perPage));
+  const current = Math.min(page, pages);
+  const shown = visible.slice((current - 1) * perPage, current * perPage);
+  // The header checkbox acts on the rows on this page.
+  const pageIds = pickable(shown);
+  const allShown = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+  const hiddenSelected = Array.from(selected).filter((id) => !shown.some((v) => v.id === id)).length;
+
+  const count = (
+    <span className="ml-auto text-xs text-slate-500 whitespace-nowrap">
+      {selected.size} selected
+      {hiddenSelected > 0 && <span className="text-slate-400"> ({hiddenSelected} not shown)</span>}
+      {selected.size > 0 && (
+        <button type="button" onClick={() => onChange(new Set())} className="ml-2 text-zeno-teal hover:underline">
+          Clear
+        </button>
+      )}
+    </span>
+  );
+
+  if (rows.length === 0) {
+    return <p className="rounded-xl border border-slate-200 py-10 text-center text-sm text-slate-400">Every station is already on this plan.</p>;
+  }
 
   return (
     <div className="space-y-3">
-      <SearchInput value={query} onChange={setQuery} placeholder="Search code, short or long address…" />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <SearchInput
+            value={query}
+            onChange={(v) => {
+              setQuery(v);
+              setPage(1);
+            }}
+            placeholder="Search code, short or long address…"
+          />
+        </div>
+        {!showRegions && count}
+      </div>
 
+      {showRegions && (
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[11px] text-slate-500">Whole region:</span>
         {PRICING_REGIONS.map((r) => {
@@ -91,16 +133,9 @@ export function StationPicker({
             </button>
           );
         })}
-        <span className="ml-auto text-xs text-slate-500">
-          {selected.size} selected
-          {hiddenSelected > 0 && <span className="text-slate-400"> ({hiddenSelected} hidden by search)</span>}
-          {selected.size > 0 && (
-            <button type="button" onClick={() => onChange(new Set())} className="ml-2 text-zeno-teal hover:underline">
-              Clear
-            </button>
-          )}
-        </span>
+        {count}
       </div>
+      )}
 
       <div className="border border-slate-200 rounded-xl overflow-hidden">
         <div className="max-h-[42vh] overflow-auto">
@@ -110,10 +145,10 @@ export function StationPicker({
                 <th className="px-3 py-2 w-8">
                   <input
                     type="checkbox"
-                    checked={allVisible}
-                    disabled={visibleIds.length === 0}
-                    onChange={() => flip(visibleIds, !allVisible)}
-                    aria-label="Select all shown"
+                    checked={allShown}
+                    disabled={pageIds.length === 0}
+                    onChange={() => flip(pageIds, !allShown)}
+                    aria-label="Select all on this page"
                   />
                 </th>
                 <th className="px-3 py-2">Code</th>
@@ -126,7 +161,7 @@ export function StationPicker({
               {visible.length === 0 && (
                 <tr><td colSpan={5} className="px-3 py-10 text-center text-slate-400">No station matches “{query.trim()}”.</td></tr>
               )}
-              {visible.map((s) => {
+              {shown.map((s) => {
                 const on = selected.has(s.id);
                 const leaves = on && !s.current.isDefault;
                 return (
@@ -164,6 +199,7 @@ export function StationPicker({
             </tbody>
           </table>
         </div>
+        <Pagination total={visible.length} page={current} perPage={perPage} onPage={setPage} onPerPage={setPerPage} />
       </div>
     </div>
   );

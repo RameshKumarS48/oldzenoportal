@@ -227,8 +227,8 @@ export interface RateRow {
   after?: BaseRates;
 }
 
-/** "Rest of the day 10:00:00–16:59:59", or a slot's times. */
-export const rowName = (r: RateRow) => (r.base ? `${BASE_LABEL} ${r.label}` : r.label);
+/** A row's times, as the change log names it. */
+export const rowName = (r: RateRow) => r.label;
 
 
 /**
@@ -257,12 +257,10 @@ export function rateRows(before: VersionRates | undefined, after: VersionRates):
 
 export const rowChanged = (r: RateRow) => !sameRates(r.before, r.after);
 
-/** "06:00:00–09:59:59 110/90 · Rest of the day 10:00:00–16:59:59 90/70", for the change log. */
+/** "06:00:00–09:59:59 110/90 · 10:00:00–16:59:59 90/70", for the change log. */
 export function versionSummary(v: VersionRates): string {
-  const { baseWindows } = splitVersion(v);
-  const isBase = new Set(baseWindows.map((w) => w.start));
   return sortWindows(v.windows)
-    .map((w) => `${isBase.has(w.start) ? `${BASE_LABEL} ` : ""}${fmtRateWindow(w)} ${slabsShort(w)}`)
+    .map((w) => `${fmtRateWindow(w)} ${slabsShort(w)}`)
     .join(" · ");
 }
 

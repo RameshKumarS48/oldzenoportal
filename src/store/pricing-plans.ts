@@ -117,15 +117,22 @@ function planMoves(
   return { rows, logs };
 }
 
+/** The most a create or edit note can hold. */
+export const NOTE_MAX = 500;
+
+/** A note as stored: trimmed, capped, and left out when empty. */
+const cleanNote = (note?: string) => note?.trim().slice(0, NOTE_MAX) || undefined;
+
 interface PricingState extends PricingBook {
   changes: PlanChange[];
   /** Create a plan, and move `stationIds` onto it, in one update: all or nothing. */
   createPlan: (
-    input: { name: string; version: VersionInput; stationIds?: string[] },
+    input: { name: string; version: VersionInput; stationIds?: string[]; note?: string },
     by: string
   ) => Result & { planId?: string; moved?: number };
-  addVersion: (planId: string, version: VersionInput, by: string) => Result;
-  renamePlan: (planId: string, name: string, by: string) => Result;
+  /** `note` goes on the change entry this logs, like every note below. */
+  addVersion: (planId: string, version: VersionInput, by: string, note?: string) => Result;
+  renamePlan: (planId: string, name: string, by: string, note?: string) => Result;
   /** Move stations onto a plan, or back to Default with `planId: null`, from now. */
   assignStations: (planId: string | null, stationIds: string[], by: string) => Result;
   /** Archive a plan and move its stations to Default, from now. */
@@ -145,7 +152,7 @@ export const usePricingStore = create<PricingState>()(
         assignments: SEED_ASSIGNMENTS,
         changes: SEED_CHANGES,
 
-        createPlan: ({ name, version, stationIds = [] }, by) => {
+        createPlan: ({ name, version, stationIds = [], note }, by) => {
           const trimmed = name.trim();
           const nameError = validatePlanName(trimmed, get().plans);
           if (nameError) return { ok: false, error: nameError };
@@ -165,7 +172,7 @@ export const usePricingStore = create<PricingState>()(
           const book = get();
           const moved = planMoves({ plans: [...book.plans, plan], assignments: book.assignments }, planId, trimmed, stationIds, by, now, "plan_created");
           if (moved.error) return { ok: false, error: moved.error };
-          const created: PlanChange = { planId, by, at: now, effectiveFrom: now, kind: "created", summary: `Created plan: ${versionSummary(version)}`, id: uid("pc") };
+          const created: PlanChange = { planId, by, at: now, effectiveFrom: now, kind: "created", summary: `Created plan: ${versionSummary(version)}`, note: cleanNote(note), id: uid("pc") };
           set((s) => ({
             plans: [...s.plans, plan],
             assignments: [...s.assignments, ...moved.rows],
@@ -174,7 +181,7 @@ export const usePricingStore = create<PricingState>()(
           return { ok: true, planId, moved: moved.rows.length };
         },
 
-        addVersion: (planId, version, by) => {
+        addVersion: (planId, version, by, note) => {
           const plan = get().plans.find((p) => p.id === planId && !p.archived);
           if (!plan) return { ok: false, error: PLAN_GONE };
           const error = validateVersion(version);
@@ -191,11 +198,11 @@ export const usePricingStore = create<PricingState>()(
             ),
           }));
           const { kind, summary } = diffSummary(prev, version);
-          log({ planId, by, kind, summary }, now);
+          log({ planId, by, kind, summary, note: cleanNote(note) }, now);
           return { ok: true };
         },
 
-        renamePlan: (planId, name, by) => {
+        renamePlan: (planId, name, by, note) => {
           const plan = get().plans.find((p) => p.id === planId && !p.archived);
           if (!plan) return { ok: false, error: PLAN_GONE };
           const trimmed = name.trim();
@@ -208,6 +215,7 @@ export const usePricingStore = create<PricingState>()(
           log({
             planId, by, kind: "renamed",
             summary: `Renamed "${plan.name}" → "${trimmed}"`,
+            note: cleanNote(note),
           });
           return { ok: true };
         },

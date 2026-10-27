@@ -1,4 +1,4 @@
-import { BASE_LABEL, eatSecondOfDay, fmtRateWindow, inRateWindow, sortWindows, type SplitVersion } from "@/lib/pricing/windows";
+import { eatSecondOfDay, fmtRateWindow, inRateWindow, sortWindows, type SplitVersion } from "@/lib/pricing/windows";
 import { cn } from "@/lib/utils";
 import { baseBandId, WindowSwatch } from "./DayBandBar";
 
@@ -8,8 +8,7 @@ const NowTag = () => (
 
 /**
  * A version's rates, one row per window in time order: the time slots in
- * their colours, and each rest-of-day stretch (white, tagged "Rest of the
- * day") with its own rates. With `now`, the row in force at that EAT time is
+ * their colours, and each Default Rate stretch (slate) with its own rates. With `now`, the row in force at that EAT time is
  * tinted, with an accent bar and a "Now" tag, so it never relies on colour
  * alone. Swatches and ids match `versionBands`, so `highlighted` and
  * `onHighlight` link a row to its band.
@@ -35,8 +34,7 @@ export function WindowRates({
     label: React.ReactNode,
     color: number | "base",
     rates: { slab1: number; slab2: number },
-    live: boolean,
-    note?: string
+    live: boolean
   ) => (
     <tr
       key={id}
@@ -50,7 +48,6 @@ export function WindowRates({
           {label}
           {live && <NowTag />}
         </div>
-        {note && <p className="pl-5 text-[11px] text-slate-400 tabular-nums">{note}</p>}
       </td>
       <td className="py-2 text-right tabular-nums font-semibold text-slate-800 align-top">{rates.slab1}</td>
       <td className="py-2 pr-2 text-right tabular-nums text-slate-700 align-top">{rates.slab2}</td>
@@ -75,8 +72,7 @@ export function WindowRates({
             <span className="tabular-nums whitespace-nowrap">{fmtRateWindow(w)}</span>,
             base ? "base" : slotColor.get(w.start)!,
             w,
-            live,
-            base ? BASE_LABEL : undefined
+            live
           );
         })}
       </tbody>

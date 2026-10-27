@@ -17,7 +17,7 @@ register(
       }`)
 );
 
-const { priceSwap, resolvePlan, slotFor, inWindow, planStatus } = await import("../src/lib/pricing/engine.ts");
+const { priceSwap, resolvePlan, slotFor, inWindow, planStatus, versionNumber } = await import("../src/lib/pricing/engine.ts");
 const { validateWindows, rateRows, rateWarnings, splitVersion } = await import("../src/lib/pricing/windows.ts");
 const rowsLib = await import("../src/lib/pricing/hour-rows.ts");
 const { summarizeMoves } = await import("../src/lib/pricing/moves.ts");
@@ -162,35 +162,47 @@ let seq = 0;
 const key = () => `k${++seq}`;
 const slot = (from, until, slab1 = "110", slab2 = "90") => ({ key: key(), origin: "slot", from, until, slab1, slab2, color: 0 });
 const DEFAULT_WINDOWS = [win("06:00:00", "21:59:59", 90, 70, true), win("22:00:00", "05:59:59", 70, 55)];
-const { fillFromDefault, gapStretches, uncoveredHours, setUntil, setFrom, addRow, addBlocked, rowsToWindows, rateError, cleanRate, windowsToRows } = rowsLib;
+const { fillFromDefault, gapStretches, uncoveredHours, setUntil, setFrom, addRow, addBlocked, rowsToWindows, rateError, cleanRate, windowsToRows, fromChoices, untilChoices } = rowsLib;
 const hours = (rows) => rows.map((r) => `${r.origin}:${r.from}-${r.until}:${r.slab1}/${r.slab2}`);
 
-check("slots alone leave gaps; one crossing midnight reads as one stretch", () => {
+check("gaps are read within the day: one crossing midnight is two stretches", () => {
   const rows = [slot(6, 10), slot(17, 20)];
-  assert.deepEqual(gapStretches(rows), [{ from: 10, until: 17 }, { from: 20, until: 6 }]);
+  assert.deepEqual(gapStretches(rows), [{ from: 0, until: 6 }, { from: 10, until: 17 }, { from: 20, until: 24 }]);
   assert.equal(uncoveredHours(rows).length, 17);
 });
 
-check("fill copies Default hour by hour, splitting a gap at Default's 22:00 edge", () => {
+check("fill makes one continuous row per gap at Default's Default Rate, split only at midnight", () => {
   const filled = fillFromDefault([slot(6, 10), slot(17, 20)], DEFAULT_WINDOWS, key);
-  // Default's night window is one window, 22:00–05:59, so it fills as one row.
   assert.deepEqual(hours(filled), [
-    "slot:6-10:110/90", "default:10-17:90/70", "slot:17-20:110/90", "default:20-22:90/70", "default:22-6:70/55",
+    "default:0-6:90/70", "slot:6-10:110/90", "default:10-17:90/70", "slot:17-20:110/90", "default:20-24:90/70",
   ]);
   assert.equal(uncoveredHours(filled).length, 0);
   assert.equal(validateWindows(rowsToWindows(filled)), null);
+  assert.deepEqual(hours(fillFromDefault([slot(6, 18)], DEFAULT_WINDOWS, key)), ["default:0-6:90/70", "slot:6-18:110/90", "default:18-24:90/70"]);
+  assert.deepEqual(hours(fillFromDefault([], DEFAULT_WINDOWS, key)), ["default:0-24:90/70"]);
 });
 
-check("a gap is split at Default's edges, not at midnight", () => {
-  assert.deepEqual(hours(fillFromDefault([slot(2, 23)], DEFAULT_WINDOWS, key).filter((r) => r.origin === "default")), ["default:23-2:70/55"]);
-  assert.deepEqual(hours(fillFromDefault([slot(23, 21)], DEFAULT_WINDOWS, key).filter((r) => r.origin === "default")), ["default:21-22:90/70", "default:22-23:70/55"]);
+check("fill falls back to Default's rate at the gap's start when Default has no single Default Rate", () => {
+  const mixed = [win("06:00:00", "21:59:59", 90, 70, true), win("22:00:00", "05:59:59", 70, 55, true)];
+  assert.deepEqual(hours(fillFromDefault([slot(6, 22)], mixed, key)), ["default:0-6:70/55", "slot:6-22:110/90", "default:22-24:70/55"]);
+});
+
+check("a Default Rate row's times can't run into any row; a slot's can run over Default Rate rows", () => {
+  const rows = fillFromDefault([slot(6, 10)], DEFAULT_WINDOWS, key); // 0–6, 6–10, 10–24
+  const first = rows.findIndex((r) => r.from === 0);
+  assert.equal(untilChoices(rows, first).find((c) => c.value === 8).disabledReason, "Used by slot 06:00:00–09:59:59");
+  assert.equal(untilChoices(rows, first).find((c) => c.value === 5).disabledReason, undefined);
+  const late = rows.findIndex((r) => r.from === 10);
+  assert.match(fromChoices(rows, late).find((c) => c.value === 3).disabledReason ?? "", /Used by/);
+  const s = rows.findIndex((r) => r.origin === "slot");
+  assert.equal(untilChoices(rows, s).find((c) => c.value === 14).disabledReason, undefined);
 });
 
 check("a widened slot trims or splits a filled row; a narrowed one leaves a gap", () => {
   let rows = fillFromDefault([slot(6, 10)], DEFAULT_WINDOWS, key);
   const i = rows.findIndex((r) => r.origin === "slot");
-  rows = setUntil(rows, i, 12, key); // 06–12 takes 10–12 from the 10–22 Default row
-  assert.deepEqual(hours(rows.filter((r) => r.origin === "default" && r.slab1 === "90")), ["default:12-22:90/70"]);
+  rows = setUntil(rows, i, 12, key); // 06–12 takes 10–12 from the 10–24 Default Rate row
+  assert.deepEqual(hours(rows.filter((r) => r.origin === "default")), ["default:0-6:90/70", "default:12-24:90/70"]);
   assert.equal(uncoveredHours(rows).length, 0);
   const j = rows.findIndex((r) => r.origin === "slot");
   rows = setFrom(rows, j, 8, key); // 08–12: 06–08 is now a gap
@@ -199,15 +211,17 @@ check("a widened slot trims or splits a filled row; a narrowed one leaves a gap"
   assert.equal(uncoveredHours(rows).length, 0);
 });
 
-check("a slot dropped into the middle of a filled row splits it in two", () => {
-  let rows = fillFromDefault([], DEFAULT_WINDOWS, key); // 00–06, 06–22, 22–24
-  rows = addRow(rows, key(), key); // no gaps, so it takes hour 0 from Default rows
+check("a slot moved into the middle of a filled row splits it in two; Add slot needs a gap", () => {
+  let rows = addRow([], key(), key); // 00–03
+  rows = fillFromDefault(rows, DEFAULT_WINDOWS, key); // 03–24
+  assert.equal(addBlocked(rows), "All 24 hours have a rate");
   const i = rows.findIndex((r) => r.origin === "slot");
   rows = setFrom(rows, i, 12, key); // 00–03 becomes 12–15, not a wrapping 12–03
   rows = setUntil(rows, rows.findIndex((r) => r.origin === "slot"), 14, key);
-  assert.deepEqual(hours(rows.filter((r) => r.origin === "default" && r.slab1 === "90")), ["default:6-12:90/70", "default:15-22:90/70"]);
+  assert.deepEqual(hours(rows.filter((r) => r.origin === "default")), ["default:3-12:90/70", "default:15-24:90/70"]);
   // Hours 0–3, where the slot started, and 14:00, given back by the shrink, are gaps now.
   assert.deepEqual(gapStretches(rows), [{ from: 0, until: 3 }, { from: 14, until: 15 }]);
+  assert.equal(addBlocked(rows), null);
 });
 
 check("moving From past Until keeps the slot's length; Until before From wraps", () => {
@@ -232,10 +246,11 @@ check("a new slot runs 3 hours, shorter where it meets a slot or midnight", () =
 });
 
 check("at most 5 slots; filled rows don't count", () => {
-  let rows = fillFromDefault([slot(0, 1), slot(1, 2), slot(2, 3), slot(3, 4)], DEFAULT_WINDOWS, key);
+  let rows = [slot(0, 1), slot(1, 2), slot(2, 3), slot(3, 4)];
   assert.equal(addBlocked(rows), null);
   rows = addRow(rows, key(), key);
   assert.equal(addBlocked(rows), "Maximum 5 slots");
+  rows = fillFromDefault(rows, DEFAULT_WINDOWS, key);
   assert.equal(validateWindows([...rowsToWindows(rows).map((w) => ({ ...w, isBase: false }))]), "Use at most 5 time slots.");
 });
 
@@ -263,7 +278,7 @@ check("comparisons list each rest-of-day stretch with its own rates", () => {
   const after = { windows: rowsToWindows(fillFromDefault([slot(17, 20)], DEFAULT_WINDOWS, key)) };
   const rows = rateRows(before, after);
   assert.ok(rows.some((r) => r.label === "17:00:00–19:59:59" && !r.before && r.after?.slab1 === 110));
-  assert.equal(splitVersion(after).base, null); // 90/70 by day, 70/55 at night: no single rest-of-day rate
+  assert.equal(splitVersion(after).base?.slab1, 90); // filled at Default's Default Rate throughout
 });
 
 check("soft warnings: slab 2 above slab 1, far from Default, same as Default", () => {
@@ -278,6 +293,12 @@ check("soft warnings: slab 2 above slab 1, far from Default, same as Default", (
 // ── Moving stations (create with stations, assign, move to another plan) ──
 const ALL = ["BS0002", "BS0009", "BS0043", "BS0099"];
 const NOW = "2026-10-27T12:00:00+03:00";
+
+check("versions are numbered per plan by effective time, whatever order they're stored in", () => {
+  const plan = { versions: [{ id: "b", effectiveFrom: "2026-10-01T00:00:00+03:00" }, { id: "a", effectiveFrom: "2026-09-01T00:00:00+03:00" }] };
+  assert.equal(versionNumber(plan, "a"), 1);
+  assert.equal(versionNumber(plan, "b"), 2);
+});
 
 check("moves: codes are upper-cased and de-duplicated; unknown codes are flagged", () => {
   const m = summarizeMoves(book, ["bs0002", "BS0002", "BS7777"], "pp-new", ALL, NOW);

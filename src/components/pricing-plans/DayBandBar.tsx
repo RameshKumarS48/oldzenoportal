@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
-  BASE_LABEL,
   DAY_SECONDS,
   eatSecondOfDay,
   fmtHHmmss,
@@ -80,19 +79,22 @@ const rate = (n: number) => (Number.isFinite(n) ? String(n) : "–");
  * Hovering or focusing a band shows its rates ("Slab 1 KES 110 · Slab 2 KES
  * 90 per kWh") and reports its id through `onHighlight`;
  * `highlighted` (an id) outlines it. `now` marks the current EAT time, with
- * "Now · 14:05:00" above the marker.
+ * "Now · 14:05:00" above the marker. `compact` is for a table cell: a thinner
+ * bar and the marker without its label.
  */
 export function DayBandBar({
   items,
   now,
   highlighted,
   onHighlight,
+  compact = false,
   className,
 }: {
   items: BandItem[];
   now?: string;
   highlighted?: string | null;
   onHighlight?: (id: string | null) => void;
+  compact?: boolean;
   className?: string;
 }) {
   const barRef = useRef<HTMLDivElement>(null);
@@ -136,7 +138,7 @@ export function DayBandBar({
 
   return (
     <div className={cn("space-y-1", className)}>
-      {marker !== null && (
+      {marker !== null && !compact && (
         <div className="relative h-4 text-[10px] font-semibold text-slate-700 tabular-nums">
           {width > 0 && (
             <span
@@ -149,7 +151,7 @@ export function DayBandBar({
         </div>
       )}
       {/* The bar's own colour shows through where an hour has no rate yet. */}
-      <div ref={barRef} className="relative h-6 rounded-md bg-slate-100 overflow-hidden">
+      <div ref={barRef} className={cn("relative rounded-md bg-slate-100 overflow-hidden", compact ? "h-4" : "h-6")}>
         {bands.map((band) => {
           const on = highlighted === band.id;
           const base = band.color === "base";
@@ -221,7 +223,7 @@ function tipText({ window: w }: BandItem): string {
 
 /** For screen readers, which can't see the axis: the times as well as the rates. */
 function ariaText(item: BandItem): string {
-  return `${item.color === "base" ? `${BASE_LABEL}, ` : ""}${fmtRateWindow(item.window)}: ${tipText(item)}`;
+  return `${fmtRateWindow(item.window)}: ${tipText(item)}`;
 }
 
 /**

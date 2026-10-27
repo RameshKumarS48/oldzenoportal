@@ -45,7 +45,7 @@ export function ConfirmModal({
           >
             <AlertTriangle className="h-4 w-4" />
           </span>
-          <div className="text-sm leading-relaxed text-slate-600">{children}</div>
+          <div className="min-w-0 flex-1 text-sm leading-relaxed text-slate-600">{children}</div>
         </div>
 
         <div className="flex gap-2">

@@ -42,7 +42,7 @@ export function AssignStationsModal({ plan, onClose }: { plan: PricingPlan; onCl
   return (
     <Modal open onClose={confirming ? () => {} : onClose} title={`Assign stations to ${plan.name}`} className="max-w-3xl">
       <div className="space-y-4">
-        <StationPicker targetPlanId={targetId} selected={selected} onChange={setSelected} now={now} />
+        <StationPicker targetPlanId={targetId} selected={selected} onChange={setSelected} now={now} hideAlreadyOnTarget />
 
         {error && <Callout variant="danger" role="alert">{error}</Callout>}
 
@@ -63,7 +63,6 @@ export function AssignStationsModal({ plan, onClose }: { plan: PricingPlan; onCl
         onConfirm={handleConfirm}
       >
         Their new rates apply to swaps from now. Swaps in progress keep the plan they started on.
-        <span className="block mt-2 font-mono text-xs text-slate-500">{summary.moves.map((m) => m.id).join(", ")}</span>
         {summary.emptied.length > 0 && (
           <Callout variant="warning" className="mt-3">
             {summary.emptied.map((p) => p.name).join(", ")} will have no stations left.

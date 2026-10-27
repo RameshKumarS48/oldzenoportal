@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ChevronRight, Search } from "lucide-react";
 import { PRICING_STATIONS } from "@/lib/mock/pricing-plans";
+import { Pagination } from "@/components/ui/Pagination";
 import { stationNow } from "@/lib/pricing/history";
 import { fmtEat } from "@/lib/pricing/format";
 import { StationHistoryDrawer } from "./StationHistoryDrawer";
@@ -11,13 +12,16 @@ import { usePricingBook, usePricingNow } from "./shared";
 /**
  * Every swap station and the plan it's on now, with when it joined and who
  * moved it last. A row opens the station's history. Search matches the code,
- * either address, the region or the plan.
+ * either address, the region or the plan. The header row stays in view as
+ * the rows scroll.
  */
 export function StationsDirectory() {
   const book = usePricingBook();
   const now = usePricingNow();
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
 
   const rows = useMemo(() => PRICING_STATIONS.map((s) => ({ ...s, ...stationNow(book, s.id, now) })), [book, now]);
   const visible = useMemo(() => {
@@ -28,6 +32,10 @@ export function StationsDirectory() {
     );
   }, [rows, query]);
 
+  const pages = Math.max(1, Math.ceil(visible.length / perPage));
+  const current = Math.min(page, pages);
+  const shown = visible.slice((current - 1) * perPage, current * perPage);
+
   return (
     <>
       {/* Same filter bar as the Plans tab. */}
@@ -36,20 +44,21 @@ export function StationsDirectory() {
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
           <input
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(1);
+            }}
             placeholder="Search stations or plans"
             aria-label="Search stations by code, address, region or plan"
             className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 focus:border-[#003B49] w-60"
           />
         </div>
-        <span className="ml-auto text-xs text-slate-500 tabular-nums">
-          {visible.length === rows.length ? `${rows.length} stations` : `${visible.length} of ${rows.length} stations`}
-        </span>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-xl overflow-auto">
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="max-h-[65vh] overflow-auto">
         <table className="w-full text-sm min-w-[760px]">
-          <thead className="bg-slate-50 border-b border-slate-200">
+          <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_#e2e8f0]">
             <tr className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">
               <th className="px-4 py-2.5">Station</th>
               <th className="px-4 py-2.5">Region</th>
@@ -65,7 +74,7 @@ export function StationsDirectory() {
                 <td colSpan={6} className="px-4 py-14 text-center text-sm text-slate-400">No station matches “{query.trim()}”.</td>
               </tr>
             )}
-            {visible.map((r) => (
+            {shown.map((r) => (
               <tr
                 key={r.id}
                 onClick={() => setOpenId(r.id)}
@@ -87,6 +96,8 @@ export function StationsDirectory() {
             ))}
           </tbody>
         </table>
+        </div>
+        <Pagination total={visible.length} page={current} perPage={perPage} onPage={setPage} onPerPage={setPerPage} />
       </div>
 
       <StationHistoryDrawer stationId={openId} onClose={() => setOpenId(null)} />

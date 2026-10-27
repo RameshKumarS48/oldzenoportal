@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PRICING_STATIONS } from "@/lib/mock/pricing-plans";
-import { REASON_LABELS, stationHistory, stationNow } from "@/lib/pricing/history";
+import { REASON_LABELS, stationHistory } from "@/lib/pricing/history";
 import { fmtEat } from "@/lib/pricing/format";
 import type { PricingPlan } from "@/lib/pricing/types";
 import { usePricingBook, usePricingNow } from "./shared";
@@ -24,8 +24,8 @@ function PlanName({ plan }: { plan: PricingPlan }) {
 
 /**
  * One station's pricing history in a right-hand panel, so the table behind
- * stays in view: where it is now, then every plan it joined or left, newest
- * first, with who moved it, when and why. Styled after Swap Audit's
+ * stays in view: every plan it joined or left, newest first (so the top entry
+ * is where it is now), with who moved it, when and why. Styled after Swap Audit's
  * SessionDrawer. `stationId` null closes it.
  */
 export function StationHistoryDrawer({ stationId, onClose }: { stationId: string | null; onClose: () => void }) {
@@ -50,7 +50,6 @@ export function StationHistoryDrawer({ stationId, onClose }: { stationId: string
   }, [open, onClose]);
 
   const station = shown ? STATION_BY_ID.get(shown) : undefined;
-  const current = shown && station ? stationNow(book, shown, now) : null;
   const history = shown && station ? stationHistory(book, shown, now) : [];
 
   return (
@@ -82,20 +81,11 @@ export function StationHistoryDrawer({ stationId, onClose }: { stationId: string
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
-          {!station || !current ? (
+          {!station ? (
             <p className="text-sm text-slate-500">Station not found.</p>
           ) : (
             <div className="space-y-6">
-              <div>
-                <p className="text-xs text-slate-500">Plan now</p>
-                <p className="mt-0.5 text-sm">
-                  <PlanName plan={current.plan} />
-                  <span className="text-slate-500">
-                    {current.since ? `, since ${fmtEat(current.since)}` : ", since go-live"}
-                  </span>
-                </p>
-              </div>
-
+              {/* The newest entry is the plan it's on now, so there's no separate "Plan now". */}
               <div>
                 <h3 className="text-xs font-semibold text-slate-700">History</h3>
                 <ol className="relative mt-3 ml-1.5 space-y-5 border-l border-slate-200">

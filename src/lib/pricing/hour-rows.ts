@@ -4,13 +4,14 @@
  *
  * There are two kinds of row:
  *   - a **slot** the user sets: From, Until and both rates, up to MAX_WINDOWS;
- *   - a **rest-of-day** row ("default"), added by Fill remaining hours with
- *     Default for an hour range no slot covers, with Default's rates at those
- *     hours. Its hours are fixed; its rates can be edited and it can be removed.
+ *   - a **Default Rate** row ("default"), added by Fill with Default Rate:
+ *     one per gap, split only at midnight, at the Default plan's Default Rate.
+ *     Its hours and rates can be edited and it can be removed.
  *
  * Slots never overlap each other: every choice that would is disabled. Slots
- * win over rest-of-day rows: a slot that grows into one trims or splits it.
- * Hours no row covers are gaps, and a plan can't be saved with a gap.
+ * win over Default Rate rows: a slot that grows into one trims or splits it.
+ * A Default Rate row can't grow into any other row. Hours no row covers are
+ * gaps, and a plan can't be saved with a gap.
  *
  * Each row holds its From hour (0–23) and the hour it runs until (1–24; 24 is
  * midnight). A row whose until is at or before its From wraps past midnight;
@@ -21,6 +22,7 @@
 
 import {
   MAX_RATE, MAX_WINDOWS, MIN_RATE, fmtRateWindow, hourEnd, hourStart, inRateWindow, isValidRate, parseHHmmss, splitVersion,
+  type BaseRates,
 } from "./windows";
 import type { RateWindow } from "./types";
 
@@ -91,9 +93,22 @@ function runs(hours: number[]): Pick<HourRow, "from" | "until">[] {
   return out.sort((a, b) => a.from - b.from);
 }
 
-/** The gaps as hour ranges, earliest first. */
+/** Runs of consecutive hours within the day, 00:00 to 23:59: a run never crosses midnight. */
+function dayRuns(hours: number[]): Pick<HourRow, "from" | "until">[] {
+  const set = new Set(hours);
+  const out: Pick<HourRow, "from" | "until">[] = [];
+  for (let h = 0; h < 24; h++) {
+    if (!set.has(h)) continue;
+    const last = out.at(-1);
+    if (last && last.until === h) last.until = h + 1;
+    else out.push({ from: h, until: h + 1 });
+  }
+  return out;
+}
+
+/** The gaps as hour ranges within the day, earliest first; one crossing midnight is two. */
 export function gapStretches(rows: HourRow[]): Pick<HourRow, "from" | "until">[] {
-  return runs(uncoveredHours(rows));
+  return dayRuns(uncoveredHours(rows));
 }
 
 /** "00:00:00–05:59:59, 10:00:00–16:59:59": the gaps, for the coverage line. */
@@ -104,16 +119,18 @@ export function gapText(rows: HourRow[]): string {
 // ── Slots ────────────────────────────────────────────────────────────────────
 
 /**
- * Null when slot i could take these hours; otherwise "Used by slot …", naming
- * the slot it would run into. `edge` is the hour that moved, so the slot
- * holding it is named first. Rest-of-day rows never block a slot.
+ * Null when row i could take these hours; otherwise "Used by …", naming the
+ * row it would run into. `edge` is the hour that moved, so the row holding it
+ * is named first. A slot is blocked only by slots (it trims Default Rate
+ * rows); a Default Rate row is blocked by every other row.
  */
 function clash(rows: HourRow[], i: number, next: Pick<HourRow, "from" | "until">, edge: number): string | undefined {
   const mine = new Set(rowHours(next));
-  const hits = rows.filter((r, k) => k !== i && isSlot(r) && rowHours(r).some((h) => mine.has(h)));
+  const slotOnly = isSlot(rows[i]);
+  const hits = rows.filter((r, k) => k !== i && (!slotOnly || isSlot(r)) && rowHours(r).some((h) => mine.has(h)));
   if (hits.length === 0) return undefined;
   const hit = hits.find((r) => rowHours(r).includes(edge)) ?? hits[0];
-  return `Used by slot ${rowLabel(hit)}`;
+  return `Used by ${isSlot(hit) ? "slot " : ""}${rowLabel(hit)}`;
 }
 
 /**
@@ -130,7 +147,7 @@ export function movedFrom(r: Pick<HourRow, "from" | "until">, from: number): Pic
   return { from, until: Math.min(from + length, 24) };
 }
 
-/** Slot i's From choices, 00:00:00 to 23:00:00. */
+/** Row i's From choices, 00:00:00 to 23:00:00. */
 export function fromChoices(rows: HourRow[], i: number): HourChoice[] {
   return Array.from({ length: 24 }, (_, h) => ({
     value: h,
@@ -139,7 +156,7 @@ export function fromChoices(rows: HourRow[], i: number): HourChoice[] {
   }));
 }
 
-/** Slot i's Until choices, 00:59:59 to 23:59:59, as the hour it runs until (1–24). */
+/** Row i's Until choices, 00:59:59 to 23:59:59, as the hour it runs until (1–24). */
 export function untilChoices(rows: HourRow[], i: number): HourChoice[] {
   return Array.from({ length: 24 }, (_, k) => {
     const value = k + 1;
@@ -177,18 +194,10 @@ export function setUntil(rows: HourRow[], i: number, until: number, key: () => s
   return settle(rows.map((r, k) => (k === i ? { ...r, until } : r)), key);
 }
 
-/** Where Add slot puts a new 1-hour slot: the first gap, else the first hour no slot holds. */
-function nextSlotHour(rows: HourRow[]): number | null {
-  const gap = uncoveredHours(rows)[0];
-  if (gap !== undefined) return gap;
-  const slotHours = new Set(rows.filter(isSlot).flatMap(rowHours));
-  return Array.from({ length: 24 }, (_, h) => h).find((h) => !slotHours.has(h)) ?? null;
-}
-
-/** Why Add slot can't add a row, or null when it can. */
+/** Why Add slot can't add a row, or null when it can. A new slot goes in the first gap, so it needs one. */
 export function addBlocked(rows: HourRow[]): string | null {
+  if (uncoveredHours(rows).length === 0) return "All 24 hours have a rate";
   if (rows.filter(isSlot).length >= MAX_WINDOWS) return `Maximum ${MAX_WINDOWS} slots`;
-  if (nextSlotHour(rows) === null) return "Every hour is already in a slot";
   return null;
 }
 
@@ -201,16 +210,16 @@ function nextColor(rows: HourRow[]): number {
 export const NEW_SLOT_HOURS = 3;
 
 /**
- * Add a slot, `newKey`, with empty rates and the first unused colour. It runs
- * NEW_SLOT_HOURS from its start (07:00:00–09:59:59), or less where it would
- * run into another slot or past midnight.
+ * Add a slot, `newKey`, with empty rates and the first unused colour, in the
+ * first gap. It runs NEW_SLOT_HOURS from its start (07:00:00–09:59:59), or
+ * less where the gap ends or the day does.
  */
 export function addRow(rows: HourRow[], newKey: string, key: () => string): HourRow[] {
-  const h = nextSlotHour(rows);
-  if (addBlocked(rows) || h === null) return rows;
-  const slotHours = new Set(rows.filter(isSlot).flatMap(rowHours));
+  const h = uncoveredHours(rows)[0];
+  if (addBlocked(rows) || h === undefined) return rows;
+  const taken = new Set(rows.flatMap(rowHours));
   let until = h + 1;
-  while (until < Math.min(h + NEW_SLOT_HOURS, 24) && !slotHours.has(until)) until++;
+  while (until < Math.min(h + NEW_SLOT_HOURS, 24) && !taken.has(until)) until++;
   const slot: HourRow = { key: newKey, origin: "slot", from: h, until, slab1: "", slab2: "", color: nextColor(rows) };
   return settle([...rows, slot], key);
 }
@@ -222,28 +231,28 @@ export function removeRow(rows: HourRow[], key: string): HourRow[] {
 // ── Fill from Default ────────────────────────────────────────────────────────
 
 /**
- * Fill every gap with what Default charges at those hours: one rest-of-day
- * row per stretch of a gap that falls in a single Default window, so a gap
- * crossing Default's 22:00 edge becomes two rows. Hours Default doesn't cover
- * (it always should) stay gaps.
+ * The rates Fill gives a gap starting at `from`: the Default plan's Default
+ * Rate, or, if its Default Rate hours don't share one rate, what Default
+ * charges at `from`.
+ */
+export function defaultFillRate(defaultWindows: RateWindow[], from: number): BaseRates | null {
+  const base = splitVersion({ windows: defaultWindows }).base;
+  if (base) return base;
+  const w = defaultWindows.find((d) => inRateWindow(from * 3600, d));
+  return w ? { slab1: w.slab1, slab2: w.slab2 } : null;
+}
+
+/**
+ * Fill every gap with one continuous Default Rate row, split only at
+ * midnight (the day runs 00:00:00 to 23:59:59), so 18:00 to 05:59 fills as
+ * 18:00–23:59 and 00:00–05:59.
  */
 export function fillFromDefault(rows: HourRow[], defaultWindows: RateWindow[], key: () => string): HourRow[] {
   const added: HourRow[] = [];
   for (const gap of gapStretches(rows)) {
-    // Consecutive hours of the gap, grouped by the Default window that prices them.
-    const pieces: { from: number; hours: number; w: RateWindow }[] = [];
-    for (const h of rowHours(gap)) {
-      const w = defaultWindows.find((d) => inRateWindow(h * 3600, d));
-      const last = pieces.at(-1);
-      if (w && last && last.w === w && (last.from + last.hours) % 24 === h) last.hours++;
-      else if (w) pieces.push({ from: h, hours: 1, w });
-    }
-    for (const p of pieces) {
-      added.push({
-        key: key(), origin: "default", from: p.from, until: (p.from + p.hours) % 24 || 24,
-        slab1: String(p.w.slab1), slab2: String(p.w.slab2), color: 0,
-      });
-    }
+    const rate = defaultFillRate(defaultWindows, gap.from);
+    if (!rate) continue;
+    added.push({ key: key(), origin: "default", ...gap, slab1: String(rate.slab1), slab2: String(rate.slab2), color: 0 });
   }
   return sortRows([...rows, ...added]);
 }

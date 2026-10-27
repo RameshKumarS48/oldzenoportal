@@ -108,6 +108,8 @@ export interface PlanChange {
   kind: PlanChangeKind;
   summary: string;
   effectiveFrom?: string;
+  /** What the person creating or editing the plan wrote about why. */
+  note?: string;
 }
 
 /** The four moments of a swap at the station. */

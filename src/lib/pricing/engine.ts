@@ -72,6 +72,11 @@ export function sortedVersions(plan: PricingPlan): PlanVersion[] {
   return [...plan.versions].sort((a, b) => ms(a.effectiveFrom) - ms(b.effectiveFrom));
 }
 
+/** A version's number within its plan, 1 for the first by effective time: "v1", "v2"… */
+export function versionNumber(plan: PricingPlan, versionId: string): number {
+  return sortedVersions(plan).findIndex((v) => v.id === versionId) + 1;
+}
+
 /** The version in force at `at`, or null if the plan hasn't started yet. */
 export function versionAt(plan: PricingPlan, at: string): PlanVersion | null {
   const t = ms(at);

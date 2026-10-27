@@ -4,7 +4,7 @@ import { History } from "lucide-react";
 import { usePricingStore } from "@/store/pricing-plans";
 import { CHANGE_LABELS, fmtEat } from "@/lib/pricing/format";
 
-/** Who changed the plan and when, newest first. */
+/** Who changed the plan and when, newest first, with the note they left. */
 export function ChangeHistory({ planId }: { planId: string }) {
   const changes = usePricingStore((s) => s.changes);
   const rows = changes
@@ -27,6 +27,9 @@ export function ChangeHistory({ planId }: { planId: string }) {
           <span className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-zeno-teal ring-4 ring-white" />
           <p className="text-xs font-semibold text-slate-700">{CHANGE_LABELS[c.kind]}</p>
           {c.summary && <p className="text-xs text-slate-600 mt-0.5">{c.summary}</p>}
+          {c.note && (
+            <p className="mt-1.5 border-l-2 border-slate-200 pl-3 text-xs text-slate-600 whitespace-pre-line">{c.note}</p>
+          )}
           <p className="text-[11px] text-slate-400 mt-1">
             {c.by} · {fmtEat(c.at)}
             {/* Changes now apply when made; older entries could take effect later. */}
