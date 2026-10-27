@@ -45,6 +45,18 @@ export function LastSeen({ text }: { text: string }) {
   );
 }
 
+/** Last Seen on one line, "27 Oct 2026 · 05:33", for the detail card; the exact stored time on hover. */
+export function LastSeenLine({ text }: { text: string }) {
+  if (!text) return <Dash />;
+  const date = text.slice(0, 11);
+  const time = text.slice(12);
+  return (
+    <time title={time ? `${date}, ${time} UTC` : `${date} UTC`} className="tabular-nums whitespace-nowrap">
+      {time ? `${date} · ${time}` : date}
+    </time>
+  );
+}
+
 /**
  * SOC as a plain number ("78"); the "%" is in the column header and the card's
  * label ("SOC %"). It sits right-aligned in a slot as wide as "100" (26px, in

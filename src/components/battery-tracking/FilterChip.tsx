@@ -43,7 +43,7 @@ export function searchChip(asset: AssetRef): { label: string; value: string; rem
     return { label: "Vehicle", value: asset.vin, removeLabel: `Remove vehicle ${asset.vin} and clear the search` };
   }
   // The street, the address's first part, places a station without its whole address.
-  const street = stationByCode(asset.code)?.address.split(",")[0];
+  const street = stationByCode(asset.code)?.longAddress.split(",")[0];
   return {
     label: "Station",
     value: street ? `${asset.code} · ${street}` : asset.code,

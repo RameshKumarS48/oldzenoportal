@@ -36,8 +36,10 @@ export type Region = "Nairobi" | "Kiambu" | "Machakos" | "Kajiado" | "Nanyuki" |
 export interface SwapStation {
   /** "BS0025", no space. */
   code: string;
-  name: string;
-  address: string;
+  /** A landmark and road, enough to place it: "District Mall, Mombasa Rd". */
+  shortAddress: string;
+  /** The full postal address. */
+  longAddress: string;
   region: Region;
 }
 
@@ -50,23 +52,23 @@ export interface AssetVehicle {
   imei: string;
 }
 
-/** Codes and names follow the swap-station list in kpi-infra; Machakos and Kajiado have none there, so theirs are new codes. */
+/** Codes follow the swap-station list in kpi-infra; Machakos and Kajiado have none there, so theirs are new codes. */
 export const STATIONS: SwapStation[] = [
-  { code: "BS0025", name: "Kasarani Hub", address: "Thika Rd, next to Kasarani Stadium, Kasarani, Nairobi, Kenya", region: "Nairobi" },
-  { code: "BS0027", name: "Zeno Hub, Westlands", address: "Waiyaki Way, Westlands, Nairobi, Kenya", region: "Nairobi" },
-  { code: "BS0019", name: "District Mall, Mombasa Rd", address: "District Mall, Mombasa Rd, Embakasi, Nairobi, Kenya", region: "Nairobi" },
-  { code: "BS0043", name: "Zeno HQ, Baba Dogo", address: "Baba Dogo Rd, Ruaraka, Nairobi, Kenya", region: "Nairobi" },
-  { code: "BS0010", name: "Zeno Hub, Thika Town", address: "Kenyatta Hwy, Thika Town, Kiambu, Kenya", region: "Kiambu" },
-  { code: "BS0007", name: "Zeno Hub, King'ara", address: "Thika–Gatundu Rd, King'ara, Kiambu, Kenya", region: "Kiambu" },
-  { code: "BS0037", name: "Quickmart, Ruaka", address: "Limuru Rd, Ruaka, Kiambu, Kenya", region: "Kiambu" },
-  { code: "BS0051", name: "Gateway Mall, Syokimau", address: "Mombasa Rd, Syokimau, Machakos, Kenya", region: "Machakos" },
-  { code: "BS0052", name: "Zeno Hub, Machakos Town", address: "Ngei Rd, Machakos Town, Machakos, Kenya", region: "Machakos" },
-  { code: "BS0053", name: "Zeno Hub, Kitengela", address: "Namanga Rd, Kitengela, Kajiado, Kenya", region: "Kajiado" },
-  { code: "BS0054", name: "Maasai Mall, Ongata Rongai", address: "Magadi Rd, Ongata Rongai, Kajiado, Kenya", region: "Kajiado" },
-  { code: "BS0005", name: "Nan Matt 1, Nanyuki", address: "Kenyatta Ave, Nanyuki, Laikipia, Kenya", region: "Nanyuki" },
-  { code: "BS0003", name: "Dormans, Nanyuki", address: "Nanyuki–Nyeri Rd, Nanyuki, Laikipia, Kenya", region: "Nanyuki" },
-  { code: "BS0006", name: "Zeno Hub, Nyeri", address: "Kimathi Way, Nyeri Town, Nyeri, Kenya", region: "Nyeri" },
-  { code: "BS0034", name: "Ngangarithi, Nyeri", address: "Nyeri–Othaya Rd, Ngangarithi, Nyeri, Kenya", region: "Nyeri" },
+  { code: "BS0025", shortAddress: "Kasarani Stadium, Thika Rd", longAddress: "Thika Rd, next to Kasarani Stadium, Kasarani, Nairobi, Kenya", region: "Nairobi" },
+  { code: "BS0027", shortAddress: "Waiyaki Way, Westlands", longAddress: "Waiyaki Way, Westlands, Nairobi, Kenya", region: "Nairobi" },
+  { code: "BS0019", shortAddress: "District Mall, Mombasa Rd", longAddress: "District Mall, Mombasa Rd, Embakasi, Nairobi, Kenya", region: "Nairobi" },
+  { code: "BS0043", shortAddress: "Baba Dogo Rd, Ruaraka", longAddress: "Baba Dogo Rd, Ruaraka, Nairobi, Kenya", region: "Nairobi" },
+  { code: "BS0010", shortAddress: "Kenyatta Hwy, Thika Town", longAddress: "Kenyatta Hwy, Thika Town, Kiambu, Kenya", region: "Kiambu" },
+  { code: "BS0007", shortAddress: "Thika–Gatundu Rd, King'ara", longAddress: "Thika–Gatundu Rd, King'ara, Kiambu, Kenya", region: "Kiambu" },
+  { code: "BS0037", shortAddress: "Quickmart, Limuru Rd, Ruaka", longAddress: "Limuru Rd, Ruaka, Kiambu, Kenya", region: "Kiambu" },
+  { code: "BS0051", shortAddress: "Gateway Mall, Syokimau", longAddress: "Mombasa Rd, Syokimau, Machakos, Kenya", region: "Machakos" },
+  { code: "BS0052", shortAddress: "Ngei Rd, Machakos Town", longAddress: "Ngei Rd, Machakos Town, Machakos, Kenya", region: "Machakos" },
+  { code: "BS0053", shortAddress: "Namanga Rd, Kitengela", longAddress: "Namanga Rd, Kitengela, Kajiado, Kenya", region: "Kajiado" },
+  { code: "BS0054", shortAddress: "Maasai Mall, Ongata Rongai", longAddress: "Magadi Rd, Ongata Rongai, Kajiado, Kenya", region: "Kajiado" },
+  { code: "BS0005", shortAddress: "Nan Matt 1, Kenyatta Ave, Nanyuki", longAddress: "Kenyatta Ave, Nanyuki, Laikipia, Kenya", region: "Nanyuki" },
+  { code: "BS0003", shortAddress: "Dormans, Nanyuki–Nyeri Rd", longAddress: "Nanyuki–Nyeri Rd, Nanyuki, Laikipia, Kenya", region: "Nanyuki" },
+  { code: "BS0006", shortAddress: "Kimathi Way, Nyeri Town", longAddress: "Kimathi Way, Nyeri Town, Nyeri, Kenya", region: "Nyeri" },
+  { code: "BS0034", shortAddress: "Nyeri–Othaya Rd, Ngangarithi", longAddress: "Nyeri–Othaya Rd, Ngangarithi, Nyeri, Kenya", region: "Nyeri" },
 ];
 
 /** VIN, plate and IMEI as in Asset Tracking's mock fleet (store/asset-tracking.ts). */
