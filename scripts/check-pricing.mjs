@@ -201,11 +201,11 @@ check("a slot dropped into the middle of a filled row splits it in two", () => {
   let rows = fillFromDefault([], DEFAULT_WINDOWS, key); // 00–06, 06–22, 22–24
   rows = addRow(rows, key(), key); // no gaps, so it takes hour 0 from Default rows
   const i = rows.findIndex((r) => r.origin === "slot");
-  rows = setFrom(rows, i, 12, key); // 00–01 becomes 12–13, not a wrapping 12–01
+  rows = setFrom(rows, i, 12, key); // 00–03 becomes 12–15, not a wrapping 12–03
   rows = setUntil(rows, rows.findIndex((r) => r.origin === "slot"), 14, key);
-  assert.deepEqual(hours(rows.filter((r) => r.origin === "default" && r.slab1 === "90")), ["default:6-12:90/70", "default:14-22:90/70"]);
-  // Hour 0, where the slot started, is a gap now.
-  assert.deepEqual(gapStretches(rows), [{ from: 0, until: 1 }]);
+  assert.deepEqual(hours(rows.filter((r) => r.origin === "default" && r.slab1 === "90")), ["default:6-12:90/70", "default:15-22:90/70"]);
+  // Hours 0–3, where the slot started, and 14:00, given back by the shrink, are gaps now.
+  assert.deepEqual(gapStretches(rows), [{ from: 0, until: 3 }, { from: 14, until: 15 }]);
 });
 
 check("moving From past Until keeps the slot's length; Until before From wraps", () => {
@@ -218,6 +218,15 @@ check("moving From past Until keeps the slot's length; Until before From wraps",
   assert.deepEqual([rows[0].from, rows[0].until], [22, 6]); // chosen wrap
   rows = setFrom(rows, 0, 23, key);
   assert.deepEqual([rows[0].from, rows[0].until], [23, 6]); // a wrapping slot keeps its Until
+});
+
+check("a new slot runs 3 hours, shorter where it meets a slot or midnight", () => {
+  const one = addRow([slot(0, 7)], key(), key); // first gap is 07:00
+  assert.deepEqual(one.filter((r) => r.from === 7).map((r) => [r.from, r.until]), [[7, 10]]); // 07:00:00–09:59:59
+  const tight = addRow([slot(0, 7), slot(8, 24)], key(), key); // only 07:00 is free
+  assert.deepEqual(tight.filter((r) => r.from === 7).map((r) => [r.from, r.until]), [[7, 8]]);
+  const late = addRow([slot(0, 22)], key(), key);
+  assert.deepEqual(late.filter((r) => r.from === 22).map((r) => [r.from, r.until]), [[22, 24]]);
 });
 
 check("at most 5 slots; filled rows don't count", () => {
@@ -257,9 +266,9 @@ check("comparisons list each rest-of-day stretch with its own rates", () => {
 
 check("soft warnings: slab 2 above slab 1, far from Default, same as Default", () => {
   const w1 = rateWarnings([win("00:00:00", "23:59:59", 80, 95)], DEFAULT_WINDOWS);
-  assert.ok(w1.lines.some((l) => /slab 2 \(95\) is higher/.test(l)));
+  assert.ok(w1.items.some((i) => i.kind === "slab_order" && /Slab 2 \(KES 95\) is higher than slab 1 \(KES 80\)/.test(i.title)));
   const w2 = rateWarnings([win("00:00:00", "23:59:59", 400, 300)], DEFAULT_WINDOWS);
-  assert.ok(w2.lines.some((l) => /far from Default/.test(l)));
+  assert.ok(w2.items.some((i) => i.kind === "far_from_default" && /far from Default/.test(i.title)));
   assert.equal(rateWarnings(DEFAULT_WINDOWS, DEFAULT_WINDOWS).matchesDefault, true);
   assert.equal(rateWarnings(DEFAULT_WINDOWS, null).matchesDefault, false); // editing Default itself
 });

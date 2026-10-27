@@ -1,18 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, ArrowRight, CheckCircle2, Info, Plus, Wand2, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowRight, CheckCircle2, Info, Plus, Wand2, X } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { toast } from "@/store/toast";
 import { PLAN_GONE, usePricingStore, validatePlanName, type VersionInput } from "@/store/pricing-plans";
 import { ALL_STATION_IDS } from "@/lib/mock/pricing-plans";
-import { defaultPlan, sortedVersions, stationsOnPlan, versionAt } from "@/lib/pricing/engine";
+import { SLAB1_DAILY_KWH, defaultPlan, sortedVersions, stationsOnPlan, versionAt } from "@/lib/pricing/engine";
 import {
   BASE_LABEL,
   MAX_WINDOWS,
+  fmtRateWindow,
   fmtSlabs,
+  sortWindows,
   rateRows,
   rateWarnings,
   rowChanged,
@@ -293,6 +295,7 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
   );
 
   const warnings = confirming ? rateWarnings(windows, editingDefault ? null : defaultWindows) : null;
+  const singleWarning = !!warnings && warnings.items.length + (warnings.matchesDefault ? 1 : 0) === 1;
 
   return (
     <>
@@ -309,13 +312,37 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
               <p className="text-sm font-semibold text-slate-800">{name.trim()}</p>
             </div>
             <RatesDiff rows={rateRows(latest, version)} isNew={!latest} />
-            {warnings && (warnings.lines.length > 0 || warnings.matchesDefault) && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800 space-y-1">
-                <p className="flex items-center gap-1.5 font-semibold">
-                  <AlertTriangle className="h-3.5 w-3.5" /> Check before saving
-                </p>
-                {warnings.matchesDefault && <p>Every hour matches Default: stations on this plan would pay the same as on Default.</p>}
-                {warnings.lines.map((l) => <p key={l}>{l}</p>)}
+            {warnings && (warnings.items.length > 0 || warnings.matchesDefault) && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 text-xs text-amber-900" role="alert">
+                <div className="flex items-start gap-2 border-b border-amber-200 px-3 py-2.5">
+                  <AlertTriangle className="mt-px h-4 w-4 shrink-0 text-amber-600" />
+                  <div>
+                    <p className="text-sm font-semibold">
+                      Please double-check {singleWarning ? "this rate" : "these rates"}
+                    </p>
+                    <p className="text-amber-800">
+                      {singleWarning
+                        ? "It's allowed, but looks unusual. Confirm if it's right, or go Back to change it."
+                        : "They're allowed, but look unusual. Confirm if they're right, or go Back to change them."}
+                    </p>
+                  </div>
+                </div>
+                <ul className="divide-y divide-amber-200">
+                  {warnings.matchesDefault && (
+                    <li className="px-3 py-2.5">
+                      <p className="font-semibold">Same as Default at every hour</p>
+                      <p className="mt-0.5 text-amber-800">Stations on this plan would pay exactly what they pay on Default, so the plan changes nothing.</p>
+                    </li>
+                  )}
+                  {warnings.items.map((w) => (
+                    <li key={`${w.kind}-${w.time}`} className="px-3 py-2.5">
+                      <p className="font-semibold">
+                        <span className="tabular-nums">{w.time}</span> · {w.title}
+                      </p>
+                      <p className="mt-0.5 text-amber-800">{w.detail}</p>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
             <p className="text-sm text-slate-700">
@@ -364,7 +391,6 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
                     Add the hours you want to price differently, up to {MAX_WINDOWS}. Fill the rest from Default.
                   </p>
                 </div>
-                <p className="shrink-0 text-[11px] text-slate-400">Slab 1: first 3 kWh a day · Slab 2: after</p>
               </div>
 
               <div className="space-y-2">
@@ -494,6 +520,25 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
                 highlighted={highlight}
                 onHighlight={setHighlight}
               />
+
+              <div className="flex gap-2.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs text-sky-900">
+                <Info className="mt-px h-4 w-4 shrink-0 text-sky-600" />
+                <div className="space-y-1">
+                  <p className="font-semibold">Note</p>
+                  <p>
+                    <span className="font-semibold">Slab 1</span> is the rate per kWh for a rider&apos;s first {SLAB1_DAILY_KWH} kWh
+                    each day. The count resets at midnight (EAT).
+                  </p>
+                  <p>
+                    <span className="font-semibold">Slab 2</span> is the rate for every kWh after that, the same day. It&apos;s
+                    usually the same as slab 1 or cheaper.
+                  </p>
+                  <p className="tabular-nums">
+                    <span className="font-semibold">Default plan:</span>{" "}
+                    {sortWindows(defaultWindows).map((w) => `${fmtRateWindow(w)} at ${fmtSlabs(w)}`).join(" · ")} (slab 1 / slab 2, KES per kWh).
+                  </p>
+                </div>
+              </div>
             </section>
 
             {error && (
@@ -503,8 +548,23 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
               </p>
             )}
 
+            {blocker && (
+              <p
+                role="alert"
+                className={cn(
+                  "flex items-start gap-2 rounded-lg border px-3 py-2 text-xs font-medium",
+                  // An unchanged edit isn't a mistake, so it stays quiet.
+                  plan && !ratesChanged && !nameChanged
+                    ? "border-slate-200 bg-slate-50 text-slate-600"
+                    : "border-red-200 bg-red-50 text-red-700"
+                )}
+              >
+                <AlertCircle className="mt-px h-4 w-4 shrink-0" />
+                {blocker}
+              </p>
+            )}
+
             <div className="flex items-center justify-end gap-3 pt-1">
-              {blocker && <p className="mr-auto text-[11px] text-slate-500">{blocker}</p>}
               <Button variant="secondary" onClick={requestClose}>Cancel</Button>
               <Button variant="teal" onClick={handleSave} disabled={!canSave}>
                 {plan ? "Save" : "Create plan"}

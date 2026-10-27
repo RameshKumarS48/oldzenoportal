@@ -197,11 +197,21 @@ function nextColor(rows: HourRow[]): number {
   return [0, 1, 2, 3, 4, 5].find((c) => !used.has(c)) ?? 0;
 }
 
-/** Add a 1-hour slot, `newKey`, with empty rates and the first unused colour. */
+/** How long Add slot makes a new slot, in hours; the user can move either end. */
+export const NEW_SLOT_HOURS = 3;
+
+/**
+ * Add a slot, `newKey`, with empty rates and the first unused colour. It runs
+ * NEW_SLOT_HOURS from its start (07:00:00–09:59:59), or less where it would
+ * run into another slot or past midnight.
+ */
 export function addRow(rows: HourRow[], newKey: string, key: () => string): HourRow[] {
   const h = nextSlotHour(rows);
   if (addBlocked(rows) || h === null) return rows;
-  const slot: HourRow = { key: newKey, origin: "slot", from: h, until: h + 1, slab1: "", slab2: "", color: nextColor(rows) };
+  const slotHours = new Set(rows.filter(isSlot).flatMap(rowHours));
+  let until = h + 1;
+  while (until < Math.min(h + NEW_SLOT_HOURS, 24) && !slotHours.has(until)) until++;
+  const slot: HourRow = { key: newKey, origin: "slot", from: h, until, slab1: "", slab2: "", color: nextColor(rows) };
   return settle([...rows, slot], key);
 }
 

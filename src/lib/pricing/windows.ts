@@ -360,9 +360,22 @@ export function legacyFromWindows(windows: RateWindow[]): LegacyRates {
 
 // ── Soft warnings ────────────────────────────────────────────────────────────
 
+/** Kept in step with SLAB1_DAILY_KWH in engine.ts, which this file can't import. */
+const SLAB1_DAILY_KWH_TEXT = "3";
+
+export interface RateWarning {
+  /** The window's times, "17:00:00–19:59:59". */
+  time: string;
+  kind: "slab_order" | "far_from_default";
+  /** What's off, in a short line. */
+  title: string;
+  /** Why it matters to riders. */
+  detail: string;
+}
+
 export interface RateWarnings {
-  /** One line per window that looks off; saving is still allowed. */
-  lines: string[];
+  /** One entry per thing that looks off; saving is still allowed. */
+  items: RateWarning[];
   /** Every hour charges exactly what Default does. */
   matchesDefault: boolean;
 }
@@ -374,18 +387,34 @@ export interface RateWarnings {
  * being edited is Default itself.
  */
 export function rateWarnings(windows: RateWindow[], defaultWindows: RateWindow[] | null): RateWarnings {
-  const lines: string[] = [];
+  const items: RateWarning[] = [];
   const at = (h: number) => defaultWindows?.find((d) => inRateWindow(h * 3600, d));
   let matches = !!defaultWindows;
   for (const w of sortWindows(windows)) {
-    const label = fmtRateWindow(w);
-    if (w.slab2 > w.slab1) lines.push(`${label}: slab 2 (${w.slab2}) is higher than slab 1 (${w.slab1}).`);
+    const time = fmtRateWindow(w);
+    if (w.slab2 > w.slab1) {
+      items.push({
+        time,
+        kind: "slab_order",
+        title: `Slab 2 (KES ${w.slab2}) is higher than slab 1 (KES ${w.slab1})`,
+        detail:
+          `Riders would pay more per kWh after their first ${SLAB1_DAILY_KWH_TEXT} kWh of the day than before it. ` +
+          "Slab 2 is normally the same or cheaper. If the two rates are swapped, go Back and switch them.",
+      });
+    }
     if (!defaultWindows) continue;
     const refs = hoursIn(w).map(at).filter((d): d is RateWindow => !!d);
     if (refs.some((d) => d.slab1 !== w.slab1 || d.slab2 !== w.slab2)) matches = false;
     const far = (mine: number, theirs: number) => mine > theirs * 2 || mine < theirs / 2;
     const off = refs.find((d) => far(w.slab1, d.slab1) || far(w.slab2, d.slab2));
-    if (off) lines.push(`${label}: ${fmtSlabs(w)} is far from Default's ${fmtSlabs(off)} in those hours.`);
+    if (off) {
+      items.push({
+        time,
+        kind: "far_from_default",
+        title: `${fmtSlabs(w)} is far from Default's ${fmtSlabs(off)}`,
+        detail: "More than double, or less than half, what riders pay on Default at these hours. Check for a typo, such as an extra or missing zero.",
+      });
+    }
   }
-  return { lines, matchesDefault: matches };
+  return { items, matchesDefault: matches };
 }
