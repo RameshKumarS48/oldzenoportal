@@ -26,10 +26,13 @@ export function ChangeHistory({ planId }: { planId: string }) {
         <li key={c.id} className="pl-5 relative">
           <span className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-zeno-teal ring-4 ring-white" />
           <p className="text-xs font-semibold text-slate-700">{CHANGE_LABELS[c.kind]}</p>
-          <p className="text-xs text-slate-600 mt-0.5">{c.summary}</p>
+          {c.summary && <p className="text-xs text-slate-600 mt-0.5">{c.summary}</p>}
           <p className="text-[11px] text-slate-400 mt-1">
             {c.by} · {fmtEat(c.at)}
-            {c.effectiveFrom && <> · effective {fmtEat(c.effectiveFrom)}</>}
+            {/* Changes now apply when made; older entries could take effect later. */}
+            {c.effectiveFrom && Math.abs(new Date(c.effectiveFrom).getTime() - new Date(c.at).getTime()) > 60_000 && (
+              <> · effective {fmtEat(c.effectiveFrom)}</>
+            )}
           </p>
         </li>
       ))}

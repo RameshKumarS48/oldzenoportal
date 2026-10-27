@@ -18,6 +18,7 @@ export function ConfirmModal({
   confirmLabel,
   tone = "danger",
   busy,
+  confirmDisabled,
   onClose,
   onConfirm,
 }: {
@@ -27,6 +28,8 @@ export function ConfirmModal({
   confirmLabel: string;
   tone?: "danger" | "neutral";
   busy?: boolean;
+  /** Keeps Confirm disabled until something in the body is done, e.g. typing a name. */
+  confirmDisabled?: boolean;
   onClose: () => void;
   onConfirm: () => void;
 }) {
@@ -49,7 +52,7 @@ export function ConfirmModal({
           <Button variant="ghost" onClick={onClose} className="flex-1">Cancel</Button>
           <Button
             onClick={onConfirm}
-            disabled={busy}
+            disabled={busy || confirmDisabled}
             className={cn(
               "flex-1 text-white",
               tone === "danger" ? "bg-red-600 hover:bg-red-700" : "bg-[#003B49] hover:bg-[#00515f]"

@@ -38,7 +38,7 @@ export function InfoTip({ content, className, placement = "right" }: InfoTipProp
         ref={iconRef}
         onMouseEnter={handleEnter}
         onMouseLeave={() => setPos(null)}
-        className="text-slate-400 hover:text-blue-500 cursor-help transition-colors inline-flex"
+        className="text-slate-400 hover:text-blue-500 cursor-default transition-colors inline-flex"
       >
         <Info className="w-3.5 h-3.5" />
       </span>

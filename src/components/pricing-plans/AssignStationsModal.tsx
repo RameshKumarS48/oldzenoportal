@@ -4,21 +4,21 @@ import { useMemo, useState } from "react";
 import { AlertTriangle, Check } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { SearchInput } from "@/components/ui/FilterControls";
 import { toast } from "@/store/toast";
 import { cn } from "@/lib/utils";
-import { ASSIGNMENT_LEAD_HOURS, usePricingStore } from "@/store/pricing-plans";
+import { usePricingStore } from "@/store/pricing-plans";
 import { PRICING_REGIONS, PRICING_STATIONS } from "@/lib/mock/pricing-plans";
 import { resolvePlan } from "@/lib/pricing/engine";
-import { eatLocalToIso, fmtEat } from "@/lib/pricing/format";
 import type { PricingPlan } from "@/lib/pricing/types";
-import { inputCls, labelCls, nextEffectiveLocal, useActorName, usePricingBook } from "./shared";
+import { useActorName, usePricingBook } from "./shared";
 
 /**
- * Put stations on a plan from a chosen moment. Search by code, short or long
- * address, pick one by one or a whole region, and see which plan each station
- * would be leaving. A station can only be on one plan, so moving it here takes
- * it off its old one.
+ * Put stations on a plan, from now. Search by code, short or long address,
+ * pick one by one or a whole region, and see which plan each station would be
+ * leaving. A station can only be on one plan, so moving it here takes it off
+ * its old one. The move applies once it's confirmed.
  */
 export function AssignStationsModal({ plan, onClose }: { plan: PricingPlan; onClose: () => void }) {
   const assignStations = usePricingStore((s) => s.assignStations);
@@ -27,16 +27,14 @@ export function AssignStationsModal({ plan, onClose }: { plan: PricingPlan; onCl
 
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [effectiveLocal, setEffectiveLocal] = useState(() => nextEffectiveLocal(ASSIGNMENT_LEAD_HOURS));
   const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [now] = useState(() => new Date().toISOString());
 
-  const effectiveIso = effectiveLocal ? eatLocalToIso(effectiveLocal) : "";
-  const at = effectiveIso && !Number.isNaN(new Date(effectiveIso).getTime()) ? effectiveIso : new Date().toISOString();
-
-  // Each station's plan at the chosen moment, before this move.
+  // Each station's plan now, before this move.
   const rows = useMemo(
-    () => PRICING_STATIONS.map((s) => ({ ...s, current: resolvePlan(book, s.id, at).plan })),
-    [book, at]
+    () => PRICING_STATIONS.map((s) => ({ ...s, current: resolvePlan(book, s.id, now).plan })),
+    [book, now]
   );
 
   const visible = useMemo(() => {
@@ -82,31 +80,20 @@ export function AssignStationsModal({ plan, onClose }: { plan: PricingPlan; onCl
 
   const moving = rows.filter((r) => selected.has(r.id) && !r.current.isDefault && r.current.id !== plan.id);
 
-  function handleAssign() {
-    const res = assignStations(plan.isDefault ? null : plan.id, Array.from(selected), effectiveIso, actor);
+  const count = `${selected.size} station${selected.size === 1 ? "" : "s"}`;
+
+  function handleConfirm() {
+    setConfirming(false);
+    const res = assignStations(plan.isDefault ? null : plan.id, Array.from(selected), actor);
     if (!res.ok) return setError(res.error);
-    toast.success(
-      `${selected.size} station${selected.size === 1 ? "" : "s"} scheduled`,
-      `They move to ${plan.name} on ${fmtEat(effectiveIso)}. Riders are notified ${ASSIGNMENT_LEAD_HOURS} h before.`
-    );
+    toast.success(`${count} moved`, `They're on ${plan.name} from now.`);
     onClose();
   }
 
   return (
     <Modal open onClose={onClose} title={`Assign stations to ${plan.name}`} className="max-w-3xl">
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-          <SearchInput
-            value={query}
-            onChange={setQuery}
-            placeholder="Search code, short or long address…"
-            className="flex-1"
-          />
-          <div className="sm:w-56">
-            <label className={labelCls}>Effective from (EAT)</label>
-            <input className={inputCls} type="datetime-local" value={effectiveLocal} onChange={(e) => setEffectiveLocal(e.target.value)} />
-          </div>
-        </div>
+        <SearchInput value={query} onChange={setQuery} placeholder="Search code, short or long address…" />
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[11px] text-slate-500">Whole region:</span>
@@ -142,7 +129,7 @@ export function AssignStationsModal({ plan, onClose }: { plan: PricingPlan; onCl
                   <th className="px-3 py-2">Code</th>
                   <th className="px-3 py-2">Short address</th>
                   <th className="px-3 py-2 hidden md:table-cell">Long address</th>
-                  <th className="px-3 py-2">Plan then</th>
+                  <th className="px-3 py-2">Current plan</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -207,11 +194,27 @@ export function AssignStationsModal({ plan, onClose }: { plan: PricingPlan; onCl
 
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button variant="teal" onClick={handleAssign} disabled={selected.size === 0}>
+          <Button variant="teal" onClick={() => setConfirming(true)} disabled={selected.size === 0}>
             Assign {selected.size || ""} station{selected.size === 1 ? "" : "s"}
           </Button>
         </div>
       </div>
+
+      <ConfirmModal
+        open={confirming}
+        title={`Move ${count} to ${plan.name}?`}
+        confirmLabel="Confirm"
+        tone="neutral"
+        onClose={() => setConfirming(false)}
+        onConfirm={handleConfirm}
+      >
+        Their new rates apply to swaps from now.
+        {moving.length > 0 && (
+          <span className="block mt-2 text-xs text-slate-500">
+            Leaving another plan: {moving.map((m) => `${m.id} (${m.current.name})`).join(", ")}.
+          </span>
+        )}
+      </ConfirmModal>
     </Modal>
   );
 }
