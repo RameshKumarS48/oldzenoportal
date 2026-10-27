@@ -65,6 +65,11 @@ export interface PricingPlan {
   /** Append-only, any order. */
   versions: PlanVersion[];
   createdAt: string;
+  /**
+   * Deleted from the app: hidden from the plans table, its stations moved to
+   * Default. Kept so swaps already priced on it still resolve.
+   */
+  archived?: boolean;
 }
 
 /**
@@ -87,7 +92,8 @@ export type PlanChangeKind =
   | "window_changed"
   | "stations_assigned"
   | "stations_unassigned"
-  | "renamed";
+  | "renamed"
+  | "deleted";
 
 export interface PlanChange {
   id: string;

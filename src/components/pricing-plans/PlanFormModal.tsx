@@ -23,11 +23,17 @@ import {
 import {
   addBlocked,
   addRow,
+  baseFromChoices,
+  baseStretch,
+  baseUntilChoices,
   fromChoices,
   rateError,
   removeRow,
   rowLabel,
   rowsToWindows,
+  type BaseChange,
+  setBaseFrom,
+  setBaseUntil,
   setFrom,
   setUntil,
   typedRate,
@@ -45,8 +51,8 @@ let rowSeq = 0;
 const rowKey = () => `w${++rowSeq}`;
 
 const ROW_GRID = "grid grid-cols-[0.75rem_minmax(0,1.15fr)_minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2";
-/** Rest of the day: the label spans the From and Until columns. */
-const BASE_GRID = "grid grid-cols-[0.75rem_minmax(0,2.3fr)_minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2";
+
+const NEW_ROW_NOTE = "New window for the hours removed from rest of the day. Add its rates.";
 
 /** The rest-of-day rates as typed. */
 interface BaseInput {
@@ -163,6 +169,10 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
   const [confirming, setConfirming] = useState<{ stations: number } | null>(null);
   /** The row Add window just made; its From dropdown takes focus as it mounts. */
   const [added, setAdded] = useState<string | null>(null);
+  /** The row a shrinking rest of the day just made: outlined, with a note, until its rates are in. */
+  const [released, setReleased] = useState<string | null>(null);
+  /** Why the last change to the rest of the day's hours was refused; cleared by the next edit. */
+  const [baseError, setBaseError] = useState<string | null>(null);
 
   const custom = rowsToWindows(rows);
   const baseRates = { slab1: typedRate(base.slab1), slab2: typedRate(base.slab2) };
@@ -176,16 +186,34 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
   const missingRates = [base, ...rows].some((r) => rateError(r.slab1) || rateError(r.slab2));
   const invalid = missingRates || !name.trim();
   const blocked = addBlocked(rows);
+  const stretch = baseStretch(rows);
+
+  /** Every edit to the rows clears a refused rest-of-day change. */
+  const edit = (next: HourRow[] | ((rs: HourRow[]) => HourRow[])) => {
+    setBaseError(null);
+    setRows(next);
+  };
 
   const setRate = (key: string, field: "slab1" | "slab2", value: string) =>
-    setRows((rs) => rs.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
+    edit((rs) => rs.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
+
+  /** Shrink the rest of the day: its freed hours become a new row, whose From takes focus. */
+  function changeBase(change: (key: string) => BaseChange) {
+    const key = rowKey();
+    const res = change(key);
+    if (!res.ok) return setBaseError(res.error);
+    if (res.rows === rows) return;
+    edit(res.rows);
+    setAdded(key);
+    setReleased(key);
+  }
 
   const touch = (id: string) => setTouched((t) => (t.has(id) ? t : new Set(t).add(id)));
 
   function addWindow() {
     const key = rowKey();
     setAdded(key);
-    setRows((rs) => addRow(rs, key));
+    edit((rs) => addRow(rs, key));
   }
 
   /** A name change alone saves straight away; new plans and rate changes confirm first. */
@@ -290,11 +318,34 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
                 <span />
               </div>
 
-              {/* Rest of the day: always first, never removed. */}
+              {/* Rest of the day: always first, never removed. One stretch is edited with From and Until. */}
               <div {...hovered(BASE_ID)} className={cn("rounded-lg -mx-1 px-1 py-1 transition-colors", highlight === BASE_ID && "bg-slate-50")}>
-                <div className={cn(BASE_GRID, "items-start")}>
+                <p className="pl-5 pb-1 text-xs font-medium text-slate-700">{BASE_LABEL}</p>
+                <div className={cn(ROW_GRID, "items-start")}>
                   <WindowSwatch color="base" className="mt-3" />
-                  <p className="py-2 text-sm font-medium text-slate-700">{BASE_LABEL}</p>
+                  {stretch ? (
+                    <>
+                      <HourSelect
+                        aria-label={`${BASE_LABEL} from`}
+                        value={stretch.from}
+                        options={baseFromChoices(rows, stretch)}
+                        onChange={(h) => changeBase((key) => setBaseFrom(rows, stretch, h, key))}
+                      />
+                      <HourSelect
+                        aria-label={`${BASE_LABEL} until`}
+                        value={stretch.until}
+                        options={baseUntilChoices(rows, stretch)}
+                        onChange={(v) => changeBase((key) => setBaseUntil(rows, stretch, v, key))}
+                      />
+                    </>
+                  ) : (
+                    <div className="col-span-2 py-1.5 text-[11px] leading-snug">
+                      <p className="text-slate-600 tabular-nums">{coversText(custom)}</p>
+                      {rows.length > 0 && freeStretches(custom).length > 0 && (
+                        <p className="text-slate-400">Change these hours by editing the custom windows.</p>
+                      )}
+                    </div>
+                  )}
                   {(["slab1", "slab2"] as const).map((field) => (
                     <RateInput
                       key={field}
@@ -308,53 +359,63 @@ export function PlanFormModal({ plan, onClose }: { plan: PricingPlan | null; onC
                   ))}
                   <span />
                 </div>
-                <p className="pl-5 text-[11px] text-slate-400 tabular-nums">{coversText(custom)}</p>
+                {baseError && (
+                  <p role="alert" className="pl-5 pt-1 text-[11px] text-red-600">{baseError}</p>
+                )}
               </div>
 
               <h4 className="pt-2 text-[11px] font-semibold text-slate-500">Custom windows</h4>
 
               {rows.map((r, i) => {
                 const label = rowLabel(r);
+                const fresh = released === r.key && !!(rateError(r.slab1) || rateError(r.slab2));
                 return (
                   <div
                     key={r.key}
                     {...hovered(r.key)}
-                    className={cn(ROW_GRID, "items-start rounded-lg -mx-1 px-1 py-1 transition-colors", highlight === r.key && "bg-slate-50")}
+                    className={cn(
+                      "rounded-lg -mx-1 px-1 py-1 transition-colors border border-transparent",
+                      highlight === r.key && "bg-slate-50",
+                      fresh && "border-zeno-teal/40 bg-teal-50/40"
+                    )}
                   >
-                    <WindowSwatch color={r.color} className="mt-3" />
-                    <HourSelect
-                      aria-label={`Window ${i + 1} from`}
-                      value={r.from}
-                      options={fromChoices(rows, i)}
-                      onChange={(h) => setRows(setFrom(rows, i, h))}
-                      autoFocus={added === r.key}
-                    />
-                    <HourSelect
-                      aria-label={`Window ${i + 1} until`}
-                      value={r.until}
-                      options={untilChoices(rows, i)}
-                      onChange={(v) => setRows(setUntil(rows, i, v))}
-                    />
-                    {(["slab1", "slab2"] as const).map((field) => (
-                      <RateInput
-                        key={field}
-                        id={`${r.key}-${field}`}
-                        label={`${field === "slab1" ? "Slab 1" : "Slab 2"} rate, ${label}`}
-                        value={r[field]}
-                        touched={touched.has(`${r.key}:${field}`)}
-                        onChange={(v) => setRate(r.key, field, v)}
-                        onBlur={() => touch(`${r.key}:${field}`)}
+                    <div className={cn(ROW_GRID, "items-start")}>
+                      <WindowSwatch color={r.color} className="mt-3" />
+                      <HourSelect
+                        aria-label={`Window ${i + 1} from`}
+                        value={r.from}
+                        options={fromChoices(rows, i)}
+                        onChange={(h) => edit(setFrom(rows, i, h))}
+                        autoFocus={added === r.key}
                       />
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => setRows((rs) => removeRow(rs, r.key))}
-                      aria-label={`Remove window ${label}`}
-                      title={`Remove window: its hours go back to ${BASE_LABEL.toLowerCase()}`}
-                      className="flex h-9 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                      <HourSelect
+                        aria-label={`Window ${i + 1} until`}
+                        value={r.until}
+                        options={untilChoices(rows, i)}
+                        onChange={(v) => edit(setUntil(rows, i, v))}
+                      />
+                      {(["slab1", "slab2"] as const).map((field) => (
+                        <RateInput
+                          key={field}
+                          id={`${r.key}-${field}`}
+                          label={`${field === "slab1" ? "Slab 1" : "Slab 2"} rate, ${label}`}
+                          value={r[field]}
+                          touched={touched.has(`${r.key}:${field}`)}
+                          onChange={(v) => setRate(r.key, field, v)}
+                          onBlur={() => touch(`${r.key}:${field}`)}
+                        />
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => edit((rs) => removeRow(rs, r.key))}
+                        aria-label={`Remove window ${label}`}
+                        title={`Remove window: its hours go back to ${BASE_LABEL.toLowerCase()}`}
+                        className="flex h-9 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    {fresh && <p className="pl-5 pt-1 text-[11px] text-slate-500">{NEW_ROW_NOTE}</p>}
                   </div>
                 );
               })}

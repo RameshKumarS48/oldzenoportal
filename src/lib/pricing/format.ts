@@ -43,6 +43,7 @@ export const CHANGE_LABELS: Record<PlanChangeKind, string> = {
   stations_assigned: "Stations moved",
   stations_unassigned: "Stations moved",
   renamed: "Plan renamed",
+  deleted: "Plan deleted",
 };
 
 export function fmtKes(n: number, digits = 0): string {

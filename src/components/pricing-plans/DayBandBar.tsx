@@ -21,14 +21,19 @@ import type { RateWindow } from "@/lib/pricing/types";
  */
 export const WINDOW_COLORS = ["#115e59", "#5eead4", "#0d9488", "#99f6e4", "#0f766e", "#2dd4bf"];
 
-/** The rest-of-day hours: Tailwind slate 300, neutral against the teals. */
-export const BASE_COLOR = "#cbd5e1";
+/**
+ * The rest-of-day hours are white with a Tailwind slate 500 edge: 4.8:1
+ * against white, so the band and its swatch stay visible on a white card.
+ */
+const BASE_EDGE = "#64748b";
+/** A highlighted rest-of-day band: slate 700, as a white ring can't show on white. */
+const BASE_EDGE_ON = "#334155";
 
 /** The id every rest-of-day band shares, so they highlight together with their row. */
 export const BASE_ID = "base";
 
-/** A custom window's colour by index, or the rest-of-day grey. */
-const colorOf = (color: number | "base") => (color === "base" ? BASE_COLOR : WINDOW_COLORS[color % WINDOW_COLORS.length]);
+/** A custom window's colour by index, or white for the rest of the day. */
+const colorOf = (color: number | "base") => (color === "base" ? "#ffffff" : WINDOW_COLORS[color % WINDOW_COLORS.length]);
 
 /** The small square that ties a row to its band. */
 export function WindowSwatch({ color, className }: { color: number | "base"; className?: string }) {
@@ -36,7 +41,7 @@ export function WindowSwatch({ color, className }: { color: number | "base"; cla
     <span
       aria-hidden="true"
       className={cn("inline-block w-3 h-3 shrink-0 rounded-sm", className)}
-      style={{ backgroundColor: colorOf(color) }}
+      style={{ backgroundColor: colorOf(color), boxShadow: color === "base" ? `inset 0 0 0 1px ${BASE_EDGE}` : undefined }}
     />
   );
 }
@@ -48,7 +53,7 @@ export interface BandItem {
   color: number | "base";
 }
 
-/** A saved version's bands: grey rest-of-day hours, then the custom windows coloured in time order. */
+/** A saved version's bands: white rest-of-day hours, then the custom windows coloured in time order. */
 export function versionBands({ baseWindows, custom }: Pick<SplitVersion, "baseWindows" | "custom">): BandItem[] {
   return [
     ...baseWindows.map((w) => ({ id: BASE_ID, window: w, color: "base" as const })),
@@ -58,6 +63,8 @@ export function versionBands({ baseWindows, custom }: Pick<SplitVersion, "baseWi
 
 /** Rough width of a boundary label ("16:00:00") at 10px, with breathing room. */
 const LABEL_PX = 52;
+/** Rough half-width of the "Now · 14:05:00" label, to keep it inside the bar. */
+const NOW_HALF_PX = 42;
 
 /** A boundary as its label: a start, "16:00:00", or the day's inclusive end, "23:59:59". */
 const boundaryLabel = (at: number) => fmtHHmmss(at >= DAY_SECONDS ? DAY_SECONDS - 1 : at);
@@ -66,14 +73,15 @@ const rate = (n: number) => (Number.isFinite(n) ? String(n) : "–");
 
 /**
  * The day as a 24 h strip: one band per window, no text inside; the rest of
- * the day is grey and each custom window has its colour.
+ * the day is white with a dark edge and each custom window has its colour.
  * A window that crosses midnight is two bands, one at each end. Under it,
  * the boundary times sit at their boundaries; where two would overlap, a real
  * boundary beats the day's ends, then the earlier one wins.
  *
  * Hovering or focusing a band shows "17:00:00–19:59:59 · 110 / 90" (or
  * "Rest of the day · 90 / 70") and reports its id through `onHighlight`;
- * `highlighted` (an id) outlines it. `now` marks the current EAT time.
+ * `highlighted` (an id) outlines it. `now` marks the current EAT time, with
+ * "Now · 14:05:00" above the marker.
  */
 export function DayBandBar({
   items,
@@ -90,7 +98,7 @@ export function DayBandBar({
 }) {
   const barRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
-  const [tip, setTip] = useState<{ text: string; x: number; y: number } | null>(null);
+  const [tip, setTip] = useState<{ text: string; color: BandItem["color"]; x: number; y: number } | null>(null);
 
   // Labels depend on the bar's real width, which changes with the modal or page.
   useEffect(() => {
@@ -118,7 +126,7 @@ export function DayBandBar({
 
   function show(item: BandItem, el: HTMLElement) {
     const r = el.getBoundingClientRect();
-    setTip({ text: tipText(item), x: r.left + r.width / 2, y: r.top });
+    setTip({ text: tipText(item), color: item.color, x: r.left + r.width / 2, y: r.top });
     onHighlight?.(item.id);
   }
 
@@ -129,12 +137,25 @@ export function DayBandBar({
 
   return (
     <div className={cn("space-y-1", className)}>
+      {marker !== null && (
+        <div className="relative h-4 text-[10px] font-semibold text-slate-700 tabular-nums">
+          {width > 0 && (
+            <span
+              className="absolute top-0 -translate-x-1/2 whitespace-nowrap"
+              style={{ left: Math.min(Math.max(marker * width, NOW_HALF_PX), width - NOW_HALF_PX) }}
+            >
+              Now · {fmtHHmmss(eatSecondOfDay(now!))}
+            </span>
+          )}
+        </div>
+      )}
       <div ref={barRef} className="relative h-6 rounded-md bg-slate-200 overflow-hidden">
         {bands.map((band) => {
           const on = highlighted === band.id;
+          const base = band.color === "base";
           return (
             <div
-              key={band.color === "base" ? `${band.id}-${band.window.start}-${band.side}` : `${band.id}-${band.side}`}
+              key={base ? `${band.id}-${band.window.start}-${band.side}` : `${band.id}-${band.side}`}
               role={band.focusable ? "img" : undefined}
               tabIndex={band.focusable ? 0 : undefined}
               aria-label={band.focusable ? tipText(band) : undefined}
@@ -144,12 +165,17 @@ export function DayBandBar({
               onFocus={(e) => show(band, e.currentTarget)}
               onBlur={hide}
               className={cn(
-                "absolute inset-y-0 border-r border-white transition-[left,width,opacity] duration-300 ease-out",
-                "focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white",
+                "absolute inset-y-0 transition-[left,width,opacity] duration-300 ease-out focus:outline-none",
+                base ? "focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-700" : "border-r border-white focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white",
                 highlighted && !on && "opacity-40",
-                on && "ring-2 ring-inset ring-white"
+                on && !base && "ring-2 ring-inset ring-white"
               )}
-              style={{ left: `${band.a * 100}%`, width: `${(band.b - band.a) * 100}%`, backgroundColor: colorOf(band.color) }}
+              style={{
+                left: `${band.a * 100}%`,
+                width: `${(band.b - band.a) * 100}%`,
+                backgroundColor: colorOf(band.color),
+                boxShadow: base ? `inset 0 0 0 ${on ? 2 : 1}px ${on ? BASE_EDGE_ON : BASE_EDGE}` : undefined,
+              }}
             />
           );
         })}
@@ -177,9 +203,10 @@ export function DayBandBar({
       {tip && (
         <span
           role="tooltip"
-          className="fixed z-[70] pointer-events-none -translate-x-1/2 -translate-y-full -mt-2 rounded-lg bg-slate-800 px-3 py-2 text-xs text-white shadow-xl whitespace-nowrap tabular-nums"
+          className="fixed z-[70] pointer-events-none -translate-x-1/2 -translate-y-full -mt-2 flex items-center gap-2 rounded-lg bg-slate-800 px-3 py-2 text-xs text-white shadow-xl whitespace-nowrap tabular-nums"
           style={{ left: tip.x, top: tip.y }}
         >
+          <WindowSwatch color={tip.color} />
           {tip.text}
         </span>
       )}

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { AccessGuard } from "@/components/ui/AccessGuard";
 import { Topbar } from "@/components/layout/Topbar";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,11 @@ import { planStatus, stationsOnPlan, versionAt, sortedVersions } from "@/lib/pri
 import { displayStatus, fmtEat } from "@/lib/pricing/format";
 import { fmtCustomCount, fmtHHmmss, fmtSlabs, splitVersion, windowAt, windowBoundary } from "@/lib/pricing/windows";
 import { PlanFormModal } from "@/components/pricing-plans/PlanFormModal";
+import { PlanActionsMenu } from "@/components/pricing-plans/PlanActionsMenu";
+import { DeletePlanModal } from "@/components/pricing-plans/DeletePlanModal";
 import { PlanStatusBadge, usePricingBook } from "@/components/pricing-plans/shared";
 import { usePricingStore } from "@/store/pricing-plans";
+import type { PricingPlan } from "@/lib/pricing/types";
 
 const STATUS_ORDER = { default: 0, active: 1, inactive: 2 } as const;
 
@@ -28,6 +31,7 @@ export default function PricingPlansPage() {
   const canWrite = useAccess().canWrite("pricing");
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState<PricingPlan | null>(null);
   const [now, setNow] = useState(() => new Date().toISOString());
 
   // Price now follows the clock: re-read it every minute so "until" rolls over.
@@ -37,7 +41,9 @@ export default function PricingPlansPage() {
   }, []);
 
   const rows = useMemo(() => {
+    // Deleted plans stay in the book, so swaps priced on them still resolve, but aren't listed.
     return book.plans
+      .filter((plan) => !plan.archived)
       .map((plan) => {
         const status = displayStatus(planStatus(book, plan, ALL_STATION_IDS, now));
         // Changes apply when saved, so the latest version is the one in force.
@@ -120,7 +126,7 @@ export default function PricingPlansPage() {
                   </th>
                   <th className="px-4 py-2.5 text-right">Stations</th>
                   <th className="px-4 py-2.5">Last updated</th>
-                  <th className="px-2 py-2.5" />
+                  <th className="px-2 py-2.5"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -155,7 +161,17 @@ export default function PricingPlansPage() {
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-slate-700">{stations}</td>
                     <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{lastUpdated ? fmtEat(lastUpdated) : "–"}</td>
-                    <td className="px-2 py-3 text-slate-300"><ChevronRight className="w-4 h-4" /></td>
+                    <td className="px-1 py-2 text-right">
+                      {!plan.isDefault && (
+                        <PlanActionsMenu
+                          aria-label={`Actions for ${plan.name}`}
+                          actions={[
+                            { label: "Open plan", onSelect: () => router.push(`/swap-station-pricing/${plan.id}`) },
+                            ...(canWrite ? [{ label: "Delete plan", danger: true, onSelect: () => setDeleting(plan) }] : []),
+                          ]}
+                        />
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -164,6 +180,7 @@ export default function PricingPlansPage() {
         </div>
 
         {creating && <PlanFormModal plan={null} onClose={() => setCreating(false)} />}
+        {deleting && <DeletePlanModal plan={deleting} onClose={() => setDeleting(null)} onDeleted={() => setDeleting(null)} />}
       </main>
     </AccessGuard>
   );

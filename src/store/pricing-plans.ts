@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { SEED_ASSIGNMENTS, SEED_CHANGES, SEED_PLANS } from "@/lib/mock/pricing-plans";
-import { normaliseStationId, resolvePlan, sortedVersions, versionAt } from "@/lib/pricing/engine";
+import { ALL_STATION_IDS, SEED_ASSIGNMENTS, SEED_CHANGES, SEED_PLANS } from "@/lib/mock/pricing-plans";
+import { normaliseStationId, resolvePlan, sortedVersions, stationsOnPlan, versionAt } from "@/lib/pricing/engine";
 import {
   BASE_LABEL,
   MAX_RATE,
@@ -64,7 +64,8 @@ interface PricingState extends PricingBook {
   renamePlan: (planId: string, name: string, by: string) => Result;
   /** Move stations onto a plan, or back to Default with `planId: null`, from now. */
   assignStations: (planId: string | null, stationIds: string[], by: string) => Result;
-  deletePlan: (planId: string) => Result;
+  /** Archive a plan and move its stations to Default, from now. */
+  deletePlan: (planId: string, by: string) => Result & { moved?: number };
   resetToSeed: () => void;
 }
 
@@ -83,7 +84,7 @@ export const usePricingStore = create<PricingState>()(
         createPlan: ({ name, version }, by) => {
           const trimmed = name.trim();
           if (!trimmed) return { ok: false, error: "Give the plan a name." };
-          if (get().plans.some((p) => p.name.toLowerCase() === trimmed.toLowerCase())) {
+          if (get().plans.some((p) => !p.archived && p.name.toLowerCase() === trimmed.toLowerCase())) {
             return { ok: false, error: `A plan called "${trimmed}" already exists.` };
           }
           const error = validateVersion(version);
@@ -129,7 +130,7 @@ export const usePricingStore = create<PricingState>()(
           if (!plan) return { ok: false, error: "That plan no longer exists." };
           const trimmed = name.trim();
           if (!trimmed) return { ok: false, error: "Give the plan a name." };
-          if (get().plans.some((p) => p.id !== planId && p.name.toLowerCase() === trimmed.toLowerCase())) {
+          if (get().plans.some((p) => !p.archived && p.id !== planId && p.name.toLowerCase() === trimmed.toLowerCase())) {
             return { ok: false, error: `A plan called "${trimmed}" already exists.` };
           }
           if (trimmed === plan.name) return { ok: true };
@@ -181,22 +182,30 @@ export const usePricingStore = create<PricingState>()(
           return { ok: true };
         },
 
-        deletePlan: (planId) => {
+        deletePlan: (planId, by) => {
           const book = get();
-          const plan = book.plans.find((p) => p.id === planId);
+          const plan = book.plans.find((p) => p.id === planId && !p.archived);
           if (!plan) return { ok: false, error: "That plan no longer exists." };
           if (plan.isDefault) return { ok: false, error: "The Default plan can't be deleted." };
-          if (book.assignments.some((a) => a.planId === planId)) {
-            return {
-              ok: false,
-              error: "Swaps have been, or will be, priced on this plan. Move its stations to another plan instead of deleting it.",
-            };
-          }
-          set((s) => ({
-            plans: s.plans.filter((p) => p.id !== planId),
-            changes: s.changes.filter((c) => c.planId !== planId),
+
+          // The plan stays in the data, so swaps already priced on it still resolve.
+          const now = new Date().toISOString();
+          const ids = stationsOnPlan(book, planId, ALL_STATION_IDS, now);
+          const rows: StationAssignment[] = ids.map((stationId) => ({
+            id: uid("sa"), stationId, planId: null, effectiveFrom: now, assignedBy: by, assignedAt: now,
           }));
-          return { ok: true };
+          set((s) => ({
+            plans: s.plans.map((p) => (p.id === planId ? { ...p, archived: true } : p)),
+            assignments: [...s.assignments, ...rows],
+          }));
+          if (ids.length > 0) {
+            log({
+              planId, by, kind: "stations_unassigned",
+              summary: `${ids.length} station${ids.length === 1 ? "" : "s"} moved to Default`,
+            }, now);
+          }
+          log({ planId, by, kind: "deleted", summary: "" }, now);
+          return { ok: true, moved: ids.length };
         },
 
         resetToSeed: () => set({ plans: SEED_PLANS, assignments: SEED_ASSIGNMENTS, changes: SEED_CHANGES }),
@@ -205,9 +214,9 @@ export const usePricingStore = create<PricingState>()(
     {
       name: "zeno-pricing-plans",
       // 2: versions carry `windows`. 3: nothing is scheduled. 4–5: history time format.
-      // 6: rest-of-day rates and `isBase` windows.
+      // 6: rest-of-day rates and `isBase` windows. 7: archived plans.
       // Anything saved before is reset to the seed.
-      version: 6,
+      version: 7,
       partialize: (s) => ({ plans: s.plans, assignments: s.assignments, changes: s.changes }),
       migrate: () => ({ plans: SEED_PLANS, assignments: SEED_ASSIGNMENTS, changes: SEED_CHANGES }),
     }

@@ -72,6 +72,13 @@ export function HourSelect({
     if (v !== value) onChange(v);
   }
 
+  // Focus on mount as an effect, not the autoFocus attribute: it then runs after
+  // the refocus below, so a pick elsewhere that adds this row can't take focus back.
+  const [focusOnMount] = useState(autoFocus);
+  useEffect(() => {
+    if (focusOnMount) buttonRef.current?.focus();
+  }, [focusOnMount]);
+
   // A pick can re-sort the rows, which moves this button in the DOM and can
   // drop its focus, so focus it again once the move has rendered.
   useEffect(() => {
@@ -145,7 +152,6 @@ export function HourSelect({
         aria-controls={open ? `${id}-list` : undefined}
         aria-activedescendant={open ? `${id}-${active}` : undefined}
         disabled={disabled}
-        autoFocus={autoFocus}
         onClick={() => (open ? close() : openList())}
         onKeyDown={onKeyDown}
         className={cn(TRIGGER, className)}

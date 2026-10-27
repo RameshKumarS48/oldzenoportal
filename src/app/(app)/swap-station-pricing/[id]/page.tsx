@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Undo2 } from "lucide-react";
 import { AccessGuard } from "@/components/ui/AccessGuard";
 import { Topbar } from "@/components/layout/Topbar";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ import { DayBandBar, versionBands } from "@/components/pricing-plans/DayBandBar"
 import { WindowRates } from "@/components/pricing-plans/WindowRates";
 import { ChangeHistory } from "@/components/pricing-plans/ChangeHistory";
 import { PlanFormModal } from "@/components/pricing-plans/PlanFormModal";
+import { PlanActionsMenu } from "@/components/pricing-plans/PlanActionsMenu";
+import { DeletePlanModal } from "@/components/pricing-plans/DeletePlanModal";
 import { AssignStationsModal } from "@/components/pricing-plans/AssignStationsModal";
 import { PlanStatusBadge, useActorName, usePricingBook } from "@/components/pricing-plans/shared";
 
@@ -45,11 +47,15 @@ export default function PricingPlanDetailPage() {
     <AccessGuard module="pricing">
       <Topbar title="Swap Station Pricing" />
       <main className="flex flex-col flex-1 overflow-hidden">
-        {plan ? (
+        {plan && !plan.archived ? (
           <PlanDetail plan={plan} />
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center gap-3">
-            <EmptyState title="Plan not found" description="It may have been deleted." />
+            {plan ? (
+              <EmptyState title="This plan was deleted" description="Its stations were moved to Default." />
+            ) : (
+              <EmptyState title="Plan not found" description="It may have been deleted." />
+            )}
             <Link href="/swap-station-pricing" className="text-sm text-zeno-teal font-medium hover:underline">Back to Swap Station Pricing</Link>
           </div>
         )}
@@ -58,33 +64,44 @@ export default function PricingPlanDetailPage() {
   );
 }
 
+/**
+ * The current time, moving on at each minute boundary, for the Now marker
+ * and the rates in force.
+ */
+function useMinuteClock(): string {
+  const [now, setNow] = useState(() => new Date().toISOString());
+  useEffect(() => {
+    let id: ReturnType<typeof setInterval> | undefined;
+    const tick = () => setNow(new Date().toISOString());
+    const first = setTimeout(() => {
+      tick();
+      id = setInterval(tick, 60_000);
+    }, 60_000 - (Date.now() % 60_000));
+    return () => {
+      clearTimeout(first);
+      clearInterval(id);
+    };
+  }, []);
+  return now;
+}
+
 function PlanDetail({ plan }: { plan: PricingPlan }) {
   const router = useRouter();
   const book = usePricingBook();
-  const deletePlan = usePricingStore((s) => s.deletePlan);
   const canWrite = useAccess().canWrite("pricing");
   const [tab, setTab] = useState("overview");
   const [editing, setEditing] = useState(false);
   const [assigning, setAssigning] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   /** The window under the pointer (BASE_ID or a start), shared by the day bar and the rates table. */
   const [highlight, setHighlight] = useState<string | null>(null);
-  const [now] = useState(() => new Date().toISOString());
+  const now = useMinuteClock();
 
   const status = planStatus(book, plan, ALL_STATION_IDS, now);
   // Changes apply when saved, so a plan's latest version is in force.
   const current = versionAt(plan, now) ?? sortedVersions(plan)[0];
   const split = splitVersion(current);
   const stationCount = stationsOnPlan(book, plan.id, ALL_STATION_IDS, now).length;
-  const deletable = !plan.isDefault && !book.assignments.some((a) => a.planId === plan.id);
-
-  function handleDelete() {
-    const res = deletePlan(plan.id);
-    setConfirmDelete(false);
-    if (!res.ok) return toast.error("Can't delete plan", res.error);
-    toast.info("Plan deleted", `${plan.name} was removed.`);
-    router.push("/swap-station-pricing");
-  }
 
   return (
     <>
@@ -103,17 +120,18 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
         </div>
         {canWrite && (
           <div className="flex items-center gap-2">
-            {deletable && (
-              <Button variant="ghost" onClick={() => setConfirmDelete(true)}>
-                <Trash2 className="w-4 h-4" /> Delete
-              </Button>
-            )}
             <Button variant="secondary" onClick={() => setEditing(true)}>
               <Pencil className="w-4 h-4" /> Edit rates
             </Button>
             <Button variant="primary" onClick={() => setAssigning(true)}>
               <Plus className="w-4 h-4" /> Assign stations
             </Button>
+            {!plan.isDefault && (
+              <PlanActionsMenu
+                aria-label={`More actions for ${plan.name}`}
+                actions={[{ label: "Delete plan", danger: true, onSelect: () => setDeleting(true) }]}
+              />
+            )}
           </div>
         )}
       </div>
@@ -215,16 +233,9 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
 
       {editing && <PlanFormModal plan={plan} onClose={() => setEditing(false)} />}
       {assigning && <AssignStationsModal plan={plan} onClose={() => setAssigning(false)} />}
-      <ConfirmModal
-        open={confirmDelete}
-        title={`Delete ${plan.name}?`}
-        confirmLabel="Delete plan"
-        tone="danger"
-        onClose={() => setConfirmDelete(false)}
-        onConfirm={handleDelete}
-      >
-        No station has ever been on this plan, so no swap was priced with it. This can&apos;t be undone.
-      </ConfirmModal>
+      {deleting && (
+        <DeletePlanModal plan={plan} onClose={() => setDeleting(false)} onDeleted={() => router.push("/swap-station-pricing")} />
+      )}
     </>
   );
 }
