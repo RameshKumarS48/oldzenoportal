@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { AlertTriangle, ArrowLeft, ArrowRightLeft, Pencil, Plus, Undo2 } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, Pencil, Plus, Undo2 } from "lucide-react";
+import { Callout } from "@/components/ui/callout";
 import { AccessGuard } from "@/components/ui/AccessGuard";
 import { Topbar } from "@/components/layout/Topbar";
 import { Button } from "@/components/ui/button";
@@ -396,13 +397,9 @@ function MoveToDefaultModal({
       onClose={onClose}
       onConfirm={handleConfirm}
     >
-      Their new rates apply to swaps from now. Swaps already in progress keep the plan they started on.
+      Their new rates apply to swaps from now. Swaps in progress keep the plan they started on.
       <span className="block mt-2 text-xs text-slate-500">{ids.join(", ")}</span>
-      {emptiesPlan && (
-        <span className="mt-2 flex items-start gap-1.5 text-xs font-medium text-amber-800">
-          <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0 text-amber-600" /> {planName} will have no stations left.
-        </span>
-      )}
+      {emptiesPlan && <Callout variant="warning" className="mt-3">{planName} will have no stations left.</Callout>}
     </ConfirmModal>
   );
 }
@@ -472,15 +469,12 @@ function MoveStationsModal({
         ))}
       </select>
       {summary && (
-        <span className="mt-3 block">
-          Their new rates apply to swaps from now. Swaps already in progress keep the plan they started on.
+        <div className="mt-3">
+          Their new rates apply to swaps from now. Swaps in progress keep the plan they started on.
           {summary.emptied.length > 0 && (
-            <span className="mt-2 flex items-start gap-1.5 text-xs font-medium text-amber-800">
-              <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0 text-amber-600" />
-              {summary.emptied.map((p) => p.name).join(", ")} will have no stations left.
-            </span>
+            <Callout variant="warning" className="mt-3">{summary.emptied.map((p) => p.name).join(", ")} will have no stations left.</Callout>
           )}
-        </span>
+        </div>
       )}
     </ConfirmModal>
   );

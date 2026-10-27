@@ -267,9 +267,9 @@ check("comparisons list each rest-of-day stretch with its own rates", () => {
 
 check("soft warnings: slab 2 above slab 1, far from Default, same as Default", () => {
   const w1 = rateWarnings([win("00:00:00", "23:59:59", 80, 95)], DEFAULT_WINDOWS);
-  assert.ok(w1.items.some((i) => i.kind === "slab_order" && /Slab 2 \(KES 95\) is higher than slab 1 \(KES 80\)/.test(i.title)));
+  assert.ok(w1.items.some((i) => i.kind === "slab_order" && i.time === "00:00:00–23:59:59"));
   const w2 = rateWarnings([win("00:00:00", "23:59:59", 400, 300)], DEFAULT_WINDOWS);
-  assert.ok(w2.items.some((i) => i.kind === "far_from_default" && /far from Default/.test(i.title)));
+  assert.ok(w2.items.some((i) => i.kind === "far_from_default" && /Default's 90 \/ 70|Default's 70 \/ 55/.test(i.title)));
   assert.equal(rateWarnings(DEFAULT_WINDOWS, DEFAULT_WINDOWS).matchesDefault, true);
   assert.equal(rateWarnings(DEFAULT_WINDOWS, null).matchesDefault, false); // editing Default itself
 });

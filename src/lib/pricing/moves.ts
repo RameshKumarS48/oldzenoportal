@@ -54,8 +54,3 @@ export function summarizeMoves(
   );
   return { moves, unchanged, unknown, emptied };
 }
-
-/** "BS0027 (Nairobi CBD), BS0043 (Night Rider Promo)". */
-export function fmtMoves(moves: StationMove[]): string {
-  return moves.map((m) => `${m.id} (${m.from.name})`).join(", ");
-}

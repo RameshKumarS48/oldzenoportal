@@ -1,16 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
+import { Callout } from "@/components/ui/callout";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { toast } from "@/store/toast";
 import { usePricingStore } from "@/store/pricing-plans";
 import { ALL_STATION_IDS } from "@/lib/mock/pricing-plans";
-import { fmtMoves, summarizeMoves } from "@/lib/pricing/moves";
+import { summarizeMoves } from "@/lib/pricing/moves";
 import type { PricingPlan } from "@/lib/pricing/types";
-import { MoveWarnings, StationPicker } from "./StationPicker";
+import { StationPicker } from "./StationPicker";
 import { useActorName, usePricingBook } from "./shared";
 
 /**
@@ -42,14 +42,9 @@ export function AssignStationsModal({ plan, onClose }: { plan: PricingPlan; onCl
   return (
     <Modal open onClose={confirming ? () => {} : onClose} title={`Assign stations to ${plan.name}`} className="max-w-3xl">
       <div className="space-y-4">
-        <StationPicker targetPlanId={targetId} selected={selected} onChange={setSelected} summary={summary} now={now} />
+        <StationPicker targetPlanId={targetId} selected={selected} onChange={setSelected} now={now} />
 
-        {error && (
-          <p role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
-            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            {error}
-          </p>
-        )}
+        {error && <Callout variant="danger" role="alert">{error}</Callout>}
 
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
@@ -67,16 +62,13 @@ export function AssignStationsModal({ plan, onClose }: { plan: PricingPlan; onCl
         onClose={() => setConfirming(false)}
         onConfirm={handleConfirm}
       >
-        Their new rates apply to swaps from now. Swaps already in progress keep the plan they started on.
-        <span className="block mt-2 text-xs text-slate-500">{summary.moves.map((m) => m.id).join(", ")}</span>
-        {summary.moves.some((m) => !m.from.isDefault) && (
-          <span className="block mt-2 text-xs text-slate-500">
-            Leaving another plan: {fmtMoves(summary.moves.filter((m) => !m.from.isDefault))}.
-          </span>
+        Their new rates apply to swaps from now. Swaps in progress keep the plan they started on.
+        <span className="block mt-2 font-mono text-xs text-slate-500">{summary.moves.map((m) => m.id).join(", ")}</span>
+        {summary.emptied.length > 0 && (
+          <Callout variant="warning" className="mt-3">
+            {summary.emptied.map((p) => p.name).join(", ")} will have no stations left.
+          </Callout>
         )}
-        <span className="block mt-2">
-          <MoveWarnings summary={{ ...summary, moves: [] }} />
-        </span>
       </ConfirmModal>
     </Modal>
   );

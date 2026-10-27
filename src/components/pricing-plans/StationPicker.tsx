@@ -1,18 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import { SearchInput } from "@/components/ui/FilterControls";
 import { cn } from "@/lib/utils";
 import { PRICING_REGIONS, PRICING_STATIONS } from "@/lib/mock/pricing-plans";
 import { resolvePlan } from "@/lib/pricing/engine";
-import { fmtMoves, type MoveSummary } from "@/lib/pricing/moves";
 import { usePricingBook } from "./shared";
 
 /**
  * Pick stations to move onto a plan: search by code, short or long address
  * or region, tick them one by one or a whole region at once, and see which
- * plan each is on now. Stations already on the target can't be picked.
+ * plan each is on now ("moves off" marks a station leaving another plan).
+ * Stations already on the target can't be picked.
  * Search never clears a selection it hides. `targetPlanId` is null for
  * Default, or an id the book doesn't have yet for a plan being created.
  */
@@ -20,14 +20,11 @@ export function StationPicker({
   targetPlanId,
   selected,
   onChange,
-  summary,
   now,
 }: {
   targetPlanId: string | null;
   selected: Set<string>;
   onChange: (next: Set<string>) => void;
-  /** The moves the selection makes, for the warnings under the table. */
-  summary: MoveSummary;
   now: string;
 }) {
   const book = usePricingBook();
@@ -168,32 +165,6 @@ export function StationPicker({
           </table>
         </div>
       </div>
-
-      <MoveWarnings summary={summary} />
-    </div>
-  );
-}
-
-/** Stations leaving other plans, and plans that would be left empty. */
-export function MoveWarnings({ summary }: { summary: MoveSummary }) {
-  const leaving = summary.moves.filter((m) => !m.from.isDefault);
-  if (leaving.length === 0 && summary.emptied.length === 0) return null;
-  return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 space-y-1">
-      {leaving.length > 0 && (
-        <p className="flex items-start gap-2">
-          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-600" />
-          <span>
-            {leaving.length} station{leaving.length === 1 ? " leaves its" : "s leave their"} current plan: {fmtMoves(leaving)}.
-          </span>
-        </p>
-      )}
-      {summary.emptied.map((p) => (
-        <p key={p.id} className="flex items-start gap-2 font-medium">
-          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-600" />
-          {p.name} will have no stations left.
-        </p>
-      ))}
     </div>
   );
 }

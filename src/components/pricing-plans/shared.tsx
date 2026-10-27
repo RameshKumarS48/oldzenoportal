@@ -44,9 +44,10 @@ export function useActorName(): string {
   return useAuthStore((s) => s.user?.name) ?? "Unknown user";
 }
 
+/** The same field style as components/ui/input.tsx, for inputs laid out in a grid. */
 export const inputCls =
-  "w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm text-slate-700 placeholder-slate-400 " +
-  "focus:outline-none focus:ring-2 focus:ring-zeno-teal/20 focus:border-zeno-teal/40";
+  "w-full px-3 py-2 rounded-lg bg-white border border-slate-300 text-sm text-slate-900 placeholder-slate-400 transition-colors " +
+  "focus:outline-none focus:ring-2 focus:ring-zeno-teal/20 focus:border-zeno-teal disabled:bg-slate-50 disabled:text-slate-400";
 export const labelCls = "block text-[11px] font-medium text-slate-500 mb-1";
 
 export function PlanStatusBadge({ status }: { status: PlanStatus }) {
