@@ -6,7 +6,8 @@
  * presets always split the rows the same way: 24 seen in the last 24 h, 31 in
  * 1–7 days, 34 in 7–30 days and 31 in 30–45 days. `batteriesAt` turns it into
  * the text the dev portal shows, in UTC ("15 Oct 2026 09:56"). `location` is
- * "lat, long"; `soc` is null where the battery hasn't reported one. The first
+ * "lat, long", or "" for the 3 batteries that have never reported one, and
+ * `region` is worked out from it (regionAt); `soc` is null where the battery hasn't reported one. The first
  * eight rows are the dev portal's own (its freshest); the rest follow their format.
  *
  * Assets: 15 swap stations holding 5–8 batteries each, one per slot, 15 vehicles holding
@@ -25,13 +26,39 @@ export interface BatteryRecord {
   imei: string;
   /** UTC, "15 Oct 2026 09:56". */
   lastSeen: string;
+  /** "lat, long", or "" when the battery has never reported a location. */
   location: string;
+  /** Where the location falls; null when there is no location. */
+  region: BatteryRegion | null;
   soc: number | null;
   /** Null when the battery is in neither a vehicle nor a station. */
   asset: BatteryAsset | null;
 }
 
 export type Region = "Nairobi" | "Kiambu" | "Machakos" | "Kajiado" | "Nanyuki" | "Nyeri";
+
+/** A battery's region: one of the station regions, or "Outside service regions" outside them all. */
+export type BatteryRegion = Region | "Outside service regions";
+export const OTHER_AREA = "Outside service regions";
+
+/**
+ * The region a "lat, long" falls in, from rough boxes around each region's
+ * stations: Nanyuki and Nyeri by latitude, Kiambu around Thika and Ruaka,
+ * Machakos around Machakos Town and Syokimau, Kajiado south of Nairobi, and
+ * Nairobi the city itself. Anywhere else is "Outside service regions"; no location, null.
+ */
+export function regionAt(location: string): BatteryRegion | null {
+  const [lat, lng] = location.split(",").map(Number);
+  if (!location.trim() || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const within = (s: number, n: number, w: number, e: number) => lat >= s && lat <= n && lng >= w && lng <= e;
+  if (within(-0.1, 0.2, 36.9, 37.2)) return "Nanyuki";
+  if (within(-0.7, -0.1, 36.85, 37.15)) return "Nyeri";
+  if (within(-1.12, -0.95, 36.95, 37.2) || within(-1.23, -1.18, 36.74, 36.8)) return "Kiambu";
+  if (within(-1.56, -1.45, 37.2, 37.3) || within(-1.37, -1.35, 36.915, 36.93)) return "Machakos";
+  if (within(-1.55, -1.38, 36.7, 37.0)) return "Kajiado";
+  if (within(-1.38, -1.18, 36.74, 36.96)) return "Nairobi";
+  return OTHER_AREA;
+}
 
 export interface SwapStation {
   /** "BS0025", no space. */
@@ -50,6 +77,12 @@ export interface AssetVehicle {
   model: string;
   /** The vehicle's own telematics IMEI, not a battery's. */
   imei: string;
+  /**
+   * Where the vehicle itself last reported. Its batteries report their own
+   * locations, so three vehicles (KMGY148Y, KMGP341K, KMGV088Q) are in a
+   * different region from their batteries.
+   */
+  region: BatteryRegion;
 }
 
 /** Codes follow the swap-station list in kpi-infra; Machakos and Kajiado have none there, so theirs are new codes. */
@@ -73,21 +106,21 @@ export const STATIONS: SwapStation[] = [
 
 /** VIN, plate and IMEI as in Asset Tracking's mock fleet (store/asset-tracking.ts). */
 export const VEHICLES: AssetVehicle[] = [
-  { vin: "ME92ZPSBB1J000760", plate: "KMGY105Z", model: "Zeno Emflux", imei: "867963074737462" },
-  { vin: "ME92ZPSDB1J001111", plate: "KMHA287J", model: "Zeno Emflux", imei: "860851086846248" },
-  { vin: "ME92ZPSAB1J000542", plate: "KMGX871S", model: "Zeno Cargo", imei: "861685072590637" },
-  { vin: "ME92ZPSFA1J000112", plate: "KMGS080M", model: "Zeno Emflux", imei: "863406078890972" },
-  { vin: "ME92ZPSBB1J000817", plate: "KMGY148Y", model: "Zeno Emflux", imei: "867963074737082" },
-  { vin: "ME92ZPSFA1J000103", plate: "KMGS108M", model: "Zeno Cargo", imei: "867963074743957" },
-  { vin: "ESUM0220522000030", plate: "KMGQ026X", model: "Zeno Emflux", imei: "863406076615124" },
-  { vin: "ME92ZPSLA1J000164", plate: "KMGU127A", model: "Zeno Cargo", imei: "867963074742215" },
-  { vin: "ME92ZPSBB1J000840", plate: "KMGY155Y", model: "Zeno Emflux", imei: "867963074737918" },
-  { vin: "ME92ZPSDA2J000073", plate: "KMGR271V", model: "Zeno Emflux", imei: "867963074744104" },
-  { vin: "ME92ZPSFB1J002180", plate: "KMHC028L", model: "Zeno Cargo", imei: "860300087747385" },
-  { vin: "ME92ZPSBC1J001033", plate: "KMGP341K", model: "Zeno Emflux", imei: "864123056782341" },
-  { vin: "ME92ZPSCC1J001245", plate: "KMGT217R", model: "Zeno Emflux", imei: "865234167890452" },
-  { vin: "ME92ZPSFD1J002310", plate: "KMHB019P", model: "Zeno Cargo", imei: "867345289012567" },
-  { vin: "ME92ZPSAA2J000089", plate: "KMGV088Q", model: "Zeno Emflux", imei: "863789012456789" },
+  { vin: "ME92ZPSBB1J000760", plate: "KMGY105Z", model: "Zeno Emflux", imei: "867963074737462", region: "Nyeri" },
+  { vin: "ME92ZPSDB1J001111", plate: "KMHA287J", model: "Zeno Emflux", imei: "860851086846248", region: "Nanyuki" },
+  { vin: "ME92ZPSAB1J000542", plate: "KMGX871S", model: "Zeno Cargo", imei: "861685072590637", region: "Nyeri" },
+  { vin: "ME92ZPSFA1J000112", plate: "KMGS080M", model: "Zeno Emflux", imei: "863406078890972", region: "Nyeri" },
+  { vin: "ME92ZPSBB1J000817", plate: "KMGY148Y", model: "Zeno Emflux", imei: "867963074737082", region: "Nanyuki" },
+  { vin: "ME92ZPSFA1J000103", plate: "KMGS108M", model: "Zeno Cargo", imei: "867963074743957", region: "Nyeri" },
+  { vin: "ESUM0220522000030", plate: "KMGQ026X", model: "Zeno Emflux", imei: "863406076615124", region: "Nairobi" },
+  { vin: "ME92ZPSLA1J000164", plate: "KMGU127A", model: "Zeno Cargo", imei: "867963074742215", region: "Nairobi" },
+  { vin: "ME92ZPSBB1J000840", plate: "KMGY155Y", model: "Zeno Emflux", imei: "867963074737918", region: "Nairobi" },
+  { vin: "ME92ZPSDA2J000073", plate: "KMGR271V", model: "Zeno Emflux", imei: "867963074744104", region: "Nyeri" },
+  { vin: "ME92ZPSFB1J002180", plate: "KMHC028L", model: "Zeno Cargo", imei: "860300087747385", region: "Nanyuki" },
+  { vin: "ME92ZPSBC1J001033", plate: "KMGP341K", model: "Zeno Emflux", imei: "864123056782341", region: "Nairobi" },
+  { vin: "ME92ZPSCC1J001245", plate: "KMGT217R", model: "Zeno Emflux", imei: "865234167890452", region: "Nairobi" },
+  { vin: "ME92ZPSFD1J002310", plate: "KMHB019P", model: "Zeno Cargo", imei: "867345289012567", region: "Nairobi" },
+  { vin: "ME92ZPSAA2J000089", plate: "KMGV088Q", model: "Zeno Emflux", imei: "863789012456789", region: "Kajiado" },
 ];
 
 export const stationByCode = (code: string) => STATIONS.find((s) => s.code === code);
@@ -96,7 +129,7 @@ export const vehicleByVin = (vin: string) => VEHICLES.find((v) => v.vin === vin)
 const S = (code: string, slot: number): BatteryAsset => ({ type: "station", code, slot });
 const V = (vin: string): BatteryAsset => ({ type: "vehicle", vin });
 
-type MockRow = Omit<BatteryRecord, "lastSeen"> & { seenMinutesAgo: number };
+type MockRow = Omit<BatteryRecord, "lastSeen" | "region"> & { seenMinutesAgo: number };
 
 const ROWS: MockRow[] = [
   { serialNo: "2ME9YBSP1C002378", imei: "864312084644982", seenMinutesAgo: 48, location: "-1.33069, 36.85595", soc: null, asset: S("BS0019", 6) },
@@ -157,9 +190,9 @@ const ROWS: MockRow[] = [
   { serialNo: "2ME9YBRP1B000802", imei: "864714063424825", seenMinutesAgo: 910, location: "-1.04564, 37.07066", soc: null, asset: V("ME92ZPSBC1J001033") },
   { serialNo: "2ME9YBSP1C004408", imei: "860851084535420", seenMinutesAgo: 27845, location: "-1.34174, 36.91859", soc: null, asset: V("ME92ZPSAA2J000089") },
   { serialNo: "2ME9YBSP1C010013", imei: "860851080196687", seenMinutesAgo: 9649, location: "-1.29388, 36.81129", soc: null, asset: V("ME92ZPSLA1J000164") },
-  { serialNo: "2ME9YBSP1C008681", imei: "864312083070499", seenMinutesAgo: 24798, location: "-1.28346, 36.81010", soc: null, asset: null },
+  { serialNo: "2ME9YBSP1C008681", imei: "864312083070499", seenMinutesAgo: 24798, location: "", soc: null, asset: null },
   { serialNo: "2ME9YBSP1C002282", imei: "864714060259719", seenMinutesAgo: 1151, location: "-1.20747, 36.90675", soc: 29, asset: S("BS0025", 2) },
-  { serialNo: "2ME9YBSP1C007248", imei: "864714063786248", seenMinutesAgo: 40633, location: "-1.29099, 36.92305", soc: 21, asset: null },
+  { serialNo: "2ME9YBSP1C007248", imei: "864714063786248", seenMinutesAgo: 40633, location: "", soc: 21, asset: null },
   { serialNo: "2ME9YBRP1B000783", imei: "864312089817439", seenMinutesAgo: 4760, location: "-1.40046, 36.75577", soc: 53, asset: S("BS0054", 1) },
   { serialNo: "2ME9YBRP1B000448", imei: "867963071603169", seenMinutesAgo: 1422, location: "0.01190, 37.07454", soc: null, asset: S("BS0005", 6) },
   { serialNo: "2ME9YBSP1C009022", imei: "864714060600188", seenMinutesAgo: 17906, location: "-1.27710, 36.81630", soc: null, asset: S("BS0027", 4) },
@@ -209,7 +242,7 @@ const ROWS: MockRow[] = [
   { serialNo: "2ME9YBSP1C002930", imei: "860851088729572", seenMinutesAgo: 5521, location: "-1.33462, 36.84159", soc: 15, asset: S("BS0019", 4) },
   { serialNo: "2ME9YBSP1C008743", imei: "867963074822321", seenMinutesAgo: 4831, location: "-1.27488, 36.79763", soc: 82, asset: S("BS0027", 6) },
   { serialNo: "2ME9YBSP1C008128", imei: "864312081673489", seenMinutesAgo: 219, location: "-1.34599, 37.09075", soc: 16, asset: null },
-  { serialNo: "2ME9YBSP1C007872", imei: "867963075031299", seenMinutesAgo: 6794, location: "-1.28388, 36.95659", soc: 18, asset: null },
+  { serialNo: "2ME9YBSP1C007872", imei: "867963075031299", seenMinutesAgo: 6794, location: "", soc: 18, asset: null },
   { serialNo: "2ME9YBSP1C007966", imei: "867963075706642", seenMinutesAgo: 1131, location: "-1.03678, 37.08117", soc: 87, asset: S("BS0010", 5) },
   { serialNo: "2ME9YBSP1C001491", imei: "860300083823049", seenMinutesAgo: 13528, location: "-1.47618, 36.94635", soc: null, asset: S("BS0053", 3) },
   { serialNo: "2ME9YBSP1C007426", imei: "860851081630661", seenMinutesAgo: 485, location: "0.02601, 37.06280", soc: 4, asset: S("BS0003", 2) },
@@ -231,6 +264,6 @@ export function batteriesAt(now: number): BatteryRecord[] {
     const lastSeen =
       `${pad(d.getUTCDate())} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()} ` +
       `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
-    return { ...b, lastSeen };
+    return { ...b, lastSeen, region: regionAt(b.location) };
   });
 }

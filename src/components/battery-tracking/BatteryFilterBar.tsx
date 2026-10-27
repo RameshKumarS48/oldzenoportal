@@ -1,8 +1,19 @@
 "use client";
 
-import { Search, X } from "lucide-react";
+import { Search } from "lucide-react";
 import { DateRangeFilter } from "@/components/swap-transactions/DateRangeFilter";
-import { anyFilter, ASSET_TYPES, describeFilter, NO_FILTERS, type AssetType, type BatteryFilters, type LastSeenPreset } from "./filters";
+import {
+  anyFilter,
+  ASSET_TYPES,
+  describeFilter,
+  NO_FILTERS,
+  REGIONS,
+  type AssetType,
+  type BatteryFilters,
+  type LastSeenPreset,
+  type RegionFilter,
+} from "./filters";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
 
 // Swap Audit's filter bar (SwapAuditTable.tsx): a white card holding compact
 // text-xs controls. Its styles are repeated here so that file stays untouched.
@@ -14,15 +25,11 @@ const SEARCH =
 const CONTROL =
   "text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-600 " +
   "focus:outline-none focus:ring-2 focus:ring-[#003B49]/20";
-// Asset Tracking's Clear filters link (FilterBar.tsx).
-const CLEAR =
-  "inline-flex items-center gap-1 text-xs font-medium text-zeno-teal hover:underline dark:text-(--sidebar-text) rounded " +
-  "focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40";
 
 /**
  * Battery Tracking's filter bar, in Swap Audit's pattern: search, Swap
- * Transactions' time filter for Last Seen, Asset type, Clear filters while
- * either filter is set, and the count on the right. The presets apply at once; a custom range on Apply.
+ * Transactions' time filter for Last Seen, Asset type, Region, Clear filters while
+ * any filter is set, and the count on the right. The presets apply at once; a custom range on Apply.
  */
 export function BatteryFilterBar({
   search,
@@ -55,8 +62,8 @@ export function BatteryFilterBar({
         <input
           value={search}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder="Search serial no., IMEI, VIN or station"
-          aria-label="Search by battery serial number, IMEI, VIN or station code"
+          placeholder="Search serial no., IMEI, VIN, station or region"
+          aria-label="Search by battery serial number, IMEI, VIN, station code or region"
           className={SEARCH}
         />
       </div>
@@ -79,11 +86,17 @@ export function BatteryFilterBar({
         {ASSET_TYPES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
       </select>
 
+      <select
+        aria-label="Region"
+        value={filters.region}
+        onChange={(e) => onFilters({ ...filters, region: e.target.value as RegionFilter })}
+        className={CONTROL}
+      >
+        {REGIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+      </select>
+
       {filtered && (
-        <button onClick={() => onFilters(NO_FILTERS)} className={CLEAR}>
-          <X className="w-3.5 h-3.5" />
-          Clear filters
-        </button>
+        <ClearFiltersButton onClick={() => onFilters(NO_FILTERS)} />
       )}
 
       <span aria-live="polite" className="ml-auto text-xs text-slate-500 tabular-nums">

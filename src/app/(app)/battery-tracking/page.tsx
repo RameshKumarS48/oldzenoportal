@@ -7,7 +7,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { BatteryTable } from "@/components/battery-tracking/BatteryTable";
 import { BatteryFilterBar } from "@/components/battery-tracking/BatteryFilterBar";
 import { useBatteries } from "@/components/battery-tracking/use-batteries";
-import { assetTypeLabel, lastSeenActive, matches, nextSort, sortRows, type BatteryFilters, type Sort } from "@/components/battery-tracking/filters";
+import { assetTypeLabel, lastSeenActive, regionLabel, matches, nextSort, sortRows, type BatteryFilters, type Sort } from "@/components/battery-tracking/filters";
 import { listQuery, readListState } from "@/components/battery-tracking/list-query";
 import { usePerPage } from "@/components/battery-tracking/per-page";
 import { exactAsset, matchesSearch } from "@/components/battery-tracking/search";
@@ -55,7 +55,12 @@ function BatteryTracking() {
   // which applies when the URL doesn't name one.
   const [initial] = useState(() => readListState(new URLSearchParams(params.toString())));
   const [search, setSearch] = useState(initial.search);
-  const [filters, setFilters] = useState<BatteryFilters>({ lastSeen: initial.lastSeen, range: initial.range, asset: initial.asset });
+  const [filters, setFilters] = useState<BatteryFilters>({
+    lastSeen: initial.lastSeen,
+    range: initial.range,
+    asset: initial.asset,
+    region: initial.region,
+  });
   const [sort, setSort] = useState<Sort>(initial.sort);
   const [page, setPage] = useState(initial.page);
   const [perPageInUrl, setPerPageInUrl] = useState(initial.perPage);
@@ -64,7 +69,7 @@ function BatteryTracking() {
   const perPage = perPageInUrl ?? savedPerPage;
   const now = useSyncExternalStore(subscribeMinute, currentMinute, noMinute);
 
-  const state = { search, lastSeen: filters.lastSeen, range: filters.range, asset: filters.asset, sort, page, perPage: perPageInUrl };
+  const state = { search, lastSeen: filters.lastSeen, range: filters.range, asset: filters.asset, region: filters.region, sort, page, perPage: perPageInUrl };
   const query = listQuery(state);
   useEffect(() => {
     if (window.location.pathname + window.location.search !== pathname + query) {
@@ -110,8 +115,8 @@ function BatteryTracking() {
           year={new Date(data?.loadedAt ?? 0).getUTCFullYear()}
         />
 
-        {/* The active chips: a search naming one vehicle or station exactly (× clears the search), and Asset type. */}
-        {data && (named || filters.asset) && (
+        {/* The active chips: a search naming one vehicle or station exactly (× clears the search), Asset type, and Region with its matching count. */}
+        {data && (named || filters.asset || filters.region) && (
           <div className="flex flex-wrap items-center gap-2 -mt-1 shrink-0">
             {named && (
               <FilterChip
@@ -129,6 +134,17 @@ function BatteryTracking() {
                 removeLabel="Remove Asset filter"
                 onRemove={() => {
                   setFilters({ ...filters, asset: "" });
+                  setPage(1);
+                }}
+              />
+            )}
+            {filters.region && (
+              <FilterChip
+                label="Region"
+                value={`${regionLabel(filters.region)} · ${rows.length.toLocaleString()}`}
+                removeLabel="Remove Region filter"
+                onRemove={() => {
+                  setFilters({ ...filters, region: "" });
                   setPage(1);
                 }}
               />

@@ -17,7 +17,9 @@ import {
   type SwapStatus,
 } from "@/store/swap-transactions";
 import { cn } from "@/lib/utils";
-import { DateRangeFilter, inEatRange, type DayRange } from "./DateRangeFilter";
+import { DateRangeFilter, inEatRange, rangeLabel, type DayRange } from "./DateRangeFilter";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
+import { FilterChip, FilterChips } from "@/components/ui/FilterChip";
 
 // ── Formatting ────────────────────────────────────────────────────────────────
 
@@ -165,6 +167,9 @@ function RecordDetail({ record }: { record: SwapRecord }) {
 
 // ── Main table ─────────────────────────────────────────────────────────────────
 
+/** DateRangeFilter's preset labels, for the Date chip. */
+const DATE_LABELS: Record<string, string> = { today: "Today", "7d": "Last 7 days", "30d": "Last 30 days" };
+
 const STATUS_OPTIONS: [SwapStatus | "", string][] = [
   ["", "All Status"],
   ["flagged", "Flagged"],
@@ -303,7 +308,7 @@ export function SwapRecordsTable() {
         />
 
         {(search || stationFilter || rfidFilter || statusFilter || dateFilter) && (
-          <button onClick={clearFilters} className="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+          <ClearFiltersButton onClick={clearFilters} />
         )}
 
         <button
@@ -320,6 +325,39 @@ export function SwapRecordsTable() {
           <Download className="w-3.5 h-3.5" /> Export CSV
         </button>
       </div>
+
+      {/* The active filters as chips; × removes one. The search shows in its own box. */}
+      {(stationFilter || rfidFilter || statusFilter || dateFilter) && (
+        <FilterChips>
+          {stationFilter && (
+            <FilterChip label="Station" value={stationFilter} removeLabel="Remove Station filter" onRemove={() => { setStation(""); setPage(1); }} />
+          )}
+          {rfidFilter && (
+            <FilterChip
+              label="RFID"
+              value={rfidFilter === "yes" ? "RFID Mismatch" : "No Mismatch"}
+              removeLabel="Remove RFID filter"
+              onRemove={() => { setRfid(""); setPage(1); }}
+            />
+          )}
+          {statusFilter && (
+            <FilterChip
+              label="Status"
+              value={STATUS_OPTIONS.find(([v]) => v === statusFilter)?.[1] ?? statusFilter}
+              removeLabel="Remove Status filter"
+              onRemove={() => { setStatus(""); setPage(1); }}
+            />
+          )}
+          {dateFilter && (
+            <FilterChip
+              label="Date"
+              value={dateFilter === "custom" ? (dateRange ? rangeLabel(dateRange) : "Custom range") : DATE_LABELS[dateFilter] ?? dateFilter}
+              removeLabel="Remove Date filter"
+              onRemove={() => { setDate(""); setDateRange(null); setPage(1); }}
+            />
+          )}
+        </FilterChips>
+      )}
 
       {/* Table */}
       <div className="flex flex-col flex-1 min-h-0 bg-white rounded-xl border border-slate-200 overflow-hidden">

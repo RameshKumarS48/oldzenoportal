@@ -19,8 +19,13 @@ import type { TamperingAlert, ViolationType, AlertStatus } from "@/store/tamperi
 import { useAuthStore } from "@/store/auth";
 import { useAccess } from "@/lib/access";
 import { cn } from "@/lib/utils";
-import { DateRangeFilter, inEatRange, type DayRange } from "./DateRangeFilter";
+import { DateRangeFilter, inEatRange, rangeLabel, type DayRange } from "./DateRangeFilter";
 import { SWAP_TXNS } from "@/lib/mock/swap-audit";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
+import { FilterChip, FilterChips } from "@/components/ui/FilterChip";
+
+/** DateRangeFilter's preset labels, for the Date chip. */
+const DATE_LABELS: Record<string, string> = { today: "Today", "7d": "Last 7 days", "30d": "Last 30 days" };
 
 /** Swap Audit's session IDs: an alert opens its session there only when it is one of these. */
 const SWAP_AUDIT_IDS = new Set(SWAP_TXNS.map((t) => t.id));
@@ -499,6 +504,25 @@ export function TamperingAlertsView() {
   const totalDebited   = alerts.filter((a) => a.penaltyApplied).reduce((s, a) => s + (a.penaltyAmountKES ?? 0), 0);
   const rfidDisabled   = alerts.filter((a) => a.rfidDisabled && !a.rfidReenabledAt).length;
 
+  // The three dropdowns: label, value, setter and options, shared by the bar and its chips.
+  const filterSelects: [string, string, (v: string) => void, [string, string][]][] = [
+    ["Status", statusFilter, setStatusFilter, [
+      ["", "All Status"], ["pending", "Pending"], ["approved", "Approved"],
+      ["rejected", "Rejected"], ["investigating", "Investigating"],
+    ]],
+    ["Violation", violationFilter, setViolFilter, [
+      ["", "All Violations"],
+      ["battery_mismatch", "Battery Mismatch"],
+      ["unexpected_battery_movement", "Unexpected Movement"],
+      ["swap_validation_failure", "Validation Failure"],
+      ["twin_station_abuse", "Twin-Station Abuse"],
+      ["suspected_tampering", "Suspected Tampering"],
+    ]],
+    ["Offence", offenceFilter, setOffenceFilter, [
+      ["", "All Offences"], ["1", "1st"], ["2", "2nd"], ["3", "3rd"], ["4", "4th+"],
+    ]],
+  ];
+
   const clearFilters = () => { setSearch(""); setStatusFilter(""); setViolFilter(""); setOffenceFilter(""); setDateFilter(""); setDateRange(null); };
 
   return (
@@ -525,23 +549,7 @@ export function TamperingAlertsView() {
           />
         </div>
 
-        {([
-          ["Status", statusFilter, setStatusFilter, [
-            ["", "All Status"], ["pending", "Pending"], ["approved", "Approved"],
-            ["rejected", "Rejected"], ["investigating", "Investigating"],
-          ]],
-          ["Violation", violationFilter, setViolFilter, [
-            ["", "All Violations"],
-            ["battery_mismatch", "Battery Mismatch"],
-            ["unexpected_battery_movement", "Unexpected Movement"],
-            ["swap_validation_failure", "Validation Failure"],
-            ["twin_station_abuse", "Twin-Station Abuse"],
-            ["suspected_tampering", "Suspected Tampering"],
-          ]],
-          ["Offence", offenceFilter, setOffenceFilter, [
-            ["", "All Offences"], ["1", "1st"], ["2", "2nd"], ["3", "3rd"], ["4", "4th+"],
-          ]],
-        ] as [string, string, (v: string) => void, [string, string][]][]).map(([label, val, setter, opts]) => (
+        {filterSelects.map(([label, val, setter, opts]) => (
           <select
             key={label} value={val} onChange={(e) => setter(e.target.value)}
             className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/20 text-slate-600"
@@ -558,10 +566,33 @@ export function TamperingAlertsView() {
         />
 
         {(search || statusFilter || violationFilter || offenceFilter || dateFilter) && (
-          <button onClick={clearFilters} className="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+          <ClearFiltersButton onClick={clearFilters} />
         )}
         <span className="ml-auto text-xs text-slate-400">{filtered.length} alert{filtered.length !== 1 ? "s" : ""}</span>
       </div>
+
+      {/* The active filters as chips; × removes one. The search shows in its own box. */}
+      {(statusFilter || violationFilter || offenceFilter || dateFilter) && (
+        <FilterChips>
+          {filterSelects.map(([label, val, setter, opts]) => val && (
+            <FilterChip
+              key={label}
+              label={label}
+              value={opts.find(([v]) => v === val)?.[1] ?? val}
+              removeLabel={`Remove ${label} filter`}
+              onRemove={() => setter("")}
+            />
+          ))}
+          {dateFilter && (
+            <FilterChip
+              label="Date"
+              value={dateFilter === "custom" ? (dateRange ? rangeLabel(dateRange) : "Custom range") : DATE_LABELS[dateFilter] ?? dateFilter}
+              removeLabel="Remove Date filter"
+              onRemove={() => { setDateFilter(""); setDateRange(null); }}
+            />
+          )}
+        </FilterChips>
+      )}
 
       {/* Where the returned-to alert went, when the restored filters leave it out. */}
       {missingId && (

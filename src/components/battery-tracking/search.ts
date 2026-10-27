@@ -1,7 +1,7 @@
 import { STATIONS, VEHICLES, type AssetRef, type BatteryAsset, type BatteryRecord } from "@/lib/mock/battery-tracking";
 
 /**
- * Battery Tracking's search: serial no., IMEI, VIN or station code, ignoring
+ * Battery Tracking's search: serial no., IMEI, VIN, station code or region, ignoring
  * case and spaces, so "bs 0025", "BS0025" and "bs0025" are the same search.
  * Any part of a value matches.
  */
@@ -13,7 +13,7 @@ const assetId = (a: BatteryAsset | null) => (a === null ? "" : a.type === "stati
 export function matchesSearch(b: BatteryRecord, search: string): boolean {
   const term = normalize(search);
   if (!term) return true;
-  return [b.serialNo, b.imei, assetId(b.asset)].some((v) => v && normalize(v).includes(term));
+  return [b.serialNo, b.imei, assetId(b.asset), b.region ?? ""].some((v) => v && normalize(v).includes(term));
 }
 
 /** The vehicle or station a search names exactly, for its chip above the table. */

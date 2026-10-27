@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 import { CustomerFormModal } from "@/components/customers/CustomerFormModal";
 import { Pagination } from "@/components/ui/Pagination";
 import { usePromoRulesStore } from "@/store/promo-rules";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
+import { FilterChip, FilterChips } from "@/components/ui/FilterChip";
 
 const STATUS_META: Record<CustomerStatus, { label: string; badge: string }> = {
   free:       { label: "Free",       badge: "bg-blue-50 text-blue-700" },
@@ -133,6 +135,14 @@ export default function CustomersPage() {
   };
   const hasFilters = !!(search || statusFilter || typeFilter || partnerFilter || sourceFilter || referralFilter);
 
+  // The dropdown filters: label, value, setter and options ("" is All), shared by the bar and its chips.
+  const selectFilters = [
+    ["Status",   statusFilter,  setStatusFilter,  [["","All Status"],["active","Active"],["zeno_paid","Zeno Paid"],["pre_order","Pre-order"],["pre_offer","Pre-offer"],["inactive","Inactive"],["no_account","No Account"],["invalid","Invalid"],["free","Free"]]],
+    ["Type",     typeFilter,    setTypeFilter,    [["","All Types"],["retail","Retail"],["partner","Partner"]]],
+    ["Partner",  partnerFilter, setPartnerFilter, [["","All Partners"], ...partners.map((p) => [p.id, p.name])]],
+    ["Source",   sourceFilter,  setSourceFilter,  [["","All Sources"],["customer_app","App"],["website","Web"],["onboarding_app","Scanner"],["dashboard","Dashboard"]]],
+  ] as [string, string, (v: string) => void, [string, string][]][];
+
   return (
     <>
       <Topbar
@@ -172,12 +182,7 @@ export default function CustomersPage() {
               className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 focus:border-[#003B49] w-52"
             />
           </div>
-          {([
-            ["Status",   statusFilter,  setStatusFilter,  [["","All Status"],["active","Active"],["zeno_paid","Zeno Paid"],["pre_order","Pre-order"],["pre_offer","Pre-offer"],["inactive","Inactive"],["no_account","No Account"],["invalid","Invalid"],["free","Free"]]],
-            ["Type",     typeFilter,    setTypeFilter,    [["","All Types"],["retail","Retail"],["partner","Partner"]]],
-            ["Partner",  partnerFilter, setPartnerFilter, [["","All Partners"], ...partners.map((p) => [p.id, p.name])]],
-            ["Source",   sourceFilter,  setSourceFilter,  [["","All Sources"],["customer_app","App"],["website","Web"],["onboarding_app","Scanner"],["dashboard","Dashboard"]]],
-          ] as [string, string, (v: string) => void, [string, string][]][]).map(([label, val, setter, opts]) => (
+          {selectFilters.map(([label, val, setter, opts]) => (
             <select key={label} value={val} onChange={(e) => { setter(e.target.value); setPage(1); }}
               className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 text-slate-600"
             >
@@ -189,9 +194,32 @@ export default function CustomersPage() {
             Has Referral
           </label>
           {hasFilters && (
-            <button onClick={clearFilters} className="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+            <ClearFiltersButton onClick={clearFilters} />
           )}
         </div>
+
+        {/* The active filters as chips; × removes one. The search shows in its own box. */}
+        {(statusFilter || typeFilter || partnerFilter || sourceFilter || referralFilter) && (
+          <FilterChips>
+            {selectFilters.filter(([, val]) => val).map(([label, val, setter, opts]) => (
+              <FilterChip
+                key={label}
+                label={label}
+                value={opts.find(([v]) => v === val)?.[1] ?? val}
+                removeLabel={`Remove ${label} filter`}
+                onRemove={() => { setter(""); setPage(1); }}
+              />
+            ))}
+            {referralFilter && (
+              <FilterChip
+                label="Referral"
+                value="Has referral"
+                removeLabel="Remove Referral filter"
+                onRemove={() => { setReferralFilter(false); setPage(1); }}
+              />
+            )}
+          </FilterChips>
+        )}
 
         {/* Table */}
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">

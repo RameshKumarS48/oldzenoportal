@@ -1,8 +1,8 @@
-import type { BatteryRecord } from "@/lib/mock/battery-tracking";
+import { OTHER_AREA, type BatteryRecord, type Region } from "@/lib/mock/battery-tracking";
 import type { DayRange } from "@/components/swap-transactions/DateRangeFilter";
 
 /**
- * Battery Tracking's Last seen and Asset type filters and its sort, and the
+ * Battery Tracking's Last seen, Asset type and Region filters and its sort, and the
  * rules that apply them to the mock data. Nothing here changes a record: Last Seen is read only to
  * compare it.
  *
@@ -29,19 +29,37 @@ export const ASSET_TYPES: { value: AssetType; label: string }[] = [
 ];
 export const assetTypeLabel = (t: AssetType) => ASSET_TYPES.find((a) => a.value === t)!.label;
 
+/** Where the battery last reported: "" is All regions, "other" is Outside service regions, "none" is no location. */
+export type RegionFilter = "" | Region | "other" | "none";
+export const REGIONS: { value: RegionFilter; label: string }[] = [
+  { value: "", label: "All regions" },
+  ...(["Kajiado", "Kiambu", "Machakos", "Nairobi", "Nanyuki", "Nyeri"] as const).map((r) => ({ value: r, label: r })),
+  { value: "other", label: OTHER_AREA },
+  { value: "none", label: "No location" },
+];
+export const regionLabel = (r: RegionFilter) => REGIONS.find((o) => o.value === r)!.label;
+
 export interface BatteryFilters {
   lastSeen: LastSeenPreset;
   /** The custom range, as YYYY-MM-DD UTC days, both ends included. */
   range: DayRange | null;
   asset: AssetType;
+  region: RegionFilter;
 }
 
-export const NO_FILTERS: BatteryFilters = { lastSeen: "", range: null, asset: "" };
+export const NO_FILTERS: BatteryFilters = { lastSeen: "", range: null, asset: "", region: "" };
 
 /** Is Last seen narrowing the rows? (It names the Last Seen header and the count's words.) */
 export const lastSeenActive = (f: BatteryFilters) => f.lastSeen !== "" && (f.lastSeen !== "custom" || f.range !== null);
 
-export const anyFilter = (f: BatteryFilters) => lastSeenActive(f) || f.asset !== "";
+export const anyFilter = (f: BatteryFilters) => lastSeenActive(f) || f.asset !== "" || f.region !== "";
+
+function regionMatches(b: BatteryRecord, r: RegionFilter): boolean {
+  if (r === "") return true;
+  if (r === "none") return b.region === null;
+  if (r === "other") return b.region === OTHER_AREA;
+  return b.region === r;
+}
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -53,8 +71,9 @@ function seenAt(text: string): number | null {
   return Date.UTC(Number(m[3]), month, Number(m[1]), Number(m[4]), Number(m[5]));
 }
 
-/** Does the battery pass both filters, Last seen measured from `now` (ms)? */
+/** Does the battery pass every filter, Last seen measured from `now` (ms)? */
 export function matches(b: BatteryRecord, f: BatteryFilters, now: number): boolean {
+  if (!regionMatches(b, f.region)) return false;
   if (f.asset === "none" ? b.asset !== null : f.asset !== "" && b.asset?.type !== f.asset) return false;
   if (!lastSeenActive(f)) return true;
   const at = seenAt(b.lastSeen);
@@ -79,7 +98,7 @@ function dayLabel(iso: string, year: number): string {
  * days", or a custom range, "seen 1–10 Oct", "seen 28 Sep – 3 Oct", "seen on
  * 5 Oct". The year shows only when it isn't `year` (the current one), and on
  * both ends of a range that crosses years. Null
- * when Last seen isn't filtering; Asset type shows as a chip instead.
+ * when Last seen isn't filtering; Asset type and Region show as chips instead.
  */
 export function describeFilter(f: BatteryFilters, year: number): string | null {
   if (!lastSeenActive(f)) return null;

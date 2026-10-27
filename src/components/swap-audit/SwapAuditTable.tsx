@@ -17,6 +17,8 @@ import {
 } from "@/lib/mock/swap-audit";
 import { VERDICT_META } from "./tokens";
 import { SessionDrawer } from "./SessionDrawer";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
+import { FilterChip, FilterChips } from "@/components/ui/FilterChip";
 
 // ── CSV export (mirrors the wallet / swap-records pattern) ───────────────────
 
@@ -289,7 +291,7 @@ export function SwapAuditTable() {
         </select>
 
         {dirty && (
-          <button onClick={clearFilters} className="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+          <ClearFiltersButton onClick={clearFilters} />
         )}
 
         <button
@@ -306,6 +308,39 @@ export function SwapAuditTable() {
           <Download className="w-3.5 h-3.5" /> Export CSV
         </button>
       </div>
+
+      {/* The active filters as chips; × removes one. The search shows in its own box. */}
+      {(station || scenario || verdict || day) && (
+        <FilterChips>
+          {station && (
+            <FilterChip
+              label="Station"
+              value={[station, STATIONS.find((s) => s.id === station)?.name].filter(Boolean).join(" · ")}
+              removeLabel="Remove Station filter"
+              onRemove={() => { setStation(""); setPage(1); }}
+            />
+          )}
+          {scenario && (
+            <FilterChip
+              label="Scenario"
+              value={SCENARIOS.find((s) => s.key === scenario)?.name ?? scenario}
+              removeLabel="Remove Scenario filter"
+              onRemove={() => { setScenario(""); setPage(1); }}
+            />
+          )}
+          {verdict && (
+            <FilterChip
+              label="Verdict"
+              value={VERDICT_META[verdict].label}
+              removeLabel="Remove Verdict filter"
+              onRemove={() => selectVerdict("")}
+            />
+          )}
+          {day && (
+            <FilterChip label="Date" value={day} removeLabel="Remove Date filter" onRemove={() => { setDay(""); setPage(1); }} />
+          )}
+        </FilterChips>
+      )}
 
       {/* Table */}
       <div className="flex flex-col flex-1 min-h-0 bg-white rounded-xl border border-slate-200 overflow-hidden">

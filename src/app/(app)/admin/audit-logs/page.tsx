@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { useAuditStore } from "@/store/audit";
 import type { AuditLog } from "@/store/audit";
 import { cn } from "@/lib/utils";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
+import { FilterChip, FilterChips } from "@/components/ui/FilterChip";
 
 const MODULE_LABELS: Record<string, string> = {
   auth: "Auth",
@@ -240,13 +242,30 @@ export default function AuditLogsPage() {
               <option value="User">User</option>
             </select>
             {hasFilters && (
-              <button
-                onClick={() => { setModuleFilter(""); setActionFilter(""); setRoleFilter(""); }}
-                className="text-sm text-slate-400 hover:text-slate-600"
-              >
-                Clear filters
-              </button>
+              <ClearFiltersButton onClick={() => { setModuleFilter(""); setActionFilter(""); setRoleFilter(""); }} />
             )}
+          </div>
+        )}
+
+        {/* The active filters as chips, shown whether or not the dropdowns are open; × removes one. */}
+        {hasFilters && (
+          <div className="bg-white border-b border-slate-200 px-6 py-2.5">
+            <FilterChips>
+              {moduleFilter && (
+                <FilterChip
+                  label="Module"
+                  value={MODULE_LABELS[moduleFilter] ?? moduleFilter}
+                  removeLabel="Remove Module filter"
+                  onRemove={() => setModuleFilter("")}
+                />
+              )}
+              {actionFilter && (
+                <FilterChip label="Action" value={actionFilter} removeLabel="Remove Action filter" onRemove={() => setActionFilter("")} />
+              )}
+              {roleFilter && (
+                <FilterChip label="Role" value={roleFilter} removeLabel="Remove Role filter" onRemove={() => setRoleFilter("")} />
+              )}
+            </FilterChips>
           </div>
         )}
 

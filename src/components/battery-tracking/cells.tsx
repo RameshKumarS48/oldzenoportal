@@ -69,20 +69,18 @@ export function Soc({ value, className }: { value: number | null; className?: st
 }
 
 /**
- * The table's "lat, long" link to Google Maps ("Open in Google Maps" on hover),
- * in the vehicle page's Google Maps link style, lightened in dark mode like the portal's other teal links.
- * Latitude and longitude each sit right-aligned in a fixed slot, sized for the
- * widest valid value ("−90.00000" in 72px, "−180.00000" in 80px), so the
- * decimal points line up down the column whatever the sign. The link and a
- * copy of the text use the stored numbers, with their hyphens.
+ * The table's Last Known Location, two lines like Last Seen's so the row lines
+ * up: the region with the external-link icon, then "−1.33069, 36.85595" under
+ * it in smaller muted text. Both lines are one link to Google Maps, taking the
+ * link colour and an underline on hover and focus; a copy of the text gives the
+ * stored numbers, with their hyphens. No location shows "No location reported",
+ * muted, with no link.
  *
- * It's inside a clickable row: its click and Enter open Maps only.
+ * It's inside a clickable row: the link's click and Enter open Maps only.
  */
-export function Location({ text }: { text: string }) {
-  if (!text) return <Dash />;
+export function Location({ text, region }: { text: string; region: string | null }) {
+  if (!text.trim()) return <span className="text-slate-400">No location reported</span>;
   const pair = splitLocation(text);
-  if (!pair) return <span className="text-slate-600 tabular-nums">{text}</span>;
-  const [lat, long] = pair;
 
   // Copying from inside this one link gives the stored text, not the minus signs.
   function onCopy(e: React.ClipboardEvent<HTMLElement>) {
@@ -92,22 +90,26 @@ export function Location({ text }: { text: string }) {
     e.clipboardData.setData("text/plain", text);
   }
 
+  const LINKED = "group-hover:text-zeno-teal group-hover:underline group-focus-visible:text-zeno-teal group-focus-visible:underline dark:group-hover:text-(--sidebar-text) dark:group-focus-visible:text-(--sidebar-text)";
   return (
     <a
       href={mapsUrl(text)}
       target="_blank"
       rel="noopener noreferrer"
       title="Open in Google Maps"
-      aria-label={`${text}. Open in Google Maps (new tab)`}
+      aria-label="Open in Google Maps"
       onCopy={onCopy}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
-      className="inline-flex items-center text-zeno-teal dark:text-(--sidebar-text) hover:underline tabular-nums whitespace-nowrap rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
+      className="group inline-block rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
     >
-      <span className="w-18 shrink-0 text-right">{showCoord(lat)}</span>
-      <span>,</span>
-      <span className="w-20 shrink-0 text-right">{showCoord(long)}</span>
-      <ExternalLink className="w-3.5 h-3.5 shrink-0 ml-1.5" />
+      <span className={cn("flex items-center gap-1.5 text-slate-700", LINKED)}>
+        {region ?? "Unknown region"}
+        <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+      </span>
+      <span className={cn("block text-xs text-slate-400 tabular-nums whitespace-nowrap", LINKED)}>
+        {pair ? `${showCoord(pair[0])}, ${showCoord(pair[1])}` : text}
+      </span>
     </a>
   );
 }

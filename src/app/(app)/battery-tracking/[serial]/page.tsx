@@ -56,29 +56,29 @@ function CardActions({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Every card's header: a small icon, a muted uppercase label naming the card,
- * then, where there is one, the value as the most prominent text and a muted
- * subtitle under it.
+ * Every card's header, on one line: the icon, the card's name, then its
+ * identifier in muted monospace with a copy button. An identifier too long
+ * for the line truncates, with the whole value on hover.
  */
 function CardHeader({
   icon: Icon,
-  label,
-  value,
-  subtitle,
+  name,
+  id,
 }: {
   icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value?: React.ReactNode;
-  subtitle?: React.ReactNode;
+  name: string;
+  /** The identifier and what it is, for the copy button's name. */
+  id?: { value: string; label: string };
 }) {
   return (
-    <div className="px-4 pt-4 pb-3 border-b border-slate-100">
-      <div className="flex items-center gap-1.5">
-        <Icon className="w-4 h-4 text-zeno-red shrink-0" />
-        <span className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</span>
-      </div>
-      {value && <div className="mt-1 text-base font-semibold text-slate-800">{value}</div>}
-      {subtitle && <div className="mt-0.5 text-xs text-slate-500">{subtitle}</div>}
+    <div className="flex items-center gap-2 px-4 pt-4 pb-3 border-b border-slate-100">
+      <Icon className="w-5 h-5 text-zeno-red shrink-0" />
+      <span className="text-sm font-semibold text-slate-800 shrink-0">{name}</span>
+      {id && (
+        <CopyButton value={id.value} label={id.label} onWhite className="min-w-0 font-mono text-xs text-slate-500 tabular-nums">
+          <span title={id.value} className="truncate">{id.value}</span>
+        </CopyButton>
+      )}
     </div>
   );
 }
@@ -158,15 +158,7 @@ function BatteryDetail() {
         {/* As tall as their content, as in the dev portal, not stretched to the map. */}
         <div className="w-full lg:w-80 shrink-0 lg:self-start lg:max-h-full lg:overflow-y-auto flex flex-col gap-4">
           <div className="bg-white border border-slate-200 rounded-xl">
-            <CardHeader
-              icon={BatteryCharging}
-              label="Battery"
-              value={
-                <span className="font-mono tabular-nums">
-                  <CopyButton value={battery.serialNo} label="battery serial number" onWhite />
-                </span>
-              }
-            />
+            <CardHeader icon={BatteryCharging} name="Battery" id={{ value: battery.serialNo, label: "battery serial number" }} />
             <div className="px-4 py-1">
               <InfoRow label="IMEI">
                 {battery.imei ? (
@@ -182,6 +174,9 @@ function BatteryDetail() {
               </InfoRow>
               <InfoRow label="Last Seen (UTC)">
                 <LastSeenLine text={battery.lastSeen} />
+              </InfoRow>
+              <InfoRow label="Region">
+                {battery.region ?? <span className="text-slate-400">No location reported</span>}
               </InfoRow>
               {/* Latitude, longitude, each with five decimals. */}
               <InfoRow label="Coordinates">
@@ -245,15 +240,14 @@ function AssetCard({ asset, count }: { asset: BatteryAsset | null; count: number
     <div className="bg-white border border-slate-200 rounded-xl">
       {station ? (
         <>
-          <CardHeader
-            icon={Zap}
-            label="Station"
-            value={<span className="font-mono tabular-nums">{station.code}</span>}
-            subtitle={station.shortAddress}
-          />
+          <CardHeader icon={Zap} name="Station" id={{ value: station.code, label: "station code" }} />
           <div className="px-4 py-1">
             {asset?.type === "station" && <InfoRow label="Slot">{slotLabel(asset.slot)}</InfoRow>}
-            <InfoRow label="Address">{station.longAddress}</InfoRow>
+            <InfoRow label="Region">{station.region}</InfoRow>
+            <InfoRow label="Address">
+              <span className="block">{station.shortAddress}</span>
+              <span className="block text-xs text-slate-400">{station.longAddress}</span>
+            </InfoRow>
           </div>
           <CardActions>
             <a
@@ -274,14 +268,10 @@ function AssetCard({ asset, count }: { asset: BatteryAsset | null; count: number
         </>
       ) : vehicle ? (
         <>
-          <CardHeader icon={Bike} label="Vehicle" />
+          <CardHeader icon={Bike} name="Vehicle" id={{ value: vehicle.vin, label: "VIN" }} />
           <div className="px-4 py-1">
-            <InfoRow label="VIN">
-              <span className="font-mono text-xs tabular-nums">
-                <CopyButton value={vehicle.vin} label="VIN" onWhite />
-              </span>
-            </InfoRow>
             <InfoRow label="Plate">{vehicle.plate}</InfoRow>
+            <InfoRow label="Region">{vehicle.region}</InfoRow>
             <InfoRow label="Vehicle IMEI">
               <span className="font-mono text-xs tabular-nums">
                 <CopyButton value={vehicle.imei} label="vehicle IMEI" onWhite />
@@ -310,7 +300,7 @@ function AssetCard({ asset, count }: { asset: BatteryAsset | null; count: number
         </>
       ) : (
         <>
-          <CardHeader icon={Zap} label="Asset" />
+          <CardHeader icon={Zap} name="Asset" />
           <p className="px-4 py-4 text-sm text-slate-400">Not currently in a vehicle or station.</p>
         </>
       )}

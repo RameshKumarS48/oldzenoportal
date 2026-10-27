@@ -22,7 +22,7 @@ const COLUMNS: { label: string; width: number; sortKey?: SortKey }[] = [
   { label: "Last Seen (UTC)", width: 132, sortKey: "lastSeen" },
   { label: "SOC %", width: 80, sortKey: "soc" },
   { label: "Asset", width: 168 },
-  { label: "Last Known Location (lat, long)", width: 200 },
+  { label: "Last Known Location", width: 200 },
 ];
 const MIN_WIDTH = COLUMNS.reduce((sum, c) => sum + c.width, 0);
 
@@ -157,7 +157,7 @@ export function BatteryTable({
                   <Asset asset={b.asset} />
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
-                  <Location text={b.location} />
+                  <Location text={b.location} region={b.region} />
                 </td>
               </tr>
             ))}
