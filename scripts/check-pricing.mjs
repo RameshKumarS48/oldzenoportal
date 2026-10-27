@@ -21,6 +21,7 @@ const { priceSwap, resolvePlan, slotFor, inWindow, planStatus } = await import("
 const { validateWindows, rateRows, rateWarnings, splitVersion } = await import("../src/lib/pricing/windows.ts");
 const rowsLib = await import("../src/lib/pricing/hour-rows.ts");
 const { summarizeMoves } = await import("../src/lib/pricing/moves.ts");
+const { stationHistory, stationNow } = await import("../src/lib/pricing/history.ts");
 
 const v = (id, effectiveFrom, standardRate, customRate, start = "22:00", end = "06:00") => ({
   id, effectiveFrom, standardRate, customRate, customWindowStart: start, customWindowEnd: end,
@@ -298,6 +299,37 @@ check("moves: a plan whose last station leaves is reported as emptied; Default n
   assert.deepEqual(m.emptied.map((p) => p.id), ["night"]);
   const fromDefault = summarizeMoves(book, ["BS0009", "BS0099"], "saver", ALL, NOW);
   assert.deepEqual(fromDefault.emptied, []);
+});
+
+// ── Station history ──
+check("history: newest first, with from → to, and older rows read their reason from planId", () => {
+  const h = stationHistory(book, "bs0043", NOW);
+  assert.deepEqual(h.map((e) => `${e.from.id}→${e.to.id}:${e.reason}:${e.scheduled}`), [
+    "night→default:removed:true", // 1 Dec, still to come
+    "default→night:assigned:false",
+  ]);
+});
+
+check("history: a move onto the plan a station is already on is left out", () => {
+  const b2 = { ...book, assignments: [...book.assignments, { ...assign("BS0002", "saver", "2026-10-01T00:00:00+03:00"), id: "dup", reason: "assigned" }] };
+  assert.equal(stationHistory(b2, "BS0002", NOW).length, 1);
+});
+
+check("history: deleting a plan reads as 'plan deleted'; a station never moved is on Default since go-live", () => {
+  const b3 = { ...book, assignments: [...book.assignments, { ...assign("BS0002", null, "2026-10-20T00:00:00+03:00"), id: "del", reason: "plan_deleted" }] };
+  const [latest] = stationHistory(b3, "BS0002", NOW);
+  assert.equal(latest.reason, "plan_deleted");
+  assert.equal(latest.to.id, "default");
+  const never = stationNow(book, "BS0099", NOW);
+  assert.equal(never.plan.id, "default");
+  assert.equal(never.since, null);
+  assert.equal(stationHistory(book, "BS0099", NOW).length, 0);
+});
+
+check("station now: current plan, since when, and who moved it last (scheduled moves don't count yet)", () => {
+  const n = stationNow(book, "BS0043", NOW);
+  assert.equal(n.plan.id, "night");
+  assert.equal(n.since, "2026-09-10T00:00:00+03:00");
 });
 
 console.log(`\n${passed} checks passed`);

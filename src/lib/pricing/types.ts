@@ -76,6 +76,9 @@ export interface PricingPlan {
  * One station's move onto a plan. The station's plan at time t is the latest
  * assignment with `effectiveFrom <= t`; `planId: null` sends it back to Default.
  */
+/** Why a station changed plan, for its history. */
+export type MoveReason = "assigned" | "removed" | "plan_created" | "plan_deleted";
+
 export interface StationAssignment {
   id: string;
   /** Upper-case station code, e.g. "BS0021". */
@@ -84,6 +87,8 @@ export interface StationAssignment {
   effectiveFrom: string;
   assignedBy: string;
   assignedAt: string;
+  /** Unset on data saved before it existed: read as "assigned", or "removed" when `planId` is null. */
+  reason?: MoveReason;
 }
 
 export type PlanChangeKind =

@@ -11,6 +11,7 @@ import {
   versionSummary,
 } from "@/lib/pricing/windows";
 import type {
+  MoveReason,
   PlanChange,
   PlanVersion,
   PricingBook,
@@ -87,7 +88,8 @@ function planMoves(
   planName: string,
   stationIds: string[],
   by: string,
-  at: string
+  at: string,
+  reason: MoveReason
 ): { error?: string; rows: StationAssignment[]; logs: Omit<PlanChange, "id">[] } {
   const summary = summarizeMoves(book, stationIds, planId, ALL_STATION_IDS, at);
   if (summary.unknown.length > 0) {
@@ -95,7 +97,7 @@ function planMoves(
   }
   const ids = summary.moves.map((m) => m.id);
   const rows: StationAssignment[] = ids.map((stationId) => ({
-    id: uid("sa"), stationId, planId, effectiveFrom: at, assignedBy: by, assignedAt: at,
+    id: uid("sa"), stationId, planId, effectiveFrom: at, assignedBy: by, assignedAt: at, reason,
   }));
   const logs: Omit<PlanChange, "id">[] = [];
   if (planId && ids.length > 0) {
@@ -161,7 +163,7 @@ export const usePricingStore = create<PricingState>()(
           };
           // Read the moves against the book with the new plan in it.
           const book = get();
-          const moved = planMoves({ plans: [...book.plans, plan], assignments: book.assignments }, planId, trimmed, stationIds, by, now);
+          const moved = planMoves({ plans: [...book.plans, plan], assignments: book.assignments }, planId, trimmed, stationIds, by, now, "plan_created");
           if (moved.error) return { ok: false, error: moved.error };
           const created: PlanChange = { planId, by, at: now, effectiveFrom: now, kind: "created", summary: `Created plan: ${versionSummary(version)}`, id: uid("pc") };
           set((s) => ({
@@ -216,7 +218,7 @@ export const usePricingStore = create<PricingState>()(
           const target = planId ? book.plans.find((p) => p.id === planId && !p.archived) : null;
           if (planId && !target) return { ok: false, error: PLAN_GONE };
           const at = new Date().toISOString();
-          const moved = planMoves(book, planId, target?.name ?? "Default", stationIds, by, at);
+          const moved = planMoves(book, planId, target?.name ?? "Default", stationIds, by, at, planId ? "assigned" : "removed");
           if (moved.error) return { ok: false, error: moved.error };
           if (moved.rows.length === 0) return { ok: false, error: `Those stations are already on ${target?.name ?? "Default"}.` };
           set((s) => ({
@@ -236,7 +238,7 @@ export const usePricingStore = create<PricingState>()(
           const now = new Date().toISOString();
           const ids = stationsOnPlan(book, planId, ALL_STATION_IDS, now);
           const rows: StationAssignment[] = ids.map((stationId) => ({
-            id: uid("sa"), stationId, planId: null, effectiveFrom: now, assignedBy: by, assignedAt: now,
+            id: uid("sa"), stationId, planId: null, effectiveFrom: now, assignedBy: by, assignedAt: now, reason: "plan_deleted" as const,
           }));
           set((s) => ({
             plans: s.plans.map((p) => (p.id === planId ? { ...p, archived: true } : p)),
@@ -260,8 +262,9 @@ export const usePricingStore = create<PricingState>()(
       // 2: versions carry `windows`. 3: nothing is scheduled. 4–5: history time format.
       // 6: rest-of-day rates and `isBase` windows. 7: archived plans.
       // 8: rest-of-day hours copied from Default can carry different rates.
+      // 9: station moves record why they happened, for station history.
       // Anything saved before is reset to the seed.
-      version: 8,
+      version: 9,
       partialize: (s) => ({ plans: s.plans, assignments: s.assignments, changes: s.changes }),
       migrate: () => ({ plans: SEED_PLANS, assignments: SEED_ASSIGNMENTS, changes: SEED_CHANGES }),
     }

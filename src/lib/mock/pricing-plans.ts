@@ -220,6 +220,7 @@ function assign(planId: string, ids: string[], effectiveFrom: string, by: string
     effectiveFrom,
     assignedBy: by,
     assignedAt: at,
+    reason: "assigned" as const,
   }));
 }
 

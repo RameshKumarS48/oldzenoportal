@@ -28,6 +28,7 @@ import { PlanFormModal } from "@/components/pricing-plans/PlanFormModal";
 import { PlanActionsMenu } from "@/components/pricing-plans/PlanActionsMenu";
 import { DeletePlanModal } from "@/components/pricing-plans/DeletePlanModal";
 import { AssignStationsModal } from "@/components/pricing-plans/AssignStationsModal";
+import { StationHistoryDrawer } from "@/components/pricing-plans/StationHistoryDrawer";
 import { PlanStatusBadge, useActorName, usePricingBook, usePricingNow } from "@/components/pricing-plans/shared";
 
 const TABS = [
@@ -256,6 +257,8 @@ function StationsTab({
   const canRemove = canWrite;
   const [moving, setMoving] = useState(false);
   const clearSelection = () => setSelected(new Set());
+  /** The station whose history is open. */
+  const [historyId, setHistoryId] = useState<string | null>(null);
 
   return (
     <div className="space-y-4">
@@ -311,13 +314,30 @@ function StationsTab({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {onPlan.map(({ station, since }) => (
-                  <tr key={station.id} className={cn(selected.has(station.id) && "bg-teal-50/60")}>
+                  <tr
+                    key={station.id}
+                    onClick={() => setHistoryId(station.id)}
+                    title="Open this station's history"
+                    className={cn("cursor-pointer hover:bg-slate-50", selected.has(station.id) && "bg-teal-50/60 hover:bg-teal-50")}
+                  >
                     {canRemove && (
-                      <td className="px-4 py-2">
+                      <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
                         <input type="checkbox" checked={selected.has(station.id)} onChange={() => toggle(station.id)} aria-label={`Select ${station.id}`} />
                       </td>
                     )}
-                    <td className="px-4 py-2 font-mono text-slate-700">{station.id}</td>
+                    <td className="px-4 py-2 font-mono text-slate-700">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setHistoryId(station.id);
+                        }}
+                        className="rounded hover:text-zeno-teal hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/30"
+                        aria-label={`${station.id}: open history`}
+                      >
+                        {station.id}
+                      </button>
+                    </td>
                     <td className="px-4 py-2 text-slate-700">{station.shortAddress}</td>
                     <td className="px-4 py-2 text-slate-500">{station.longAddress}</td>
                     <td className="px-4 py-2 text-slate-500">{station.regionLabel}</td>
@@ -344,6 +364,7 @@ function StationsTab({
           }}
         />
       )}
+      <StationHistoryDrawer stationId={historyId} onClose={() => setHistoryId(null)} />
       {moving && (
         <MoveStationsModal
           ids={Array.from(selected)}

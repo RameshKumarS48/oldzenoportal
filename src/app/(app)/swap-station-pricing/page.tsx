@@ -8,6 +8,7 @@ import { AccessGuard } from "@/components/ui/AccessGuard";
 import { Topbar } from "@/components/layout/Topbar";
 import { Button } from "@/components/ui/button";
 import { InfoTip } from "@/components/ui/InfoTip";
+import { Tabs } from "@/components/ui/tabs";
 import { useAccess } from "@/lib/access";
 import { ALL_STATION_IDS } from "@/lib/mock/pricing-plans";
 import { planStatus, stationsOnPlan, versionAt, sortedVersions } from "@/lib/pricing/engine";
@@ -17,10 +18,16 @@ import { PlanFormModal } from "@/components/pricing-plans/PlanFormModal";
 import { PlanActionsMenu } from "@/components/pricing-plans/PlanActionsMenu";
 import { DeletePlanModal } from "@/components/pricing-plans/DeletePlanModal";
 import { PlanStatusBadge, usePricingBook, usePricingNow } from "@/components/pricing-plans/shared";
+import { StationsDirectory } from "@/components/pricing-plans/StationsDirectory";
 import { usePricingStore } from "@/store/pricing-plans";
 import type { PricingPlan } from "@/lib/pricing/types";
 
 const STATUS_ORDER = { default: 0, active: 1, inactive: 2 } as const;
+
+const VIEWS = [
+  { key: "plans", label: "Plans" },
+  { key: "stations", label: "Stations" },
+];
 
 const SLABS_TIP = "Slab 1: a rider’s first 3 kWh each day. Slab 2: everything after.";
 
@@ -32,6 +39,7 @@ export default function PricingPlansPage() {
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<PricingPlan | null>(null);
+  const [view, setView] = useState("plans");
   // Price now follows the clock, so "until" rolls over, and any change just made.
   const now = usePricingNow();
 
@@ -69,10 +77,8 @@ export default function PricingPlansPage() {
       <Topbar title="Swap Station Pricing" />
       <main className="flex flex-col flex-1 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3.5 border-b border-slate-200 bg-white shrink-0">
-          <p className="text-xs text-slate-400 max-w-md">
-            Custom Pricing: time-of-day windows, each with two slab rates, per plan, assigned to swap stations. KES per kWh, EAT.
-          </p>
-          {canWrite && (
+          <Tabs tabs={VIEWS} active={view} onChange={setView} className="w-56" />
+          {canWrite && view === "plans" && (
             <Button variant="primary" onClick={() => setCreating(true)}>
               <Plus className="w-4 h-4" />
               New plan
@@ -81,6 +87,10 @@ export default function PricingPlansPage() {
         </div>
 
         <div className="flex flex-col flex-1 overflow-auto p-5 gap-4">
+          {view === "stations" ? (
+            <StationsDirectory />
+          ) : (
+          <>
           {/* Battery Tracking's filter bar (BatteryFilterBar.tsx): search, and a count on the right. */}
           <div className="bg-white rounded-xl border border-slate-200 px-4 py-2.5 flex items-center gap-3 flex-wrap shrink-0">
             <div className="relative">
@@ -172,6 +182,8 @@ export default function PricingPlansPage() {
               </tbody>
             </table>
           </div>
+          </>
+          )}
         </div>
 
         {creating && <PlanFormModal plan={null} onClose={() => setCreating(false)} />}
