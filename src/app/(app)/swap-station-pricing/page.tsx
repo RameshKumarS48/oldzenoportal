@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Search } from "lucide-react";
@@ -16,7 +16,7 @@ import { fmtCustomCount, fmtHHmmss, fmtSlabs, splitVersion, windowAt, windowBoun
 import { PlanFormModal } from "@/components/pricing-plans/PlanFormModal";
 import { PlanActionsMenu } from "@/components/pricing-plans/PlanActionsMenu";
 import { DeletePlanModal } from "@/components/pricing-plans/DeletePlanModal";
-import { PlanStatusBadge, usePricingBook } from "@/components/pricing-plans/shared";
+import { PlanStatusBadge, usePricingBook, usePricingNow } from "@/components/pricing-plans/shared";
 import { usePricingStore } from "@/store/pricing-plans";
 import type { PricingPlan } from "@/lib/pricing/types";
 
@@ -32,13 +32,8 @@ export default function PricingPlansPage() {
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<PricingPlan | null>(null);
-  const [now, setNow] = useState(() => new Date().toISOString());
-
-  // Price now follows the clock: re-read it every minute so "until" rolls over.
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date().toISOString()), 60_000);
-    return () => clearInterval(id);
-  }, []);
+  // Price now follows the clock, so "until" rolls over, and any change just made.
+  const now = usePricingNow();
 
   const rows = useMemo(() => {
     // Deleted plans stay in the book, so swaps priced on them still resolve, but aren't listed.

@@ -29,34 +29,34 @@ const BASE_EDGE = "#64748b";
 /** A highlighted rest-of-day band: slate 700, as a white ring can't show on white. */
 const BASE_EDGE_ON = "#334155";
 
-/** The id every rest-of-day band shares, so they highlight together with their row. */
-export const BASE_ID = "base";
+/** A rest-of-day band's id: each stretch has its own row and rates, so its own id. */
+export const baseBandId = (w: Pick<RateWindow, "start">) => `base-${w.start}`;
 
 /** A custom window's colour by index, or white for the rest of the day. */
 const colorOf = (color: number | "base") => (color === "base" ? "#ffffff" : WINDOW_COLORS[color % WINDOW_COLORS.length]);
 
-/** The small square that ties a row to its band. */
+/** The small dot that ties a row to its band; round, so it never reads as a checkbox. */
 export function WindowSwatch({ color, className }: { color: number | "base"; className?: string }) {
   return (
     <span
       aria-hidden="true"
-      className={cn("inline-block w-3 h-3 shrink-0 rounded-sm", className)}
+      className={cn("inline-block w-3 h-3 shrink-0 rounded-full", className)}
       style={{ backgroundColor: colorOf(color), boxShadow: color === "base" ? `inset 0 0 0 1px ${BASE_EDGE}` : undefined }}
     />
   );
 }
 
 export interface BandItem {
-  /** Stable across edits (a form row's key), so a moving boundary animates. BASE_ID for the rest of the day. */
+  /** Stable across edits (a form row's key), so a moving boundary animates. baseBandId for a rest-of-day stretch. */
   id: string;
   window: RateWindow;
   color: number | "base";
 }
 
-/** A saved version's bands: white rest-of-day hours, then the custom windows coloured in time order. */
+/** A saved version's bands: white rest-of-day hours, then the time slots coloured in time order. */
 export function versionBands({ baseWindows, custom }: Pick<SplitVersion, "baseWindows" | "custom">): BandItem[] {
   return [
-    ...baseWindows.map((w) => ({ id: BASE_ID, window: w, color: "base" as const })),
+    ...baseWindows.map((w) => ({ id: baseBandId(w), window: w, color: "base" as const })),
     ...custom.map((w, i) => ({ id: w.start, window: w, color: i })),
   ];
 }
@@ -215,7 +215,7 @@ export function DayBandBar({
 }
 
 function tipText({ window: w, color }: BandItem): string {
-  return `${color === "base" ? BASE_LABEL : fmtRateWindow(w)} · ${rate(w.slab1)} / ${rate(w.slab2)}`;
+  return `${color === "base" ? `${BASE_LABEL} ` : ""}${fmtRateWindow(w)} · ${rate(w.slab1)} / ${rate(w.slab2)}`;
 }
 
 /**

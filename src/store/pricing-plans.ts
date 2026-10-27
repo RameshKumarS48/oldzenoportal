@@ -3,11 +3,7 @@ import { persist } from "zustand/middleware";
 import { ALL_STATION_IDS, SEED_ASSIGNMENTS, SEED_CHANGES, SEED_PLANS } from "@/lib/mock/pricing-plans";
 import { normaliseStationId, resolvePlan, sortedVersions, stationsOnPlan, versionAt } from "@/lib/pricing/engine";
 import {
-  BASE_LABEL,
-  MAX_RATE,
-  MIN_RATE,
   changeParts,
-  isValidRate,
   legacyFromWindows,
   rateRows,
   validateWindows,
@@ -22,23 +18,45 @@ import type {
 } from "@/lib/pricing/types";
 
 /**
- * What the forms send: the full day's windows and the rest-of-day rates.
+ * What the forms send: the full day's windows, slots and rest-of-day hours.
  * Every change applies as soon as it's saved, so the store stamps the
  * effective time, and fills in the legacy rate fields from the windows.
  */
-export type VersionInput = Pick<PlanVersion, "windows" | "baseSlab1" | "baseSlab2">;
+export type VersionInput = Pick<PlanVersion, "windows">;
 
 type Result = { ok: true } | { ok: false; error: string };
+
+/** Saving to a plan that was deleted meanwhile, in another tab say. */
+export const PLAN_GONE = "That plan no longer exists.";
 
 function uid(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
 export function validateVersion(v: VersionInput): string | null {
-  if (!isValidRate(v.baseSlab1 ?? NaN) || !isValidRate(v.baseSlab2 ?? NaN)) {
-    return `Slab 1 and slab 2 for ${BASE_LABEL} must be whole numbers from ${MIN_RATE} to ${MAX_RATE}.`;
-  }
   return validateWindows(v.windows);
+}
+
+export const NAME_MIN = 2;
+export const NAME_MAX = 60;
+
+/**
+ * Null when `name` can be this plan's name (`selfId` for a plan being renamed);
+ * otherwise why not. Names are trimmed, 2–60 characters, unique among plans
+ * that aren't deleted (ignoring case), and "Default" is kept for Default.
+ */
+export function validatePlanName(name: string, plans: PricingPlan[], selfId?: string): string | null {
+  const trimmed = name.trim();
+  const self = selfId ? plans.find((p) => p.id === selfId) : undefined;
+  if (self?.isDefault) return trimmed === self.name ? null : "The Default plan can't be renamed.";
+  if (!trimmed) return "Give the plan a name.";
+  if (trimmed.length < NAME_MIN) return `Use at least ${NAME_MIN} characters.`;
+  if (trimmed.length > NAME_MAX) return `Use at most ${NAME_MAX} characters.`;
+  if (trimmed.toLowerCase() === "default") return `"Default" is the name of the Default plan.`;
+  if (plans.some((p) => !p.archived && p.id !== selfId && p.name.toLowerCase() === trimmed.toLowerCase())) {
+    return `A plan called "${trimmed}" already exists.`;
+  }
+  return null;
 }
 
 /**
@@ -83,10 +101,8 @@ export const usePricingStore = create<PricingState>()(
 
         createPlan: ({ name, version }, by) => {
           const trimmed = name.trim();
-          if (!trimmed) return { ok: false, error: "Give the plan a name." };
-          if (get().plans.some((p) => !p.archived && p.name.toLowerCase() === trimmed.toLowerCase())) {
-            return { ok: false, error: `A plan called "${trimmed}" already exists.` };
-          }
+          const nameError = validatePlanName(trimmed, get().plans);
+          if (nameError) return { ok: false, error: nameError };
           const error = validateVersion(version);
           if (error) return { ok: false, error };
 
@@ -105,8 +121,8 @@ export const usePricingStore = create<PricingState>()(
         },
 
         addVersion: (planId, version, by) => {
-          const plan = get().plans.find((p) => p.id === planId);
-          if (!plan) return { ok: false, error: "That plan no longer exists." };
+          const plan = get().plans.find((p) => p.id === planId && !p.archived);
+          if (!plan) return { ok: false, error: PLAN_GONE };
           const error = validateVersion(version);
           if (error) return { ok: false, error };
 
@@ -126,13 +142,11 @@ export const usePricingStore = create<PricingState>()(
         },
 
         renamePlan: (planId, name, by) => {
-          const plan = get().plans.find((p) => p.id === planId);
-          if (!plan) return { ok: false, error: "That plan no longer exists." };
+          const plan = get().plans.find((p) => p.id === planId && !p.archived);
+          if (!plan) return { ok: false, error: PLAN_GONE };
           const trimmed = name.trim();
-          if (!trimmed) return { ok: false, error: "Give the plan a name." };
-          if (get().plans.some((p) => !p.archived && p.id !== planId && p.name.toLowerCase() === trimmed.toLowerCase())) {
-            return { ok: false, error: `A plan called "${trimmed}" already exists.` };
-          }
+          const nameError = validatePlanName(trimmed, get().plans, planId);
+          if (nameError) return { ok: false, error: nameError };
           if (trimmed === plan.name) return { ok: true };
           set((s) => ({
             plans: s.plans.map((p) => (p.id === planId ? { ...p, name: trimmed } : p)),
@@ -215,8 +229,9 @@ export const usePricingStore = create<PricingState>()(
       name: "zeno-pricing-plans",
       // 2: versions carry `windows`. 3: nothing is scheduled. 4–5: history time format.
       // 6: rest-of-day rates and `isBase` windows. 7: archived plans.
+      // 8: rest-of-day hours copied from Default can carry different rates.
       // Anything saved before is reset to the seed.
-      version: 7,
+      version: 8,
       partialize: (s) => ({ plans: s.plans, assignments: s.assignments, changes: s.changes }),
       migrate: () => ({ plans: SEED_PLANS, assignments: SEED_ASSIGNMENTS, changes: SEED_CHANGES }),
     }

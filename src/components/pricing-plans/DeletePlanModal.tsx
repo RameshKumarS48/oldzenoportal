@@ -5,8 +5,7 @@ import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { toast } from "@/store/toast";
 import { usePricingStore } from "@/store/pricing-plans";
 import { ALL_STATION_IDS } from "@/lib/mock/pricing-plans";
-import { defaultPlan, sortedVersions, stationsOnPlan, versionAt } from "@/lib/pricing/engine";
-import { fmtSlabs, splitVersion } from "@/lib/pricing/windows";
+import { stationsOnPlan } from "@/lib/pricing/engine";
 import type { PricingPlan } from "@/lib/pricing/types";
 import { inputCls, useActorName, usePricingBook } from "./shared";
 
@@ -22,8 +21,6 @@ export function DeletePlanModal({ plan, onClose, onDeleted }: { plan: PricingPla
   const [now] = useState(() => new Date().toISOString());
 
   const stations = stationsOnPlan(book, plan.id, ALL_STATION_IDS, now).length;
-  const fallback = defaultPlan(book);
-  const base = splitVersion(versionAt(fallback, now) ?? sortedVersions(fallback)[0]).base;
   const matches = typed.trim().toLowerCase() === plan.name.toLowerCase();
 
   function handleConfirm() {
@@ -55,8 +52,8 @@ export function DeletePlanModal({ plan, onClose, onDeleted }: { plan: PricingPla
       ) : (
         <div className="space-y-3">
           <p>
-            Its {stations} station{stations === 1 ? "" : "s"} move{stations === 1 ? "s" : ""} to Default
-            {base && <span className="tabular-nums"> ({fmtSlabs(base)})</span>} for swaps from now. Past swaps keep their prices.
+            Its {stations} station{stations === 1 ? "" : "s"} move{stations === 1 ? "s" : ""} to Default and pay the Default
+            plan&apos;s rates for swaps from now. Past swaps keep their prices.
           </p>
           <div>
             <label htmlFor="delete-plan-name" className="block text-xs text-slate-500 mb-1">

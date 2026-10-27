@@ -1,8 +1,25 @@
-// Checks the Custom Pricing rules in src/lib/pricing/engine.ts.
+// Checks the Swap Station Pricing rules in src/lib/pricing: billing
+// (engine.ts), the window rules (windows.ts) and the plan form's rows
+// (hour-rows.ts).
 // Run with: node scripts/check-pricing.mjs   (Node 23+ strips the TS types)
 
 import assert from "node:assert/strict";
-import { priceSwap, resolvePlan, slotFor, inWindow, planStatus } from "../src/lib/pricing/engine.ts";
+import { register } from "node:module";
+
+// The app imports "./windows" without an extension, which Node won't resolve
+// on its own; this hook tries ".ts" for relative imports that don't resolve.
+register(
+  "data:text/javascript," +
+    encodeURIComponent(`
+      export async function resolve(spec, ctx, next) {
+        try { return await next(spec, ctx); }
+        catch (e) { if (spec.startsWith(".") && !/\\.[a-z]+$/.test(spec)) return next(spec + ".ts", ctx); throw e; }
+      }`)
+);
+
+const { priceSwap, resolvePlan, slotFor, inWindow, planStatus } = await import("../src/lib/pricing/engine.ts");
+const { validateWindows, rateRows, rateWarnings, splitVersion } = await import("../src/lib/pricing/windows.ts");
+const rowsLib = await import("../src/lib/pricing/hour-rows.ts");
 
 const v = (id, effectiveFrom, standardRate, customRate, start = "22:00", end = "06:00") => ({
   id, effectiveFrom, standardRate, customRate, customWindowStart: start, customWindowEnd: end,
@@ -136,6 +153,115 @@ check("slab 1 covers the first 3 kWh of the day, slab 2 the rest", () => {
 check("versions without windows bill one rate for both slabs", () => {
   const p = priceSwap(book, "BS0099", swapAt("2026-10-27T10:00:00+03:00"), 2, 5);
   assert.equal(p.amount, 180); // Default legacy 90, slab 2 = slab 1
+});
+
+// ── Plan form: slots first, fill the rest from Default ──
+let seq = 0;
+const key = () => `k${++seq}`;
+const slot = (from, until, slab1 = "110", slab2 = "90") => ({ key: key(), origin: "slot", from, until, slab1, slab2, color: 0 });
+const DEFAULT_WINDOWS = [win("06:00:00", "21:59:59", 90, 70, true), win("22:00:00", "05:59:59", 70, 55)];
+const { fillFromDefault, gapStretches, uncoveredHours, setUntil, setFrom, addRow, addBlocked, rowsToWindows, rateError, cleanRate, windowsToRows } = rowsLib;
+const hours = (rows) => rows.map((r) => `${r.origin}:${r.from}-${r.until}:${r.slab1}/${r.slab2}`);
+
+check("slots alone leave gaps; one crossing midnight reads as one stretch", () => {
+  const rows = [slot(6, 10), slot(17, 20)];
+  assert.deepEqual(gapStretches(rows), [{ from: 10, until: 17 }, { from: 20, until: 6 }]);
+  assert.equal(uncoveredHours(rows).length, 17);
+});
+
+check("fill copies Default hour by hour, splitting a gap at Default's 22:00 edge", () => {
+  const filled = fillFromDefault([slot(6, 10), slot(17, 20)], DEFAULT_WINDOWS, key);
+  // Default's night window is one window, 22:00–05:59, so it fills as one row.
+  assert.deepEqual(hours(filled), [
+    "slot:6-10:110/90", "default:10-17:90/70", "slot:17-20:110/90", "default:20-22:90/70", "default:22-6:70/55",
+  ]);
+  assert.equal(uncoveredHours(filled).length, 0);
+  assert.equal(validateWindows(rowsToWindows(filled)), null);
+});
+
+check("a gap is split at Default's edges, not at midnight", () => {
+  assert.deepEqual(hours(fillFromDefault([slot(2, 23)], DEFAULT_WINDOWS, key).filter((r) => r.origin === "default")), ["default:23-2:70/55"]);
+  assert.deepEqual(hours(fillFromDefault([slot(23, 21)], DEFAULT_WINDOWS, key).filter((r) => r.origin === "default")), ["default:21-22:90/70", "default:22-23:70/55"]);
+});
+
+check("a widened slot trims or splits a filled row; a narrowed one leaves a gap", () => {
+  let rows = fillFromDefault([slot(6, 10)], DEFAULT_WINDOWS, key);
+  const i = rows.findIndex((r) => r.origin === "slot");
+  rows = setUntil(rows, i, 12, key); // 06–12 takes 10–12 from the 10–22 Default row
+  assert.deepEqual(hours(rows.filter((r) => r.origin === "default" && r.slab1 === "90")), ["default:12-22:90/70"]);
+  assert.equal(uncoveredHours(rows).length, 0);
+  const j = rows.findIndex((r) => r.origin === "slot");
+  rows = setFrom(rows, j, 8, key); // 08–12: 06–08 is now a gap
+  assert.deepEqual(gapStretches(rows), [{ from: 6, until: 8 }]);
+  rows = fillFromDefault(rows, DEFAULT_WINDOWS, key);
+  assert.equal(uncoveredHours(rows).length, 0);
+});
+
+check("a slot dropped into the middle of a filled row splits it in two", () => {
+  let rows = fillFromDefault([], DEFAULT_WINDOWS, key); // 00–06, 06–22, 22–24
+  rows = addRow(rows, key(), key); // no gaps, so it takes hour 0 from Default rows
+  const i = rows.findIndex((r) => r.origin === "slot");
+  rows = setFrom(rows, i, 12, key); // 00–01 becomes 12–13, not a wrapping 12–01
+  rows = setUntil(rows, rows.findIndex((r) => r.origin === "slot"), 14, key);
+  assert.deepEqual(hours(rows.filter((r) => r.origin === "default" && r.slab1 === "90")), ["default:6-12:90/70", "default:14-22:90/70"]);
+  // Hour 0, where the slot started, is a gap now.
+  assert.deepEqual(gapStretches(rows), [{ from: 0, until: 1 }]);
+});
+
+check("moving From past Until keeps the slot's length; Until before From wraps", () => {
+  let rows = [slot(6, 10)];
+  rows = setFrom(rows, 0, 15, key);
+  assert.deepEqual([rows[0].from, rows[0].until], [15, 19]);
+  rows = setFrom(rows, 0, 22, key);
+  assert.deepEqual([rows[0].from, rows[0].until], [22, 24]); // clipped at midnight
+  rows = setUntil(rows, 0, 6, key);
+  assert.deepEqual([rows[0].from, rows[0].until], [22, 6]); // chosen wrap
+  rows = setFrom(rows, 0, 23, key);
+  assert.deepEqual([rows[0].from, rows[0].until], [23, 6]); // a wrapping slot keeps its Until
+});
+
+check("at most 5 slots; filled rows don't count", () => {
+  let rows = fillFromDefault([slot(0, 1), slot(1, 2), slot(2, 3), slot(3, 4)], DEFAULT_WINDOWS, key);
+  assert.equal(addBlocked(rows), null);
+  rows = addRow(rows, key(), key);
+  assert.equal(addBlocked(rows), "Maximum 5 slots");
+  assert.equal(validateWindows([...rowsToWindows(rows).map((w) => ({ ...w, isBase: false }))]), "Use at most 5 time slots.");
+});
+
+check("windows: gaps and overlaps are refused, mixed rest-of-day rates allowed", () => {
+  assert.match(validateWindows([win("06:00:00", "09:59:59", 110, 90)]), /No rate covers|whole day/);
+  assert.match(validateWindows([...DEFAULT_WINDOWS, win("07:00:00", "08:59:59", 1, 1)]), /overlaps|Two windows/);
+  assert.equal(validateWindows([win("00:00:00", "05:59:59", 70, 55, true), win("06:00:00", "23:59:59", 90, 70, true)]), null);
+  assert.equal(validateWindows([win("00:00:00", "23:59:59", 100, 80)]), null); // one slot, all day
+});
+
+check("rates: whole numbers 1–500, KES prefix and spaces cleaned", () => {
+  for (const bad of ["", "0", "501", "12.5", "-5", "abc", "1e2"]) assert.notEqual(rateError(bad), null, bad);
+  for (const ok of ["1", "90", "500"]) assert.equal(rateError(ok), null, ok);
+  assert.equal(cleanRate("KES 90"), "90");
+  assert.equal(cleanRate(" 1 20 "), "120");
+});
+
+check("saved plans load with rest-of-day rows and slots in place", () => {
+  const rows = windowsToRows([win("06:00:00", "16:59:59", 100, 80, true), win("17:00:00", "21:59:59", 110, 90), win("22:00:00", "05:59:59", 70, 55)], key);
+  assert.deepEqual(rows.map((r) => r.origin), ["default", "slot", "slot"]);
+});
+
+check("comparisons list each rest-of-day stretch with its own rates", () => {
+  const before = { windows: DEFAULT_WINDOWS };
+  const after = { windows: rowsToWindows(fillFromDefault([slot(17, 20)], DEFAULT_WINDOWS, key)) };
+  const rows = rateRows(before, after);
+  assert.ok(rows.some((r) => r.label === "17:00:00–19:59:59" && !r.before && r.after?.slab1 === 110));
+  assert.equal(splitVersion(after).base, null); // 90/70 by day, 70/55 at night: no single rest-of-day rate
+});
+
+check("soft warnings: slab 2 above slab 1, far from Default, same as Default", () => {
+  const w1 = rateWarnings([win("00:00:00", "23:59:59", 80, 95)], DEFAULT_WINDOWS);
+  assert.ok(w1.lines.some((l) => /slab 2 \(95\) is higher/.test(l)));
+  const w2 = rateWarnings([win("00:00:00", "23:59:59", 400, 300)], DEFAULT_WINDOWS);
+  assert.ok(w2.lines.some((l) => /far from Default/.test(l)));
+  assert.equal(rateWarnings(DEFAULT_WINDOWS, DEFAULT_WINDOWS).matchesDefault, true);
+  assert.equal(rateWarnings(DEFAULT_WINDOWS, null).matchesDefault, false); // editing Default itself
 });
 
 console.log(`\n${passed} checks passed`);

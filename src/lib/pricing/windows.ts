@@ -8,9 +8,10 @@
  * midnight (22:00:00–05:59:59). One window can cover the whole day:
  * 00:00:00–23:59:59.
  *
- * A plan is set as a rest-of-day rate plus up to MAX_WINDOWS custom windows.
- * The hours no custom window claims are stored as `isBase` windows carrying
- * the rest-of-day rates, so the list still covers the day.
+ * A plan is up to MAX_WINDOWS time slots the user set, plus the rest of the
+ * day: `isBase` windows covering every other hour, usually copied from the
+ * Default plan hour by hour, so they can carry different rates (Default's
+ * night rate overnight, its day rate by day). Together they cover the day.
  *
  * Screens show the same "HH:mm:ss" times, inclusive ends and all:
  * "06:00:00–16:59:59", "22:00:00–05:59:59", "00:00:00–23:59:59".
@@ -22,7 +23,7 @@
 import type { PlanVersion, RateWindow } from "./types";
 
 export const DAY_SECONDS = 86_400;
-/** Custom windows per plan; the rest-of-day hours don't count. */
+/** Time slots per plan; the rest-of-day hours don't count. */
 export const MAX_WINDOWS = 5;
 /** Rates are whole KES per kWh in this range. */
 export const MIN_RATE = 1;
@@ -111,9 +112,9 @@ export function fmtSlabs(w: Pick<RateWindow, "slab1" | "slab2">): string {
 /** "100/80", for the change log. */
 const slabsShort = (r: BaseRates) => `${r.slab1}/${r.slab2}`;
 
-/** "Base + 2 windows", or "Base rate only". */
+/** "2 slots + rest of the day", or "Rest of the day only". */
 export function fmtCustomCount(n: number): string {
-  return n === 0 ? "Base rate only" : `Base + ${n} window${n === 1 ? "" : "s"}`;
+  return n === 0 ? `${BASE_LABEL} only` : `${n} slot${n === 1 ? "" : "s"} + rest of the day`;
 }
 
 // ── Rest of the day and custom windows ───────────────────────────────────────
@@ -123,8 +124,13 @@ export interface BaseRates {
   slab2: number;
 }
 
+const sameRates = (a?: BaseRates, b?: BaseRates) => a?.slab1 === b?.slab1 && a?.slab2 === b?.slab2;
+
 export interface SplitVersion {
-  /** The rest-of-day rates; null only for old data that covers the day with custom windows. */
+  /**
+   * The rest-of-day rates when every rest-of-day window shares them; null when
+   * they differ (copied from Default hour by hour) or no hour is left.
+   */
   base: BaseRates | null;
   /** The hours on the rest-of-day rates, earliest first. */
   baseWindows: RateWindow[];
@@ -152,9 +158,10 @@ export function splitVersion(v: Pick<PlanVersion, "windows" | "baseSlab1" | "bas
   const baseWindows = sorted.filter(isBase);
   const custom = sorted.filter((w) => !isBase(w));
   const first = baseWindows[0];
-  const base = first
+  const shared = first && baseWindows.every((w) => sameRates(w, first));
+  const base = shared
     ? { slab1: first.slab1, slab2: first.slab2 }
-    : v.baseSlab1 !== undefined && v.baseSlab2 !== undefined
+    : !first && v.baseSlab1 !== undefined && v.baseSlab2 !== undefined
       ? { slab1: v.baseSlab1, slab2: v.baseSlab2 }
       : null;
   return { base, baseWindows, custom };
@@ -211,37 +218,51 @@ type VersionRates = Pick<PlanVersion, "windows" | "baseSlab1" | "baseSlab2">;
 
 /** One line of a before → after comparison. A row only on one side was added or removed. */
 export interface RateRow {
+  /** The window's times, "10:00:00–16:59:59". */
   label: string;
+  /** A rest-of-day stretch rather than a slot the user set. */
   base: boolean;
   before?: BaseRates;
   after?: BaseRates;
 }
 
-const sameRates = (a?: BaseRates, b?: BaseRates) => a?.slab1 === b?.slab1 && a?.slab2 === b?.slab2;
+/** "Rest of the day 10:00:00–16:59:59", or a slot's times. */
+export const rowName = (r: RateRow) => (r.base ? `${BASE_LABEL} ${r.label}` : r.label);
 
-/** Rest of the day first, then each custom window by its times, earliest first. */
+
+/**
+ * Every window on either side, earliest first, matched by its times. Rest-of-
+ * day stretches are rows of their own, since they can carry different rates.
+ */
 export function rateRows(before: VersionRates | undefined, after: VersionRates): RateRow[] {
   const was = before ? splitVersion(before) : null;
   const now = splitVersion(after);
   const rates = (w: RateWindow): BaseRates => ({ slab1: w.slab1, slab2: w.slab2 });
+  const tag = (ws: RateWindow[], base: boolean) => ws.map((w) => ({ w, base }));
+  const prev = was ? [...tag(was.baseWindows, true), ...tag(was.custom, false)] : [];
+  const next = [...tag(now.baseWindows, true), ...tag(now.custom, false)];
   const byTime = new Map<string, RateRow>();
-  for (const w of sortWindows([...(was?.custom ?? []), ...now.custom])) {
-    byTime.set(fmtRateWindow(w), { label: fmtRateWindow(w), base: false });
+  for (const { w, base } of [...prev, ...next].sort((a, b) => parseHHmmss(a.w.start) - parseHHmmss(b.w.start))) {
+    const label = fmtRateWindow(w);
+    const row = byTime.get(label) ?? { label, base };
+    // A stretch kept as rest of the day reads as one; the "after" side wins.
+    row.base = base;
+    byTime.set(label, row);
   }
-  for (const w of was?.custom ?? []) byTime.get(fmtRateWindow(w))!.before = rates(w);
-  for (const w of now.custom) byTime.get(fmtRateWindow(w))!.after = rates(w);
-  return [{ label: BASE_LABEL, base: true, before: was?.base ?? undefined, after: now.base ?? undefined }, ...byTime.values()];
+  for (const { w } of prev) byTime.get(fmtRateWindow(w))!.before = rates(w);
+  for (const { w } of next) byTime.get(fmtRateWindow(w))!.after = rates(w);
+  return [...byTime.values()];
 }
 
 export const rowChanged = (r: RateRow) => !sameRates(r.before, r.after);
 
-/** "Rest of the day 90/70 · 17:00:00–19:59:59 110/90", for the change log. */
+/** "06:00:00–09:59:59 110/90 · Rest of the day 10:00:00–16:59:59 90/70", for the change log. */
 export function versionSummary(v: VersionRates): string {
-  const { base, custom } = splitVersion(v);
-  return [
-    ...(base ? [`${BASE_LABEL} ${slabsShort(base)}`] : []),
-    ...custom.map((w) => `${fmtRateWindow(w)} ${slabsShort(w)}`),
-  ].join(" · ");
+  const { baseWindows } = splitVersion(v);
+  const isBase = new Set(baseWindows.map((w) => w.start));
+  return sortWindows(v.windows)
+    .map((w) => `${isBase.has(w.start) ? `${BASE_LABEL} ` : ""}${fmtRateWindow(w)} ${slabsShort(w)}`)
+    .join(" · ");
 }
 
 /**
@@ -252,9 +273,9 @@ export function changeParts(before: VersionRates, after: VersionRates): string[]
   return rateRows(before, after)
     .filter(rowChanged)
     .map((r) =>
-      !r.before ? `Added ${r.label} at ${slabsShort(r.after!)}`
-      : !r.after ? `Removed ${r.label}`
-      : `${r.label} ${slabsShort(r.before)} → ${slabsShort(r.after)}`
+      !r.before ? `Added ${rowName(r)} at ${slabsShort(r.after!)}`
+      : !r.after ? `Removed ${rowName(r)}`
+      : `${rowName(r)} ${slabsShort(r.before)} → ${slabsShort(r.after)}`
     );
 }
 
@@ -271,15 +292,13 @@ export function sameWindows(a: RateWindow[], b: RateWindow[]): boolean {
 }
 
 /**
- * Null when the windows cover every second of the day exactly once with
- * valid rates, at most MAX_WINDOWS custom windows and one rest-of-day rate;
- * otherwise what's wrong, in words.
+ * Null when the windows cover every second of the day exactly once, in whole
+ * hours, with valid rates and at most MAX_WINDOWS slots; otherwise what's
+ * wrong, in words. Rest-of-day windows may carry different rates.
  */
 export function validateWindows(windows: RateWindow[]): string | null {
-  if (windows.length === 0) return "Add at least one time window.";
-  if (windows.filter((w) => !w.isBase).length > MAX_WINDOWS) return `Use at most ${MAX_WINDOWS} custom windows.`;
-  const base = windows.filter((w) => w.isBase);
-  if (base.some((w) => !sameRates(w, base[0]))) return `${BASE_LABEL} must use one set of rates.`;
+  if (windows.length === 0) return "Add at least one time slot.";
+  if (windows.filter((w) => !w.isBase).length > MAX_WINDOWS) return `Use at most ${MAX_WINDOWS} time slots.`;
   for (const w of windows) {
     if (!isHHmmss(w.start) || !isHHmmss(w.end)) return "Enter each window's times as HH:mm:ss.";
     if (!w.start.endsWith(":00:00") || !w.end.endsWith(":59:59")) {
@@ -337,4 +356,36 @@ export function legacyFromWindows(windows: RateWindow[]): LegacyRates {
     customWindowEnd: fmtHHmmss(parseHHmmss(cheapest.end) + 1).slice(0, 5),
     customRate: cheapest.slab1,
   };
+}
+
+// ── Soft warnings ────────────────────────────────────────────────────────────
+
+export interface RateWarnings {
+  /** One line per window that looks off; saving is still allowed. */
+  lines: string[];
+  /** Every hour charges exactly what Default does. */
+  matchesDefault: boolean;
+}
+
+/**
+ * Rates that are allowed but look like a typo: slab 2 above slab 1 (slab 2 is
+ * usually the cheaper bulk rate), or a rate more than double or under half of
+ * what Default charges in those hours. `defaultWindows` is null when the plan
+ * being edited is Default itself.
+ */
+export function rateWarnings(windows: RateWindow[], defaultWindows: RateWindow[] | null): RateWarnings {
+  const lines: string[] = [];
+  const at = (h: number) => defaultWindows?.find((d) => inRateWindow(h * 3600, d));
+  let matches = !!defaultWindows;
+  for (const w of sortWindows(windows)) {
+    const label = fmtRateWindow(w);
+    if (w.slab2 > w.slab1) lines.push(`${label}: slab 2 (${w.slab2}) is higher than slab 1 (${w.slab1}).`);
+    if (!defaultWindows) continue;
+    const refs = hoursIn(w).map(at).filter((d): d is RateWindow => !!d);
+    if (refs.some((d) => d.slab1 !== w.slab1 || d.slab2 !== w.slab2)) matches = false;
+    const far = (mine: number, theirs: number) => mine > theirs * 2 || mine < theirs / 2;
+    const off = refs.find((d) => far(w.slab1, d.slab1) || far(w.slab2, d.slab2));
+    if (off) lines.push(`${label}: ${fmtSlabs(w)} is far from Default's ${fmtSlabs(off)} in those hours.`);
+  }
+  return { lines, matchesDefault: matches };
 }

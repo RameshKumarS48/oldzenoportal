@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Pencil, Plus, Undo2 } from "lucide-react";
@@ -17,7 +17,7 @@ import { usePricingStore } from "@/store/pricing-plans";
 import { ALL_STATION_IDS, PRICING_STATIONS } from "@/lib/mock/pricing-plans";
 import { assignmentAt, planStatus, sortedVersions, stationsOnPlan, versionAt } from "@/lib/pricing/engine";
 import { fmtEat } from "@/lib/pricing/format";
-import { BASE_LABEL, fmtCustomCount, fmtRateWindow, fmtSlabs, splitVersion } from "@/lib/pricing/windows";
+import { BASE_LABEL, fmtCustomCount, fmtRateWindow, fmtSlabs, sortWindows, splitVersion } from "@/lib/pricing/windows";
 import type { PricingPlan } from "@/lib/pricing/types";
 import { DayBandBar, versionBands } from "@/components/pricing-plans/DayBandBar";
 import { WindowRates } from "@/components/pricing-plans/WindowRates";
@@ -26,7 +26,7 @@ import { PlanFormModal } from "@/components/pricing-plans/PlanFormModal";
 import { PlanActionsMenu } from "@/components/pricing-plans/PlanActionsMenu";
 import { DeletePlanModal } from "@/components/pricing-plans/DeletePlanModal";
 import { AssignStationsModal } from "@/components/pricing-plans/AssignStationsModal";
-import { PlanStatusBadge, useActorName, usePricingBook } from "@/components/pricing-plans/shared";
+import { PlanStatusBadge, useActorName, usePricingBook, usePricingNow } from "@/components/pricing-plans/shared";
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -64,27 +64,6 @@ export default function PricingPlanDetailPage() {
   );
 }
 
-/**
- * The current time, moving on at each minute boundary, for the Now marker
- * and the rates in force.
- */
-function useMinuteClock(): string {
-  const [now, setNow] = useState(() => new Date().toISOString());
-  useEffect(() => {
-    let id: ReturnType<typeof setInterval> | undefined;
-    const tick = () => setNow(new Date().toISOString());
-    const first = setTimeout(() => {
-      tick();
-      id = setInterval(tick, 60_000);
-    }, 60_000 - (Date.now() % 60_000));
-    return () => {
-      clearTimeout(first);
-      clearInterval(id);
-    };
-  }, []);
-  return now;
-}
-
 function PlanDetail({ plan }: { plan: PricingPlan }) {
   const router = useRouter();
   const book = usePricingBook();
@@ -93,9 +72,9 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
   const [editing, setEditing] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  /** The window under the pointer (BASE_ID or a start), shared by the day bar and the rates table. */
+  /** The window under the pointer (a slot's start, or baseBandId for a rest-of-day stretch), shared by the day bar and the rates table. */
   const [highlight, setHighlight] = useState<string | null>(null);
-  const now = useMinuteClock();
+  const now = usePricingNow();
 
   const status = planStatus(book, plan, ALL_STATION_IDS, now);
   // Changes apply when saved, so a plan's latest version is in force.
@@ -185,21 +164,19 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
               <tbody className="divide-y divide-slate-100">
                 {sortedVersions(plan).reverse().map((v) => {
                   const state = v.id === current.id ? "In force" : "Superseded";
-                  const { base, custom } = splitVersion(v);
+                  const { baseWindows, custom } = splitVersion(v);
+                  const isBase = new Set(baseWindows.map((w) => w.start));
                   return (
                     <tr key={v.id} className="align-top">
                       <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{fmtEat(v.effectiveFrom)}</td>
                       <td className="px-4 py-3">
                         <p className="text-[11px] text-slate-400 mb-1">{fmtCustomCount(custom.length)}</p>
                         <ul className="space-y-0.5 text-xs tabular-nums whitespace-nowrap">
-                          <li>
-                            <span className="text-slate-500">{BASE_LABEL}</span>
-                            <span className="ml-3 text-slate-800">{base ? fmtSlabs(base) : "–"}</span>
-                          </li>
-                          {custom.map((w) => (
+                          {sortWindows(v.windows).map((w) => (
                             <li key={w.start}>
                               <span className="text-slate-500">{fmtRateWindow(w)}</span>
                               <span className="ml-3 text-slate-800">{fmtSlabs(w)}</span>
+                              {isBase.has(w.start) && <span className="ml-2 text-[11px] text-slate-400">{BASE_LABEL}</span>}
                             </li>
                           ))}
                         </ul>

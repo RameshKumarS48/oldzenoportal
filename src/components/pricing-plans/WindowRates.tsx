@@ -1,18 +1,18 @@
-import { BASE_LABEL, coversText, eatSecondOfDay, fmtRateWindow, inRateWindow, type SplitVersion } from "@/lib/pricing/windows";
-import type { RateWindow } from "@/lib/pricing/types";
+import { BASE_LABEL, eatSecondOfDay, fmtRateWindow, inRateWindow, sortWindows, type SplitVersion } from "@/lib/pricing/windows";
 import { cn } from "@/lib/utils";
-import { BASE_ID, WindowSwatch } from "./DayBandBar";
+import { baseBandId, WindowSwatch } from "./DayBandBar";
 
 const NowTag = () => (
   <span className="px-1.5 py-0.5 rounded bg-zeno-teal text-[10px] font-semibold leading-none text-white">Now</span>
 );
 
 /**
- * A version's rates: Rest of the day first, with the hours it covers, then
- * the custom windows earliest first. With `now`, the row in force at that
- * EAT time is tinted, with an accent bar and a "Now" tag, so it never relies
- * on colour alone. Swatches match `versionBands`; `highlighted` and
- * `onHighlight` (BASE_ID, or a window's start) link a row to its bands.
+ * A version's rates, one row per window in time order: the time slots in
+ * their colours, and each rest-of-day stretch (white, tagged "Rest of the
+ * day") with its own rates. With `now`, the row in force at that EAT time is
+ * tinted, with an accent bar and a "Now" tag, so it never relies on colour
+ * alone. Swatches and ids match `versionBands`, so `highlighted` and
+ * `onHighlight` link a row to its band.
  */
 export function WindowRates({
   split,
@@ -26,14 +26,15 @@ export function WindowRates({
   onHighlight?: (id: string | null) => void;
 }) {
   const second = now ? eatSecondOfDay(now) : null;
-  const inForce = (ws: RateWindow[]) => second !== null && ws.some((w) => inRateWindow(second, w));
-  const { base, baseWindows, custom } = split;
+  const { baseWindows, custom } = split;
+  const slotColor = new Map(custom.map((w, i) => [w.start, i]));
+  const isBase = new Set(baseWindows.map((w) => w.start));
 
   const row = (
     id: string,
     label: React.ReactNode,
     color: number | "base",
-    rates: { slab1: number; slab2: number } | null,
+    rates: { slab1: number; slab2: number },
     live: boolean,
     note?: string
   ) => (
@@ -51,8 +52,8 @@ export function WindowRates({
         </div>
         {note && <p className="pl-5 text-[11px] text-slate-400 tabular-nums">{note}</p>}
       </td>
-      <td className="py-2 text-right tabular-nums font-semibold text-slate-800 align-top">{rates?.slab1 ?? "–"}</td>
-      <td className="py-2 pr-2 text-right tabular-nums text-slate-700 align-top">{rates?.slab2 ?? "–"}</td>
+      <td className="py-2 text-right tabular-nums font-semibold text-slate-800 align-top">{rates.slab1}</td>
+      <td className="py-2 pr-2 text-right tabular-nums text-slate-700 align-top">{rates.slab2}</td>
     </tr>
   );
 
@@ -60,16 +61,24 @@ export function WindowRates({
     <table className="w-full text-sm">
       <thead>
         <tr className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-          <th className="py-1.5 pl-2 font-bold">Window (EAT)</th>
+          <th className="py-1.5 pl-2 font-bold">Time (EAT)</th>
           <th className="py-1.5 text-right font-bold">Slab 1</th>
           <th className="py-1.5 pr-2 text-right font-bold">Slab 2</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-slate-100">
-        {row(BASE_ID, <span className="text-slate-700">{BASE_LABEL}</span>, "base", base, inForce(baseWindows), coversText(custom))}
-        {custom.map((w, i) =>
-          row(w.start, <span className="tabular-nums whitespace-nowrap">{fmtRateWindow(w)}</span>, i, w, inForce([w]))
-        )}
+        {sortWindows([...baseWindows, ...custom]).map((w) => {
+          const base = isBase.has(w.start);
+          const live = second !== null && inRateWindow(second, w);
+          return row(
+            base ? baseBandId(w) : w.start,
+            <span className="tabular-nums whitespace-nowrap">{fmtRateWindow(w)}</span>,
+            base ? "base" : slotColor.get(w.start)!,
+            w,
+            live,
+            base ? BASE_LABEL : undefined
+          );
+        })}
       </tbody>
     </table>
   );

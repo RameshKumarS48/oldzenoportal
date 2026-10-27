@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
 import { usePricingStore } from "@/store/pricing-plans";
@@ -13,6 +13,31 @@ export function usePricingBook(): PricingBook {
   const plans = usePricingStore((s) => s.plans);
   const assignments = usePricingStore((s) => s.assignments);
   return useMemo(() => ({ plans, assignments }), [plans, assignments]);
+}
+
+/**
+ * The current time for the pricing pages, moving on at each minute boundary
+ * (for the Now marker and "until" times). Never earlier than the latest
+ * change in the store: changes apply "from now", so a plan saved or a
+ * station moved a moment ago shows as in force straight away rather than
+ * after the next tick.
+ */
+export function usePricingNow(): string {
+  const [clock, setClock] = useState(() => new Date().toISOString());
+  const latestChange = usePricingStore((s) => s.changes.reduce((max, c) => (c.at > max ? c.at : max), ""));
+  useEffect(() => {
+    let id: ReturnType<typeof setInterval> | undefined;
+    const tick = () => setClock(new Date().toISOString());
+    const first = setTimeout(() => {
+      tick();
+      id = setInterval(tick, 60_000);
+    }, 60_000 - (Date.now() % 60_000));
+    return () => {
+      clearTimeout(first);
+      clearInterval(id);
+    };
+  }, []);
+  return new Date(latestChange).getTime() > new Date(clock).getTime() ? latestChange : clock;
 }
 
 export function useActorName(): string {
