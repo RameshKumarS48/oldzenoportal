@@ -88,6 +88,8 @@ export type ScannerFilterState = {
   bikeState: string;
   source: string;
   syncStatus: string;
+  /** The Date filter: "" (all time), "today", "7d", "30d", or "custom" for dateFrom–dateTo. */
+  datePreset: string;
   dateFrom: string;
   dateTo: string;
 };
@@ -105,6 +107,7 @@ function defaultFilters(): ScannerFilterState {
     syncStatus: "All",
     // Unbounded by default. A rolling window would hide the seeded log, which
     // is dated earlier than "today", and land every visitor on an empty table.
+    datePreset: "",
     dateFrom: "",
     dateTo: "",
   };
@@ -757,11 +760,16 @@ export const useScannerProvisioningStore = create<ScannerProvisioningStore>((set
     if (filters.bikeState !== "All") result = result.filter((a) => a.bikeState === filters.bikeState);
     if (filters.source !== "All") result = result.filter((a) => a.source === filters.source);
     if (filters.syncStatus !== "All") result = result.filter((a) => a.syncStatus === filters.syncStatus);
-    if (filters.dateFrom) {
+    const days = { today: 1, "7d": 7, "30d": 30 }[filters.datePreset];
+    if (days) {
+      const from = Date.now() - days * 86_400_000;
+      result = result.filter((a) => parseTs(a.timestamp) >= from);
+    }
+    if (filters.datePreset === "custom" && filters.dateFrom) {
       const from = parseTs(filters.dateFrom);
       result = result.filter((a) => parseTs(a.timestamp) >= from);
     }
-    if (filters.dateTo) {
+    if (filters.datePreset === "custom" && filters.dateTo) {
       const to = parseTs(filters.dateTo) + 86_399_999; // end of day
       result = result.filter((a) => parseTs(a.timestamp) <= to);
     }

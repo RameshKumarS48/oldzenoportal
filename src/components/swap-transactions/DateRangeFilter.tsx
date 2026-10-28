@@ -17,6 +17,9 @@ export interface DayRange {
  */
 const EAT_MS = 3 * 3_600_000;
 
+/** The calendar pop-up's width (two months side by side), for deciding which way it opens. */
+const POPUP_WIDTH = 600;
+
 const ymd = (iso: string) => iso.split("-").map(Number) as [number, number, number];
 
 export function inEatRange(timestamp: string, range: DayRange): boolean {
@@ -67,6 +70,8 @@ export function DateRangeFilter({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  // Opens to the left when the dropdown is too near the right edge for the calendar.
+  const [alignRight, setAlignRight] = useState(false);
   const [draft, setDraft] = useState<DateRange | undefined>(undefined);
   const [month, setMonth] = useState<Date>(() => new Date());
   const selectRef = useRef<HTMLSelectElement>(null);
@@ -82,6 +87,8 @@ export function DateRangeFilter({
     // Show the range's end month on the right, so both months are in view.
     const anchor = current?.to ?? todayDate;
     setMonth(new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1));
+    const left = selectRef.current?.getBoundingClientRect().left ?? 0;
+    setAlignRight(left + POPUP_WIDTH > window.innerWidth - 16);
     setOpen(true);
   };
 
@@ -151,7 +158,10 @@ export function DateRangeFilter({
           role="dialog"
           aria-label="Choose a date range"
           onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } }}
-          className="absolute left-0 top-full mt-1 z-50 bg-white rounded-xl border border-slate-200 shadow-xl p-3 space-y-3"
+          className={cn(
+            "absolute top-full mt-1 z-50 bg-white rounded-xl border border-slate-200 shadow-xl p-3 space-y-3",
+            alignRight ? "right-0" : "left-0"
+          )}
         >
           <div className="grid grid-cols-2 gap-3">
             <label className="text-[11px] text-slate-500 font-medium">

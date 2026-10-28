@@ -16,6 +16,7 @@ import {
   type RechargeStatus,
 } from "@/store/wallet-transactions";
 import { cn } from "@/lib/utils";
+import { DateRangeFilter, inEatRange, type DayRange } from "@/components/swap-transactions/DateRangeFilter";
 import { useAccess } from "@/lib/access";
 
 // ── Formatting ────────────────────────────────────────────────────────────────
@@ -122,6 +123,7 @@ export function RechargeRequestsTable() {
   const [search, setSearch]         = useState("");
   const [statusFilter, setStatus]   = useState<RechargeStatus | "">("");
   const [dateFilter, setDate]       = useState("");
+  const [dateRange, setDateRange]   = useState<DayRange | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [page, setPage]             = useState(1);
   const [retryTarget, setRetryTarget] = useState<RechargeRequest | null>(null);
@@ -143,6 +145,7 @@ export function RechargeRequestsTable() {
     return sorted.filter((r) => {
       if (statusFilter && rechargeStatus(r) !== statusFilter) return false;
       if (cutoff && new Date(r.timestamp).getTime() < cutoff) return false;
+      if (dateFilter === "custom" && dateRange && !inEatRange(r.timestamp, dateRange)) return false;
       if (search) {
         const q = search.toLowerCase();
         const v = vehicleFor(r.customerId);
@@ -158,7 +161,7 @@ export function RechargeRequestsTable() {
       }
       return true;
     });
-  }, [sorted, search, statusFilter, dateFilter, now]);
+  }, [sorted, search, statusFilter, dateFilter, dateRange, now]);
 
   const paginated = useMemo(() => {
     const start = (page - 1) * perPage;
@@ -175,7 +178,7 @@ export function RechargeRequestsTable() {
     .reduce((s, r) => s + r.amountKES, 0);
 
   const clearFilters = () => {
-    setSearch(""); setStatus(""); setDate(""); setPage(1);
+    setSearch(""); setStatus(""); setDate(""); setDateRange(null); setPage(1);
   };
 
   return (
@@ -208,16 +211,12 @@ export function RechargeRequestsTable() {
           {STATUS_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
 
-        <select
+        <DateRangeFilter
           value={dateFilter}
-          onChange={(e) => { setDate(e.target.value); setPage(1); }}
+          range={dateRange}
+          onChange={(v, r) => { setDate(v); setDateRange(r); setPage(1); }}
           className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 text-slate-600"
-        >
-          <option value="">All Time</option>
-          <option value="today">Today</option>
-          <option value="7d">Last 7 days</option>
-          <option value="30d">Last 30 days</option>
-        </select>
+        />
 
         {(search || statusFilter || dateFilter) && (
           <ClearFiltersButton onClick={clearFilters} />

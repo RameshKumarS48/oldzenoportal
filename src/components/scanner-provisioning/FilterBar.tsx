@@ -2,6 +2,7 @@
 
 import { Field, SelectField } from "@/components/ui/FilterControls";
 import { ChevronDown } from "lucide-react";
+import { DateRangeFilter } from "@/components/swap-transactions/DateRangeFilter";
 import {
   useScannerProvisioningStore,
   ACTION_TYPES,
@@ -98,20 +99,17 @@ export function FilterBar() {
             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
           </div>
         </Field>
-        <Field label="From Date">
-          <input
-            type="date"
-            value={filters.dateFrom}
-            onChange={(e) => setFilter("dateFrom", e.target.value)}
-            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-zeno-teal/20 focus:border-zeno-teal/40"
-          />
-        </Field>
-        <Field label="To Date">
-          <input
-            type="date"
-            value={filters.dateTo}
-            onChange={(e) => setFilter("dateTo", e.target.value)}
-            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-zeno-teal/20 focus:border-zeno-teal/40"
+        {/* The portal's shared time filter: All Time, presets, and "Custom range…" with a calendar. */}
+        <Field label="Date">
+          <DateRangeFilter
+            value={filters.datePreset}
+            range={filters.datePreset === "custom" && filters.dateFrom ? { from: filters.dateFrom, to: filters.dateTo || filters.dateFrom } : null}
+            onChange={(v, r) => {
+              setFilter("datePreset", v);
+              setFilter("dateFrom", r?.from ?? "");
+              setFilter("dateTo", r?.to ?? "");
+            }}
+            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-zeno-teal/20 focus:border-zeno-teal/40 cursor-pointer"
           />
         </Field>
       </div>

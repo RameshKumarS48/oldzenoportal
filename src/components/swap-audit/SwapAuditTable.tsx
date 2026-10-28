@@ -17,6 +17,7 @@ import {
 } from "@/lib/mock/swap-audit";
 import { VERDICT_META } from "./tokens";
 import { SessionDrawer } from "./SessionDrawer";
+import { DateRangeFilter, inEatRange, rangeLabel, type DayRange } from "@/components/swap-transactions/DateRangeFilter";
 import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
 import { FilterChip, FilterChips } from "@/components/ui/FilterChip";
 
@@ -65,6 +66,18 @@ const CONTROL =
 /** The one day the sample data covers. Every session is on it. */
 const AUDIT_DAY = "2026-10-06";
 
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** DateRangeFilter's preset labels, for the Date chip. */
+const DATE_LABELS: Record<string, string> = { today: "Today", "7d": "Last 7 days", "30d": "Last 30 days" };
+
+/** When a session started, as an ISO time (the sample sessions are all on AUDIT_DAY, EAT). */
+const sessionAt = (t: SwapTxn) => {
+  const hh = String(Math.floor(t.startMinute / 60)).padStart(2, "0");
+  const mm = String(t.startMinute % 60).padStart(2, "0");
+  return `${AUDIT_DAY}T${hh}:${mm}:00+03:00`;
+};
+
 /** "2026-08-24" → "24 Aug". */
 const fmtDay = (iso: string) =>
   new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
@@ -112,9 +125,13 @@ export function SwapAuditTable() {
   const params = useSearchParams();
   const [search, setSearch] = useState("");
   // Opened from a Tampering Alert: start filtered to that alert's station and day.
-  // The day has no control of its own; the empty state names it and Clear drops it.
   const [station, setStation] = useState(() => params.get("station") ?? "");
-  const [day, setDay] = useState(() => params.get("date") ?? "");
+  const [dateFilter, setDate] = useState(() => (DAY.test(params.get("date") ?? "") ? "custom" : ""));
+  const [dateRange, setDateRange] = useState<DayRange | null>(() => {
+    const d = params.get("date") ?? "";
+    return DAY.test(d) ? { from: d, to: d } : null;
+  });
+  const [now] = useState(() => Date.now());
   const [scenario, setScenario] = useState("");
   const [verdict, setVerdict] = useState<VerdictStatus | "">("");
   const [page, setPage] = useState(1);
@@ -123,14 +140,17 @@ export function SwapAuditTable() {
   // Everything but the verdict, so the dropdown can count each verdict within it.
   const beforeVerdict = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (day && day !== AUDIT_DAY) return [];
+    const days = ({ today: 1, "7d": 7, "30d": 30 } as Record<string, number>)[dateFilter];
     return SWAP_TXNS.filter((t) => {
+      const at = sessionAt(t);
+      if (days && new Date(at).getTime() < now - days * 86_400_000) return false;
+      if (dateFilter === "custom" && dateRange && !inEatRange(at, dateRange)) return false;
       if (q && !t.haystack.includes(q)) return false;
       if (station && t.station.id !== station) return false;
       if (scenario && t.sc.key !== scenario) return false;
       return true;
     });
-  }, [search, station, scenario, day]);
+  }, [search, station, scenario, dateFilter, dateRange, now]);
 
   const filtered = useMemo(
     () => (verdict ? beforeVerdict.filter((t) => t.verdict.status === verdict) : beforeVerdict),
@@ -241,10 +261,10 @@ export function SwapAuditTable() {
   const selectVerdict = (v: VerdictStatus | "") => { setVerdict(v); setPage(1); };
 
   const clearFilters = () => {
-    setSearch(""); setStation(""); setScenario(""); setVerdict(""); setDay(""); setPage(1);
+    setSearch(""); setStation(""); setScenario(""); setVerdict(""); setDate(""); setDateRange(null); setPage(1);
   };
 
-  const dirty = search || station || scenario || verdict || day;
+  const dirty = search || station || scenario || verdict || dateFilter;
 
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4">
@@ -290,6 +310,13 @@ export function SwapAuditTable() {
           ))}
         </select>
 
+        <DateRangeFilter
+          value={dateFilter}
+          range={dateRange}
+          onChange={(v, r) => { setDate(v); setDateRange(r); setPage(1); }}
+          className={CONTROL}
+        />
+
         {dirty && (
           <ClearFiltersButton onClick={clearFilters} />
         )}
@@ -310,7 +337,7 @@ export function SwapAuditTable() {
       </div>
 
       {/* The active filters as chips; × removes one. The search shows in its own box. */}
-      {(station || scenario || verdict || day) && (
+      {(station || scenario || verdict || dateFilter) && (
         <FilterChips>
           {station && (
             <FilterChip
@@ -336,8 +363,13 @@ export function SwapAuditTable() {
               onRemove={() => selectVerdict("")}
             />
           )}
-          {day && (
-            <FilterChip label="Date" value={fmtDay(day)} removeLabel="Remove Date filter" onRemove={() => { setDay(""); setPage(1); }} />
+          {dateFilter && (
+            <FilterChip
+              label="Date"
+              value={dateFilter === "custom" ? (dateRange ? rangeLabel(dateRange) : "Custom range") : DATE_LABELS[dateFilter] ?? dateFilter}
+              removeLabel="Remove Date filter"
+              onRemove={() => { setDate(""); setDateRange(null); setPage(1); }}
+            />
           )}
         </FilterChips>
       )}

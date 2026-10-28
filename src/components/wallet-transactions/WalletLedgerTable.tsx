@@ -17,6 +17,7 @@ import {
   type LedgerDirection,
 } from "@/store/wallet-transactions";
 import { cn } from "@/lib/utils";
+import { DateRangeFilter, inEatRange, type DayRange } from "@/components/swap-transactions/DateRangeFilter";
 
 // ── Formatting ────────────────────────────────────────────────────────────────
 
@@ -120,6 +121,7 @@ export function WalletLedgerTable() {
   const [dirFilter, setDir]         = useState<LedgerDirection | "">("");
   const [catFilter, setCat]         = useState<LedgerCategory | "">("");
   const [dateFilter, setDate]       = useState("");
+  const [dateRange, setDateRange]   = useState<DayRange | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [page, setPage]             = useState(1);
   const [perPage, setPerPage]       = useState(25);
@@ -141,6 +143,7 @@ export function WalletLedgerTable() {
       if (dirFilter && e.direction !== dirFilter) return false;
       if (catFilter && e.category !== catFilter) return false;
       if (cutoff && new Date(e.occurredAt).getTime() < cutoff) return false;
+      if (dateFilter === "custom" && dateRange && !inEatRange(e.occurredAt, dateRange)) return false;
       if (search) {
         const q = search.toLowerCase();
         const v = vehicleFor(e.customerId);
@@ -155,7 +158,7 @@ export function WalletLedgerTable() {
       }
       return true;
     });
-  }, [sorted, search, dirFilter, catFilter, dateFilter, now]);
+  }, [sorted, search, dirFilter, catFilter, dateFilter, dateRange, now]);
 
   const paginated = useMemo(() => {
     const start = (page - 1) * perPage;
@@ -169,7 +172,7 @@ export function WalletLedgerTable() {
   const netBalance    = totalCredited - totalDebited;
 
   const clearFilters = () => {
-    setSearch(""); setDir(""); setCat(""); setDate(""); setPage(1);
+    setSearch(""); setDir(""); setCat(""); setDate(""); setDateRange(null); setPage(1);
   };
 
   return (
@@ -212,16 +215,12 @@ export function WalletLedgerTable() {
           {CATEGORY_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
 
-        <select
+        <DateRangeFilter
           value={dateFilter}
-          onChange={(e) => { setDate(e.target.value); setPage(1); }}
+          range={dateRange}
+          onChange={(v, r) => { setDate(v); setDateRange(r); setPage(1); }}
           className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 text-slate-600"
-        >
-          <option value="">All Time</option>
-          <option value="today">Today</option>
-          <option value="7d">Last 7 days</option>
-          <option value="30d">Last 30 days</option>
-        </select>
+        />
 
         {(search || dirFilter || catFilter || dateFilter) && (
           <ClearFiltersButton onClick={clearFilters} />
