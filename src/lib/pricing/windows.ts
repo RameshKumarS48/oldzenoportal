@@ -100,6 +100,49 @@ export function windowBoundary(w: RateWindow): number {
   return parseHHmmss(w.end) + 1;
 }
 
+/** "16:00" from seconds past midnight: the day bars show hours and minutes only. */
+export function fmtHHmm(seconds: number): string {
+  return fmtHHmmss(seconds).slice(0, 5);
+}
+
+/** "07:00–15:59": a window's times on a day bar. */
+export function fmtRateWindowHHmm(w: Pick<RateWindow, "start" | "end">): string {
+  return `${w.start.slice(0, 5)}–${w.end.slice(0, 5)}`;
+}
+
+/** One stretch of the day and what it costs on each of two plans. */
+export interface RateCompareRow {
+  start: string;
+  end: string;
+  before: BaseRates | null;
+  after: BaseRates | null;
+}
+
+/**
+ * Two plans' rates side by side, for moving stations between them: the day
+ * cut at every window start on either side, each stretch with the rates it
+ * has before and after, and neighbours with the same pair merged. Earliest
+ * first; a stretch may wrap past midnight.
+ */
+export function compareWindows(before: RateWindow[], after: RateWindow[]): RateCompareRow[] {
+  const at = (ws: RateWindow[], second: number): BaseRates | null => {
+    const w = ws.find((x) => inRateWindow(second, x));
+    return w ? { slab1: w.slab1, slab2: w.slab2 } : null;
+  };
+  const cuts = [...new Set([...before, ...after].map((w) => parseHHmmss(w.start)))].sort((a, b) => a - b);
+  if (cuts.length === 0) return [];
+  const pieces = cuts.map((s, i) => ({ s, e: i + 1 < cuts.length ? cuts[i + 1] : cuts[0] + DAY_SECONDS }));
+  const out: { s: number; e: number; before: BaseRates | null; after: BaseRates | null }[] = [];
+  for (const p of pieces) {
+    const row = { ...p, before: at(before, p.s), after: at(after, p.s) };
+    const last = out.at(-1);
+    if (last && last.e === row.s && sameRates(last.before ?? undefined, row.before ?? undefined) && sameRates(last.after ?? undefined, row.after ?? undefined)) {
+      last.e = row.e;
+    } else out.push(row);
+  }
+  return out.map((r) => ({ start: fmtHHmmss(r.s), end: fmtHHmmss(r.e - 1), before: r.before, after: r.after }));
+}
+
 /** "07:00:00–15:59:59": the start and the inclusive end. */
 export function fmtRateWindow(w: Pick<RateWindow, "start" | "end">): string {
   return `${w.start}–${w.end}`;

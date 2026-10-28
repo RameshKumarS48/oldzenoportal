@@ -515,7 +515,7 @@ export function PlanForm({
           assign stations later from the plan&apos;s Stations tab.
         </p>
       </div>
-      <StationPicker targetPlanId={NEW_PLAN} selected={picked} onChange={setPicked} now={now} showRegions={false} />
+      <StationPicker targetPlanId={NEW_PLAN} selected={picked} onChange={setPicked} now={now} />
     </div>
   );
 
@@ -681,9 +681,8 @@ export function PlanForm({
             ) : (
               <>
                 <Button variant="secondary" onClick={() => setStep("rates")}>Back to rates</Button>
-                <Button variant="teal" onClick={review}>
-                  {moves.moves.length === 0 ? "Review without stations" : `Review · ${stationCount(moves.moves.length)}`}
-                </Button>
+                {/* Opens the confirmation, with or without stations; the count shows there. */}
+                <Button variant="teal" onClick={review}>Create plan</Button>
               </>
             )}
           </div>

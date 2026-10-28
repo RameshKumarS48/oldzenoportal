@@ -1,20 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check } from "lucide-react";
 import { SearchInput } from "@/components/ui/FilterControls";
 import { Pagination } from "@/components/ui/Pagination";
 import { cn } from "@/lib/utils";
-import { PRICING_REGIONS, PRICING_STATIONS } from "@/lib/mock/pricing-plans";
+import { PRICING_STATIONS } from "@/lib/mock/pricing-plans";
 import { resolvePlan } from "@/lib/pricing/engine";
 import { usePricingBook } from "./shared";
 
 /**
  * Pick stations to move onto a plan: search by code, short or long address
- * or region, tick them one by one or a whole region at once, and see which
+ * or region, tick them one by one or a page at a time, and see which
  * plan each is on now ("moves off" marks a station leaving another plan).
  * Stations already on the target can't be picked; with `hideAlreadyOnTarget`
- * they aren't listed at all. `showRegions` adds the whole-region chips.
+ * they aren't listed at all.
  * Search and paging never clear a selection they hide. `targetPlanId` is null
  * for Default, or an id the book doesn't have yet for a plan being created.
  */
@@ -23,14 +22,12 @@ export function StationPicker({
   selected,
   onChange,
   now,
-  showRegions = true,
   hideAlreadyOnTarget = false,
 }: {
   targetPlanId: string | null;
   selected: Set<string>;
   onChange: (next: Set<string>) => void;
   now: string;
-  showRegions?: boolean;
   hideAlreadyOnTarget?: boolean;
 }) {
   const book = usePricingBook();
@@ -107,35 +104,8 @@ export function StationPicker({
             placeholder="Search code, short or long address…"
           />
         </div>
-        {!showRegions && count}
-      </div>
-
-      {showRegions && (
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[11px] text-slate-500">Whole region:</span>
-        {PRICING_REGIONS.map((r) => {
-          const ids = pickable(rows.filter((s) => s.region === r.key));
-          const on = ids.length > 0 && ids.every((id) => selected.has(id));
-          return (
-            <button
-              key={r.key}
-              type="button"
-              onClick={() => flip(ids, !on)}
-              disabled={ids.length === 0}
-              aria-pressed={on}
-              className={cn(
-                "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors disabled:opacity-40",
-                on ? "bg-zeno-teal text-white border-zeno-teal" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-              )}
-            >
-              {on && <Check className="w-3 h-3" />}
-              {r.label} <span className={on ? "text-white/70" : "text-slate-400"}>{ids.length}</span>
-            </button>
-          );
-        })}
         {count}
       </div>
-      )}
 
       <div className="border border-slate-200 rounded-xl overflow-hidden">
         <div className="max-h-[42vh] overflow-auto">

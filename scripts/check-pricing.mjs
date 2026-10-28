@@ -18,7 +18,7 @@ register(
 );
 
 const { priceSwap, resolvePlan, slotFor, inWindow, planStatus, versionNumber } = await import("../src/lib/pricing/engine.ts");
-const { validateWindows, rateRows, rateWarnings, splitVersion } = await import("../src/lib/pricing/windows.ts");
+const { validateWindows, rateRows, rateWarnings, splitVersion, compareWindows } = await import("../src/lib/pricing/windows.ts");
 const rowsLib = await import("../src/lib/pricing/hour-rows.ts");
 const { summarizeMoves } = await import("../src/lib/pricing/moves.ts");
 const { stationHistory, stationNow } = await import("../src/lib/pricing/history.ts");
@@ -288,6 +288,14 @@ check("soft warnings: slab 2 above slab 1, far from Default, same as Default", (
   assert.ok(w2.items.some((i) => i.kind === "far_from_default" && /Default's 90 \/ 70|Default's 70 \/ 55/.test(i.title)));
   assert.equal(rateWarnings(DEFAULT_WINDOWS, DEFAULT_WINDOWS).matchesDefault, true);
   assert.equal(rateWarnings(DEFAULT_WINDOWS, null).matchesDefault, false); // editing Default itself
+});
+
+check("comparing two plans cuts the day at every start on either side and merges equal neighbours", () => {
+  const up = [win("06:00:00", "21:59:59", 80, 65, true), win("22:00:00", "05:59:59", 60, 50)];
+  const cbd = [win("06:00:00", "16:59:59", 100, 80, true), win("17:00:00", "21:59:59", 110, 90), win("22:00:00", "05:59:59", 70, 55)];
+  const rows = compareWindows(up, cbd).map((r) => `${r.start}-${r.end} ${r.before.slab1}/${r.before.slab2}>${r.after.slab1}/${r.after.slab2}`);
+  assert.deepEqual(rows, ["06:00:00-16:59:59 80/65>100/80", "17:00:00-21:59:59 80/65>110/90", "22:00:00-05:59:59 60/50>70/55"]);
+  assert.equal(compareWindows(up, up).length, 2);
 });
 
 // ── Moving stations (create with stations, assign, move to another plan) ──

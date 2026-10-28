@@ -103,7 +103,7 @@ function planMoves(
   if (planId && ids.length > 0) {
     logs.push({
       planId, by, at, effectiveFrom: at, kind: "stations_assigned",
-      summary: `Moved ${ids.length} station${ids.length === 1 ? "" : "s"} here: ${ids.join(", ")}`,
+      summary: `Moved ${ids.length} station${ids.length === 1 ? "" : "s"} here`,
     });
   }
   const leaving = new Map<string, string[]>();
@@ -111,7 +111,7 @@ function planMoves(
   leaving.forEach((moved, fromId) => {
     logs.push({
       planId: fromId, by, at, effectiveFrom: at, kind: "stations_unassigned",
-      summary: `${moved.join(", ")} moved to ${planName}`,
+      summary: `${moved.length} station${moved.length === 1 ? "" : "s"} moved to ${planName}`,
     });
   });
   return { rows, logs };
@@ -272,7 +272,8 @@ export const usePricingStore = create<PricingState>()(
       // 8: rest-of-day hours copied from Default can carry different rates.
       // 9: station moves record why they happened, for station history.
       // Anything saved before is reset to the seed.
-      version: 9,
+      // 10: history entries name how many stations moved, not which.
+      version: 10,
       partialize: (s) => ({ plans: s.plans, assignments: s.assignments, changes: s.changes }),
       migrate: () => ({ plans: SEED_PLANS, assignments: SEED_ASSIGNMENTS, changes: SEED_CHANGES }),
     }

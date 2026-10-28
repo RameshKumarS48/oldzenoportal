@@ -20,7 +20,7 @@ import { ALL_STATION_IDS, PRICING_STATIONS } from "@/lib/mock/pricing-plans";
 import { planStatus, sortedVersions, stationsOnPlan, versionAt, versionNumber } from "@/lib/pricing/engine";
 import { summarizeMoves } from "@/lib/pricing/moves";
 import { fmtEat } from "@/lib/pricing/format";
-import { splitVersion } from "@/lib/pricing/windows";
+import { compareWindows, fmtSlabs, splitVersion } from "@/lib/pricing/windows";
 import type { PricingPlan } from "@/lib/pricing/types";
 import { DayBandBar, versionBands } from "@/components/pricing-plans/DayBandBar";
 import { WindowRates } from "@/components/pricing-plans/WindowRates";
@@ -421,6 +421,8 @@ function MoveStationsModal({
     ? summarizeMoves(book, ids, target.isDefault ? null : target.id, ALL_STATION_IDS, now)
     : null;
   const count = `${ids.length} station${ids.length === 1 ? "" : "s"}`;
+  const ratesOf = (p: PricingPlan) => (versionAt(p, now) ?? sortedVersions(p)[0]).windows;
+  const compare = target ? compareWindows(ratesOf(from), ratesOf(target)) : [];
 
   function handleConfirm() {
     if (!target) return;
@@ -447,6 +449,36 @@ function MoveStationsModal({
       <div className="mt-1">
         <PlanCombobox id="move-target" plans={targets} value={targetId} onChange={setTargetId} />
       </div>
+      {target && (
+        <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
+          <table className="w-full text-xs tabular-nums">
+            <thead className="bg-slate-50">
+              <tr className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <th className="px-3 py-2">Time (EAT)</th>
+                <th className="px-3 py-2 text-right">Now</th>
+                <th className="px-3 py-2 text-right">After</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {compare.map((r) => {
+                const changed = r.before?.slab1 !== r.after?.slab1 || r.before?.slab2 !== r.after?.slab2;
+                return (
+                  <tr key={r.start}>
+                    <td className="px-3 py-1.5 text-slate-500 whitespace-nowrap">{r.start}–{r.end}</td>
+                    <td className="px-3 py-1.5 text-right text-slate-500 whitespace-nowrap">{r.before ? fmtSlabs(r.before) : "–"}</td>
+                    <td className={cn("px-3 py-1.5 text-right whitespace-nowrap", changed ? "font-semibold text-slate-800" : "text-slate-500")}>
+                      {r.after ? fmtSlabs(r.after) : "–"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <p className="border-t border-slate-100 bg-slate-50 px-3 py-1.5 text-[11px] text-slate-500">
+            KES per kWh, slab 1 / slab 2. Now: {from.name}. After: {target.name}.
+          </p>
+        </div>
+      )}
       {summary && (
         <div className="mt-3">
           Their new rates apply to swaps from now. Swaps in progress keep the plan they started on.

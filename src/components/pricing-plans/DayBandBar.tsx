@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 import {
   DAY_SECONDS,
   eatSecondOfDay,
-  fmtHHmmss,
-  fmtRateWindow,
+  fmtHHmm,
+  fmtRateWindowHHmm,
   parseHHmmss,
   windowBoundary,
   type SplitVersion,
@@ -59,13 +59,13 @@ export function versionBands({ baseWindows, custom }: Pick<SplitVersion, "baseWi
   ];
 }
 
-/** Rough width of a boundary label ("16:00:00") at 10px, with breathing room. */
-const LABEL_PX = 52;
-/** Rough half-width of the "Now · 14:05:00" label, to keep it inside the bar. */
-const NOW_HALF_PX = 42;
+/** Rough width of a boundary label ("16:00") at 10px, with breathing room. */
+const LABEL_PX = 32;
+/** Rough half-width of the "Now · 14:05" label, to keep it inside the bar. */
+const NOW_HALF_PX = 32;
 
-/** A boundary as its label: a start, "16:00:00", or the day's inclusive end, "23:59:59". */
-const boundaryLabel = (at: number) => fmtHHmmss(at >= DAY_SECONDS ? DAY_SECONDS - 1 : at);
+/** A boundary as its label, hours and minutes only: a start, "16:00", or the day's inclusive end, "23:59". */
+const boundaryLabel = (at: number) => fmtHHmm(at >= DAY_SECONDS ? DAY_SECONDS - 1 : at);
 
 const rate = (n: number) => (Number.isFinite(n) ? String(n) : "–");
 
@@ -79,7 +79,8 @@ const rate = (n: number) => (Number.isFinite(n) ? String(n) : "–");
  * Hovering or focusing a band shows its rates ("Slab 1 KES 110 · Slab 2 KES
  * 90 per kWh") and reports its id through `onHighlight`;
  * `highlighted` (an id) outlines it. `now` marks the current EAT time, with
- * "Now · 14:05:00" above the marker. `compact` is for a table cell: a thinner
+ * "Now · 14:05" above the marker. Times on the bar are HH:mm; the day
+ * always reads 00:00 to 23:59. `compact` is for a table cell: a thinner
  * bar and the marker without its label.
  */
 export function DayBandBar({
@@ -127,7 +128,10 @@ export function DayBandBar({
 
   function show(item: BandItem, el: HTMLElement) {
     const r = el.getBoundingClientRect();
-    setTip({ text: tipText(item), color: item.color, x: r.left + r.width / 2, y: r.top });
+    // A start the axis had no room to label goes in the tooltip, so the times are never lost.
+    const unlabelled = !labels.some((l) => l.at === parseHHmmss(item.window.start));
+    const text = unlabelled ? `${fmtRateWindowHHmm(item.window)} · ${tipText(item)}` : tipText(item);
+    setTip({ text, color: item.color, x: r.left + r.width / 2, y: r.top });
     onHighlight?.(item.id);
   }
 
@@ -145,7 +149,7 @@ export function DayBandBar({
               className="absolute top-0 -translate-x-1/2 whitespace-nowrap"
               style={{ left: Math.min(Math.max(marker * width, NOW_HALF_PX), width - NOW_HALF_PX) }}
             >
-              Now · {fmtHHmmss(eatSecondOfDay(now!))}
+              Now · {fmtHHmm(eatSecondOfDay(now!))}
             </span>
           )}
         </div>
@@ -223,22 +227,17 @@ function tipText({ window: w }: BandItem): string {
 
 /** For screen readers, which can't see the axis: the times as well as the rates. */
 function ariaText(item: BandItem): string {
-  return `${fmtRateWindow(item.window)}: ${tipText(item)}`;
+  return `${fmtRateWindowHHmm(item.window)}: ${tipText(item)}`;
 }
 
 /**
- * The boundary labels that fit at `width` px. Candidates are every window
- * start plus the day's ends (00:00:00, 23:59:59); a start at midnight makes both
- * ends real boundaries. Real boundaries are placed first, then the ends,
- * earliest first within each, skipping any that would overlap one already placed.
+ * The boundary labels that fit at `width` px. The day's ends, 00:00 and
+ * 23:59, are always shown; then every window start, earliest first, skipping
+ * any that would overlap a label already placed.
  */
 function boundaryLabels(starts: number[], width: number): { at: number }[] {
   if (width <= 0) return [];
-  const real = new Set(starts.map((s) => s % DAY_SECONDS));
-  if (real.has(0)) real.add(DAY_SECONDS);
-  const candidates = [...new Set([0, DAY_SECONDS, ...real])]
-    .map((at) => ({ at, real: real.has(at) }))
-    .sort((x, y) => Number(y.real) - Number(x.real) || x.at - y.at);
+  const real = [...new Set(starts.map((s) => s % DAY_SECONDS))].filter((s) => s !== 0).sort((a, b) => a - b);
 
   // Each label's span in px: the ends sit flush with the bar's edges, the rest are centred.
   const span = (at: number): [number, number] => {
@@ -247,10 +246,10 @@ function boundaryLabels(starts: number[], width: number): { at: number }[] {
     if (at === DAY_SECONDS) return [width - LABEL_PX, width];
     return [x - LABEL_PX / 2, x + LABEL_PX / 2];
   };
-  const placed: { at: number; s: [number, number] }[] = [];
-  for (const c of candidates) {
-    const s = span(c.at);
-    if (placed.every((p) => s[1] <= p.s[0] || s[0] >= p.s[1])) placed.push({ at: c.at, s });
+  const placed: { at: number; s: [number, number] }[] = [0, DAY_SECONDS].map((at) => ({ at, s: span(at) }));
+  for (const at of real) {
+    const s = span(at);
+    if (placed.every((p) => s[1] <= p.s[0] || s[0] >= p.s[1])) placed.push({ at, s });
   }
   return placed.map(({ at }) => ({ at })).sort((x, y) => x.at - y.at);
 }

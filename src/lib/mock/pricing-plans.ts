@@ -243,7 +243,7 @@ export const SEED_CHANGES: PlanChange[] = [
   { id: "pc-02", planId: "pp-nbo-cbd", at: "2026-08-25T11:20:00+03:00", by: WILLIE, kind: "created",
     summary: `Created plan: ${versionSummary({ windows: CBD_WINDOWS })}`, effectiveFrom: "2026-09-01T00:00:00+03:00" },
   { id: "pc-03", planId: "pp-nbo-cbd", at: "2026-08-25T11:24:00+03:00", by: WILLIE, kind: "stations_assigned",
-    summary: `Moved 5 stations here: ${CBD.join(", ")}`, effectiveFrom: "2026-09-01T00:00:00+03:00" },
+    summary: `Moved ${CBD.length} stations here`, effectiveFrom: "2026-09-01T00:00:00+03:00" },
 
   { id: "pc-05", planId: "pp-upcountry", at: "2026-09-08T14:00:00+03:00", by: VIJAY, kind: "created",
     summary: `Created plan: ${versionSummary({ windows: UPCOUNTRY_WINDOWS })}`, effectiveFrom: "2026-09-15T00:00:00+03:00" },
@@ -253,7 +253,7 @@ export const SEED_CHANGES: PlanChange[] = [
   { id: "pc-07", planId: "pp-night-rider", at: "2026-09-05T16:45:00+03:00", by: RAMESH, kind: "created",
     summary: `Created plan: ${versionSummary({ windows: NIGHT_RIDER_WINDOWS })}`, effectiveFrom: "2026-09-10T00:00:00+03:00" },
   { id: "pc-08", planId: "pp-night-rider", at: "2026-09-05T16:50:00+03:00", by: RAMESH, kind: "stations_assigned",
-    summary: `Moved 3 stations here: ${NIGHT_RIDER.join(", ")}`, effectiveFrom: "2026-09-10T00:00:00+03:00" },
+    summary: `Moved ${NIGHT_RIDER.length} stations here`, effectiveFrom: "2026-09-10T00:00:00+03:00" },
 
   { id: "pc-09", planId: "pp-nov-revision", at: "2026-10-21T15:30:00+03:00", by: WILLIE, kind: "created",
     summary: `Created plan: ${versionSummary({ windows: NOV_REVISION_WINDOWS })}`, effectiveFrom: "2026-10-21T15:30:00+03:00" },
