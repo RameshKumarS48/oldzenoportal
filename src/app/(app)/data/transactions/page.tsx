@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 import { AddToDashboardModal } from "@/components/widgets/AddToDashboardModal";
 import { Pagination } from "@/components/ui/Pagination";
 import { TimeRangePicker, type TimeRange } from "@/components/ui/TimeRangePicker";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
+import { FilterChip, FilterChips } from "@/components/ui/FilterChip";
 
 const TYPE_META: Record<TransactionType, { label: string; badge: string; color: string }> = {
   swap:           { label: "Swap",           badge: "bg-[#003B49]/10 text-[#003B49]",  color: "#003B49" },
@@ -139,6 +141,12 @@ export default function TransactionsPage() {
     { title: "Failed Transactions", snapshotValue: failed, snapshotLabel: "payment failures", snapshotSource: "Transactions" },
   ];
 
+  const filterDefs = [
+    ["Type",    typeFilter,   setTypeFilter,   [["","All Types"],   ["swap","Swap"],["fast_charge","Fast Charge"],["payment","Payment"],["referral_bonus","Referral Bonus"],["penalty","Penalty"]]],
+    ["Status",  statusFilter, setStatusFilter, [["","All Status"],  ["completed","Completed"],["pending","Pending"],["failed","Failed"],["reversed","Reversed"]]],
+    ["Method",  methodFilter, setMethodFilter, [["","All Methods"], ["mpesa","M-Pesa"],["cash","Cash"],["wallet","Wallet"],["bank_transfer","Bank Transfer"]]],
+  ] as [string, string, (v: string) => void, [string, string][]][];
+
   return (
     <>
       <Topbar
@@ -229,11 +237,7 @@ export default function TransactionsPage() {
                 className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 focus:border-[#003B49] w-52"
               />
             </div>
-            {([
-              ["Type",    typeFilter,   setTypeFilter,   [["","All Types"],   ["swap","Swap"],["fast_charge","Fast Charge"],["payment","Payment"],["referral_bonus","Referral Bonus"],["penalty","Penalty"]]],
-              ["Status",  statusFilter, setStatusFilter, [["","All Status"],  ["completed","Completed"],["pending","Pending"],["failed","Failed"],["reversed","Reversed"]]],
-              ["Method",  methodFilter, setMethodFilter, [["","All Methods"], ["mpesa","M-Pesa"],["cash","Cash"],["wallet","Wallet"],["bank_transfer","Bank Transfer"]]],
-            ] as [string, string, (v: string) => void, [string, string][]][]).map(([label, val, setter, opts]) => (
+            {filterDefs.map(([label, val, setter, opts]) => (
               <select key={label} value={val} onChange={e => { setter(e.target.value); setPage(1); }}
                 className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 text-slate-600"
               >
@@ -241,10 +245,26 @@ export default function TransactionsPage() {
               </select>
             ))}
             {(typeFilter || statusFilter || methodFilter || search) && (
-              <button onClick={() => { setTypeFilter(""); setStatusFilter(""); setMethodFilter(""); setSearch(""); setPage(1); }}
-                className="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+              <ClearFiltersButton onClick={() => { setTypeFilter(""); setStatusFilter(""); setMethodFilter(""); setSearch(""); setPage(1); }} />
             )}
           </div>
+
+          {/* The active filters as chips; × removes one. The search shows in its own box. */}
+          {filterDefs.some(([, val]) => val) && (
+            <div className="px-4 py-2 border-b border-slate-100">
+              <FilterChips>
+                {filterDefs.filter(([, val]) => val).map(([label, val, setter, opts]) => (
+                  <FilterChip
+                    key={label}
+                    label={label}
+                    value={opts.find(([v]) => v === val)?.[1] ?? val}
+                    removeLabel={`Remove ${label} filter`}
+                    onRemove={() => { setter(""); setPage(1); }}
+                  />
+                ))}
+              </FilterChips>
+            </div>
+          )}
 
           {/* Table */}
           <div className="overflow-x-auto">

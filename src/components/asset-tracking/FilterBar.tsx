@@ -4,12 +4,12 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { Columns3, Download, Search, SlidersHorizontal, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAssetTrackingStore } from "@/store/asset-tracking";
-import { Button } from "@/components/ui/button";
 import { FILTERS, isActive, valueLabel, type FilterId } from "./filter-defs";
 import { FiltersPopover } from "./FiltersPopover";
 import { ColumnPicker } from "./ColumnPicker";
 import type { DismissReason } from "./ToolbarPopover";
 import { DEFAULT_COLUMNS, type ColumnId } from "./vehicle-columns";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
 
 /** The tinted selected style used elsewhere (selected rows, tags), with its dark-mode pair. */
 const TINT = "bg-zeno-teal/10 text-zeno-teal dark:bg-(--sidebar-text)/10 dark:text-(--sidebar-text)";
@@ -30,8 +30,6 @@ const TOOL =
 /** Count badge on Filters and Columns, in the sidebar's dark navy. In the bar it's pulled in (-my-0.5) so the button stays 30px. */
 const BADGE = "inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-zeno-teal text-white text-[10px] font-semibold tabular-nums";
 const RING = "focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40";
-/** Text actions (Clear filters): the app's link style, teal, so they don't read as disabled. */
-const CLEAR = cn("inline-flex items-center gap-1 text-xs font-medium text-zeno-teal hover:underline dark:text-(--sidebar-text) rounded", RING);
 /** Row 2 holds at most this many lines; the rest go behind "+N more". */
 const MAX_LINES = 2;
 const GAP = 8; // gap-2
@@ -39,7 +37,7 @@ const GAP = 8; // gap-2
 type Panel = { kind: "filters"; focusId: FilterId | null } | { kind: "columns" } | null;
 
 /**
- * Asset Tracking's toolbar. Row 1: search, Columns (List view), Filters, Export.
+ * Asset Tracking's toolbar. Row 1: search, Columns (List view), Filters, Export XLSX.
  * Row 2, only while something is active: a chip per filter in FILTERS order,
  * "+N more" past two lines, and Clear filters. Chips open the Filters popover
  * at their filter; their × and Clear filters apply at once. Both popovers wait
@@ -192,11 +190,14 @@ export function FilterBar({
           {active.length > 0 && <span className={cn(BADGE, "-my-0.5")}>{active.length}</span>}
         </button>
 
-        {/* The small primary Button, with a border in its own colour so it's the bar's 30px. */}
-        <Button variant="primary" size="sm" onClick={onExport} className="ml-auto shrink-0 border border-zeno-red hover:border-zeno-red-hover">
-          <Download className="w-3.5 h-3.5" />
-          Export
-        </Button>
+        {/* Swap Audit's Export CSV button (SwapAuditTable.tsx), teal; this one writes XLSX. */}
+        <button
+          type="button"
+          onClick={onExport}
+          className="ml-auto shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#003B49] text-white hover:bg-[#00505f] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003B49]/40 focus-visible:ring-offset-1"
+        >
+          <Download className="w-3.5 h-3.5" /> Export XLSX
+        </button>
       </div>
 
       {/* Row 2 */}
@@ -224,10 +225,7 @@ export function FilterBar({
               +{hiddenCount} more
             </button>
           )}
-          <button onClick={clearAll} className={CLEAR}>
-            <X className="w-3.5 h-3.5" />
-            Clear filters
-          </button>
+          <ClearFiltersButton onClick={clearAll} />
 
           {/* Invisible copies, for measuring only: every chip, then "+N more", then Clear filters. */}
           <div ref={measureRef} aria-hidden inert className="absolute left-0 top-0 invisible flex w-max items-center gap-2 pointer-events-none">

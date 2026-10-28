@@ -11,6 +11,23 @@ import { toast } from "@/store/toast";
 import { ConnectivityBadge, ImmobilizationBadge } from "@/components/ui/StatusIndicator";
 import { useAccess } from "@/lib/access";
 
+/**
+ * "01 Sep 2026 13:06" stacked as on Battery Tracking's detail page: the date,
+ * then the time below in muted text, with the full value on hover. Text
+ * without a time shows as it is.
+ */
+function DateTime({ text }: { text: string }) {
+  if (!text) return <span className="text-slate-300">–</span>;
+  const date = text.slice(0, 11);
+  const time = text.slice(12);
+  return (
+    <time title={time ? `${date}, ${time}` : date} className="block tabular-nums">
+      <span className="block">{date}</span>
+      {time && <span className="block text-xs text-slate-400">{time}</span>}
+    </time>
+  );
+}
+
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex justify-between items-start py-2.5 border-b border-slate-100 last:border-0">
@@ -121,24 +138,26 @@ export default function VehicleDetailPage() {
             <InfoRow label="Plate">{vehicle.plate}</InfoRow>
             <InfoRow label="IMEI">{vehicle.imei}</InfoRow>
             <InfoRow label="Connectivity"><ConnectivityBadge value={vehicle.connectivity} /></InfoRow>
-            <InfoRow label="Last Connected"><span className="text-xs">{vehicle.lastConnected}</span></InfoRow>
-            <InfoRow label="Last Location Time"><span className="text-xs">{vehicle.lastLocationTime}</span></InfoRow>
-            <InfoRow label="Lat">{vehicle.lat}</InfoRow>
-            <InfoRow label="Long">{vehicle.long}</InfoRow>
+            <InfoRow label="Last Connected"><DateTime text={vehicle.lastConnected} /></InfoRow>
+            <InfoRow label="Last Location Time"><DateTime text={vehicle.lastLocationTime} /></InfoRow>
+            <InfoRow label="Latitude">{vehicle.lat}</InfoRow>
+            <InfoRow label="Longitude">{vehicle.long}</InfoRow>
             <InfoRow label="VCU">{vehicle.vcuFirmware}</InfoRow>
             <InfoRow label="ZeConnect">{vehicle.zeConnectFirmware}</InfoRow>
             <InfoRow label="EVCC">{vehicle.evccFirmware}</InfoRow>
-            <div className="pt-3 pb-2">
-              <a
-                href={`https://maps.google.com/?q=${vehicle.lat},${vehicle.long}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm text-zeno-teal font-medium hover:underline"
-              >
-                Show on Google Map
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
+          </div>
+          {/* Battery Tracking detail's card action: a full-width small outline button in the card's footer. */}
+          <div className="flex flex-col gap-2 px-5 py-4 border-t border-slate-100">
+            <a
+              href={`https://maps.google.com/?q=${vehicle.lat},${vehicle.long}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open in Google Maps (new tab)"
+              className="flex w-full items-center justify-between gap-2 rounded-lg font-medium transition-colors whitespace-nowrap border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-1.5 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40 focus-visible:ring-offset-2"
+            >
+              <span className="truncate">Open in Google Maps</span>
+              <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden />
+            </a>
           </div>
         </div>
 

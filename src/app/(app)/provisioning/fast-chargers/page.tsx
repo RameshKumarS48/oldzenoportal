@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { cn } from "@/lib/utils";
 import { AddToDashboardModal } from "@/components/widgets/AddToDashboardModal";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
+import { FilterChip, FilterChips } from "@/components/ui/FilterChip";
 
 // ── Mock Provisioning Records ────────────────────────────────────────────────
 
@@ -362,10 +364,22 @@ export default function ProvisionFastChargerPage() {
             ))}
           </select>
           {(search || statusFilter) && (
-            <button onClick={() => { setSearch(""); setStatusFilter(""); }} className="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+            <ClearFiltersButton onClick={() => { setSearch(""); setStatusFilter(""); }} />
           )}
           <span className="ml-auto text-xs text-slate-400">{filtered.length} chargers</span>
         </div>
+
+        {/* The active filters as chips; × removes one. The search shows in its own box. */}
+        {statusFilter && (
+          <FilterChips>
+            <FilterChip
+              label="Status"
+              value={STATUS_META[statusFilter as keyof typeof STATUS_META]?.label ?? statusFilter}
+              removeLabel="Remove Status filter"
+              onRemove={() => setStatusFilter("")}
+            />
+          </FilterChips>
+        )}
 
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">

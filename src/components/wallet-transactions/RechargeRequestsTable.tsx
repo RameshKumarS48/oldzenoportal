@@ -2,6 +2,7 @@
 
 import { Fragment, useMemo, useState } from "react";
 import { Search, Download, ChevronDown, ChevronUp, PackageOpen, RotateCw } from "lucide-react";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { toast } from "@/store/toast";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
@@ -219,7 +220,7 @@ export function RechargeRequestsTable() {
         </select>
 
         {(search || statusFilter || dateFilter) && (
-          <button onClick={clearFilters} className="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+          <ClearFiltersButton onClick={clearFilters} />
         )}
 
         <button

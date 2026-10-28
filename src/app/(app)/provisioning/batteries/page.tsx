@@ -11,6 +11,8 @@ import type { Battery, BatteryStatus } from "@/store/batteries";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { cn } from "@/lib/utils";
 import { AddToDashboardModal } from "@/components/widgets/AddToDashboardModal";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
+import { FilterChip, FilterChips } from "@/components/ui/FilterChip";
 
 // Bring-up checklist step counts by status
 const STEPS_BY_STATUS: Record<BatteryStatus, number> = {
@@ -404,10 +406,32 @@ export default function ProvisionBatteryPage() {
             <option value="Ruaraka">Ruaraka</option>
           </select>
           {(search || statusFilter || warehouseFilter) && (
-            <button onClick={() => { setSearch(""); setStatusFilter(""); setWarehouseFilter(""); }} className="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+            <ClearFiltersButton onClick={() => { setSearch(""); setStatusFilter(""); setWarehouseFilter(""); }} />
           )}
           <span className="ml-auto text-xs text-slate-400">{filtered.length} records</span>
         </div>
+
+        {/* The active filters as chips; × removes one. The search shows in its own box. */}
+        {(statusFilter || warehouseFilter) && (
+          <FilterChips>
+            {statusFilter && (
+              <FilterChip
+                label="Status"
+                value={STATUS_META[statusFilter].label}
+                removeLabel="Remove Status filter"
+                onRemove={() => setStatusFilter("")}
+              />
+            )}
+            {warehouseFilter && (
+              <FilterChip
+                label="Warehouse"
+                value={warehouseFilter}
+                removeLabel="Remove Warehouse filter"
+                onRemove={() => setWarehouseFilter("")}
+              />
+            )}
+          </FilterChips>
+        )}
 
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
