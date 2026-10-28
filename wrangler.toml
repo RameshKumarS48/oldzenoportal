@@ -10,3 +10,14 @@ routes = [
 [assets]
 directory = ".open-next/assets"
 binding = "ASSETS"
+
+# Staging: a separate worker on workers.dev, never the custom domain.
+# Deploy with `pnpm cf:deploy:staging`.
+[env.staging]
+name = "dome-staging"
+routes = []
+workers_dev = true
+
+[env.staging.assets]
+directory = ".open-next/assets"
+binding = "ASSETS"

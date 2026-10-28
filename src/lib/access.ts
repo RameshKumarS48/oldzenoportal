@@ -3,13 +3,13 @@
 /**
  * Dome's access model, the single source of truth for who can see and do what.
  *
- * Five roles, five modules. A role holds a flat list of permission grants where
+ * Five roles, six modules. A role holds a flat list of permission grants where
  * `_ro` (read) and `_rw` (write) are *separate* grants: a read-write role holds
  * both. Grants are fixed per role and are not editable per user.
  *
- * The four data modules cover dome's data tabs and `user_management` the last
- * one, so nav gating, route guards and the invite dialog's permission summary
- * all read from this one table. A module may gate more than one tab: Swap Audit
+ * The data modules cover dome's data tabs, `pricing` the Swap Station Pricing tab and
+ * `user_management` the last one, so nav gating, route guards and the invite
+ * dialog's permission summary all read from this one table. A module may gate more than one tab: Swap Audit
  * and Swap Transactions are two views of the same data and share `swap_info`.
  */
 
@@ -21,6 +21,7 @@ export const ACCESS_MODULES = [
   "scanner",
   "swap_info",
   "wallet_info",
+  "pricing",
   "user_management",
 ] as const;
 
@@ -46,6 +47,7 @@ export const ROLES: RoleDefinition[] = [
       "scanner_ro", "scanner_rw",
       "swap_info_ro", "swap_info_rw",
       "wallet_info_ro", "wallet_info_rw",
+      "pricing_ro", "pricing_rw",
       "user_management_ro", "user_management_rw",
     ],
   },
@@ -57,22 +59,23 @@ export const ROLES: RoleDefinition[] = [
       "scanner_ro", "scanner_rw",
       "swap_info_ro", "swap_info_rw",
       "wallet_info_ro", "wallet_info_rw",
+      "pricing_ro", "pricing_rw",
     ],
   },
   {
     id: 3,
     name: "Internal Viewer",
-    permissions: ["vehicle_ro", "scanner_ro", "swap_info_ro", "wallet_info_ro"],
+    permissions: ["vehicle_ro", "scanner_ro", "swap_info_ro", "wallet_info_ro", "pricing_ro"],
   },
   {
     id: 4,
     name: "External Admin",
-    permissions: ["vehicle_ro", "vehicle_rw", "scanner_ro", "scanner_rw"],
+    permissions: ["vehicle_ro", "vehicle_rw", "scanner_ro", "scanner_rw", "pricing_ro"],
   },
   {
     id: 5,
     name: "External Viewer",
-    permissions: ["vehicle_ro", "scanner_ro"],
+    permissions: ["vehicle_ro", "scanner_ro", "pricing_ro"],
   },
 ];
 
@@ -95,6 +98,7 @@ export const MODULE_LABELS: Record<AccessModule, string> = {
   scanner:         "Scanner",
   swap_info:       "Swap Info",
   wallet_info:     "Wallet Info",
+  pricing:         "Swap Station Pricing",
   user_management: "User Management",
 };
 
@@ -155,7 +159,7 @@ export function canWrite(role: UserRole | string | undefined, module: AccessModu
 /**
  * Dome's tabs, in sidebar order, each tied to the module that gates it. More
  * routes than modules: Swap Audit is a second view of swap data and rides on
- * `swap_info` rather than splitting the five-module model.
+ * `swap_info` rather than getting a module of its own.
  */
 export const ROUTE_MODULES: { prefix: string; module: AccessModule }[] = [
   { prefix: "/asset-tracking",       module: "vehicle" },
@@ -164,6 +168,7 @@ export const ROUTE_MODULES: { prefix: string; module: AccessModule }[] = [
   { prefix: "/swap-transactions",    module: "swap_info" },
   { prefix: "/swap-audit",           module: "swap_info" },
   { prefix: "/wallet-transactions",  module: "wallet_info" },
+  { prefix: "/swap-station-pricing", module: "pricing" },
   { prefix: "/users",                module: "user_management" },
 ];
 

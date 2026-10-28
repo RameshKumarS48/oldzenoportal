@@ -20,6 +20,11 @@ import { cn } from "@/lib/utils";
 import { DateRangeFilter, inEatRange, rangeLabel, type DayRange } from "./DateRangeFilter";
 import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
 import { FilterChip, FilterChips } from "@/components/ui/FilterChip";
+import { usePricingBook, SlotBadge } from "@/components/pricing-plans/shared";
+import { priceSwapRecords, billingStation } from "@/lib/pricing/swap";
+import { SLAB1_DAILY_KWH, type SwapPrice } from "@/lib/pricing/engine";
+import { EVENT_LABELS, SLOT_LABELS, fmtEatTime, fmtKes } from "@/lib/pricing/format";
+import { fmtRateWindow, fmtSlabs } from "@/lib/pricing/windows";
 
 // ── Formatting ────────────────────────────────────────────────────────────────
 
@@ -42,21 +47,31 @@ function totalBilledKWh(r: SwapRecord) {
 
 // ── CSV export (mirrors data/transactions pattern) ───────────────────────────
 
-function exportCSV(records: SwapRecord[]) {
+function exportCSV(records: SwapRecord[], prices: Map<string, SwapPrice>) {
   const headers = [
     "SwapTxnID", "OccurredAt", "Customer", "Phone", "Type",
     "TotalKWh", "TotalPoints", "BilledKWh",
     "Bins", "DispenseStation", "CollectStation",
     "RfidMismatch", "Skipped", "Flagged", "ManualIgnore", "Status", "ErrorNote",
+    "BillingStation", "PricingPlan", "RateType", "Window",
+    "Slab1KESPerKWh", "Slab2KESPerKWh", "Slab1KWh", "Slab2KWh", "AmountKES",
+    "RfidTapAt", "DepositAt", "CollectionAt", "CompletedAt",
   ];
-  const rows = records.map((r) => [
-    r.id, r.occurredAt, r.customerName, r.phone, r.type,
-    r.totalKWh, r.totalPoints, totalBilledKWh(r).toFixed(6),
-    r.batteries.map((b) => b.bin).join(" | "),
-    r.dispenseStationId, r.collectStationId,
-    hasRfidMismatch(r), r.skipped, r.flagged, r.manualIgnore,
-    SWAP_STATUS_META[swapStatus(r)].label, r.errorNote ?? "",
-  ]);
+  const rows = records.map((r) => {
+    const p = prices.get(r.id)!;
+    const at = (e: string) => p.events.find((x) => x.event === e)?.at ?? "";
+    return [
+      r.id, r.occurredAt, r.customerName, r.phone, r.type,
+      r.totalKWh, r.totalPoints, totalBilledKWh(r).toFixed(6),
+      r.batteries.map((b) => b.bin).join(" | "),
+      r.dispenseStationId, r.collectStationId,
+      hasRfidMismatch(r), r.skipped, r.flagged, r.manualIgnore,
+      SWAP_STATUS_META[swapStatus(r)].label, r.errorNote ?? "",
+      billingStation(r), p.planName, SLOT_LABELS[p.slot], fmtRateWindow(p.window),
+      p.window.slab1, p.window.slab2, p.slab1KWh.toFixed(3), p.slab2KWh.toFixed(3), p.amount.toFixed(2),
+      at("rfid_tap"), at("deposit"), at("collection"), at("completed"),
+    ];
+  });
   const csv = [headers, ...rows].map((row) => row.map((v) => `"${v}"`).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
@@ -78,9 +93,69 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
   );
 }
 
-function RecordDetail({ record }: { record: SwapRecord }) {
+/**
+ * The swap's four station events and the plan and window each one reads.
+ * Only the completed row is billed: its plan was locked at the RFID tap and
+ * its window comes from the completion time.
+ */
+/** "1.000 kWh × 110 + 1.100 kWh × 90 = KES 209.00", leaving out an empty slab. */
+function billedBreakdown(p: SwapPrice): string {
+  const parts = [
+    ...(p.slab1KWh > 0 || p.slab2KWh === 0 ? [`${p.slab1KWh.toFixed(3)} kWh × ${p.window.slab1}`] : []),
+    ...(p.slab2KWh > 0 ? [`${p.slab2KWh.toFixed(3)} kWh × ${p.window.slab2}`] : []),
+  ];
+  return `${parts.join(" + ")} = ${fmtKes(p.amount, 2)}`;
+}
+
+function PricingTimeline({ record, price }: { record: SwapRecord; price: SwapPrice }) {
+  const lockedChanged = price.events.some((e) => !e.charged && e.planId !== price.planId);
+  return (
+    <div>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+        Pricing · {billingStation(record)}
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[11px] min-w-[640px]">
+          <thead>
+            <tr className="text-left text-slate-400">
+              {["Event", "Time (EAT)", "Plan", "Window", "Slab 1 / 2 (KES/kWh)", ""].map((h) => (
+                <th key={h} className="pb-1.5 pr-4 font-semibold whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200">
+            {price.events.map((e) => (
+              <tr key={e.event} className={cn(e.charged && "bg-teal-50/70 font-semibold")}>
+                <td className="py-1.5 pr-4 text-slate-700 whitespace-nowrap">{EVENT_LABELS[e.event]}</td>
+                <td className="py-1.5 pr-4 text-slate-600 tabular-nums whitespace-nowrap">{fmtEatTime(e.at)}</td>
+                <td className="py-1.5 pr-4 text-slate-700 whitespace-nowrap">{e.planName}</td>
+                <td className="py-1.5 pr-4 whitespace-nowrap">
+                  <SlotBadge slot={e.slot} />
+                  <span className="ml-1.5 text-slate-500 tabular-nums">{fmtRateWindow(e.window)}</span>
+                </td>
+                <td className="py-1.5 pr-4 text-slate-700 tabular-nums whitespace-nowrap">{fmtSlabs(e.window)}</td>
+                <td className="py-1.5 pr-4 text-slate-700 whitespace-nowrap">
+                  {e.charged ? `Billed: ${billedBreakdown(price)}` : ""}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[11px] text-slate-400 mt-1.5">
+        Plan locked at the RFID tap; window set by completion time. Slab 1 covers the rider&apos;s first{" "}
+        {SLAB1_DAILY_KWH} kWh of the day ({price.kWhEarlierToday.toFixed(3)} kWh used on earlier swaps).
+        {lockedChanged && " The station's plan changed during this swap, so the rider kept the plan in force at the tap."}
+      </p>
+    </div>
+  );
+}
+
+function RecordDetail({ record, price }: { record: SwapRecord; price: SwapPrice }) {
   return (
     <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 space-y-4">
+      <PricingTimeline record={record} price={price} />
+
       {/* Swap-level fields */}
       <div className="grid grid-cols-4 gap-4">
         <DetailField label="Total kWh" value={record.totalKWh.toFixed(3)} />
@@ -182,6 +257,8 @@ const STATUS_OPTIONS: [SwapStatus | "", string][] = [
 
 export function SwapRecordsTable() {
   const records = useSwapTransactionsStore((s) => s.records);
+  const book = usePricingBook();
+  const prices = useMemo(() => priceSwapRecords(book, records), [records, book]);
 
   const [search, setSearch]           = useState("");
   const [stationFilter, setStation]   = useState("");
@@ -245,6 +322,7 @@ export function SwapRecordsTable() {
   const flaggedCount = records.filter(isTamperingCandidate).length;
   const crossStationCount = records.filter(isCrossStation).length;
   const skippedCount = records.filter((r) => r.skipped).length;
+  const totalAmount = records.reduce((s, r) => s + (prices.get(r.id)?.amount ?? 0), 0);
 
   const clearFilters = () => {
     setSearch(""); setStation(""); setRfid(""); setStatus(""); setDate(""); setDateRange(null); setPage(1);
@@ -253,9 +331,10 @@ export function SwapRecordsTable() {
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4">
       {/* Summary */}
-      <StatGrid cols={5}>
+      <StatGrid cols={6}>
         <StatCard label="Total Swaps" value={totalSwaps} />
         <StatCard label="Total Energy (kWh)" value={totalKWh.toFixed(1)} valueColor="text-emerald-600" />
+        <StatCard label="Billed (KES)" value={Math.round(totalAmount).toLocaleString()} sublabel="Per station pricing plan" />
         <StatCard label="Flagged / Tampering" value={flaggedCount} valueColor={flaggedCount > 0 ? "text-red-600" : undefined} />
         <StatCard label="Cross-Station Alerts" value={crossStationCount} valueColor={crossStationCount > 0 ? "text-rose-700" : undefined} />
         <StatCard label="Skipped" value={skippedCount} valueColor={skippedCount > 0 ? "text-amber-600" : undefined} />
@@ -317,7 +396,7 @@ export function SwapRecordsTable() {
               toast.error("Nothing to export", "No swap record matches the current filters. Clear a filter and try again.");
               return;
             }
-            exportCSV(filtered);
+            exportCSV(filtered, prices);
             toast.success("Export downloaded", `${filtered.length.toLocaleString()} swap records written to CSV.`);
           }}
           className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#003B49] text-white hover:bg-[#00505f] transition-colors"
@@ -362,10 +441,10 @@ export function SwapRecordsTable() {
       {/* Table */}
       <div className="flex flex-col flex-1 min-h-0 bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="flex-1 min-h-0 overflow-auto">
-          <table className="w-full text-xs min-w-[1200px]">
+          <table className="w-full text-xs min-w-[1400px]">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
-                {["Date", "Customer", "Phone", "Batteries (bins)", "Billed kWh", "Billed Amount", "Stations", "RFID Mismatch", "Flagged", "Status", ""].map((h) => (
+                {["Date", "Customer", "Phone", "Batteries (bins)", "Billed kWh", "Pricing Plan", "Rate", "Billed Amount", "Stations", "RFID Mismatch", "Flagged", "Status", ""].map((h) => (
                   <th key={h} className="text-left px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -373,7 +452,7 @@ export function SwapRecordsTable() {
             <tbody className="divide-y divide-slate-100">
               {paginated.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="text-center py-16">
+                  <td colSpan={13} className="text-center py-16">
                     <PackageOpen className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="text-slate-400">No swap transactions match your filters</p>
                   </td>
@@ -384,6 +463,7 @@ export function SwapRecordsTable() {
                 const status = swapStatus(r);
                 const rfidBad = hasRfidMismatch(r);
                 const crossStation = isCrossStation(r);
+                const price = prices.get(r.id)!;
                 return (
                   <Fragment key={r.id}>
                     <tr
@@ -409,9 +489,13 @@ export function SwapRecordsTable() {
                         ))}
                       </td>
                       <td className="px-3 py-2.5 text-right font-semibold text-slate-700">{totalBilledKWh(r).toFixed(3)}</td>
-                      <td className="px-3 py-2.5 text-right font-semibold text-slate-700 whitespace-nowrap">
-                        {r.totalPoints.toFixed(2)}
-                        <span className="text-[10px] text-slate-400 font-normal ml-0.5">pts</span>
+                      <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{price.planName}</td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <SlotBadge slot={price.slot} />
+                        <span className="block text-[10px] text-slate-400 mt-0.5 tabular-nums">{fmtSlabs(price.window)} KES/kWh</span>
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-semibold text-slate-700 whitespace-nowrap tabular-nums">
+                        {fmtKes(price.amount, 2)}
                       </td>
                       <td className="px-3 py-2.5 whitespace-nowrap">
                         <span className={cn(
@@ -449,8 +533,8 @@ export function SwapRecordsTable() {
 
                     {expanded && (
                       <tr key={`${r.id}-detail`}>
-                        <td colSpan={11} className="p-0">
-                          <RecordDetail record={r} />
+                        <td colSpan={13} className="p-0">
+                          <RecordDetail record={r} price={price} />
                         </td>
                       </tr>
                     )}

@@ -43,6 +43,12 @@ export interface SwapRecord {
   manualIgnore: boolean;    // ManualIgnore
   multiday?: string;        // multiday breakdown text
   recovery?: SwapRecovery;
+  // Station event times for pricing. When absent they're derived from
+  // collectTimestamp, see `swapTiming` in src/lib/pricing/swap.ts.
+  rfidTapAt?: string;       // rider taps RFID, the swap starts
+  depositAt?: string;       // old battery goes into the station
+  collectionAt?: string;    // new battery comes out
+  completedAt?: string;     // swap transaction closes, the amount is billed
 }
 
 export type SwapStatus = "flagged" | "cross_station" | "rfid_mismatch" | "skipped" | "recovered" | "ok";
@@ -647,6 +653,160 @@ const MOCK_RECORDS: SwapRecord[] = [
     flagged: false,
     manualIgnore: true,
   },
+
+  // ── Custom Pricing samples: swaps inside custom windows, and one in flight
+  //    across a plan change, each with all four station events recorded.
+  {
+    id: "bs0002-20260914235920-36-0d46",
+    occurredAt: "2026-09-15T00:00:24+03:00",
+    customerName: "Peter Wachira",
+    phone: "254-722556677",
+    isCustomer: true,
+    type: "swap",
+    totalKWh: 2.1,
+    totalPoints: 189,
+    batteries: [
+      { bin: "2ME9YBRP1B001702", billedKWh: 1.05, rfidMismatch: false, slotDispense: 2, slotCollect: 7, ahDischarged: 23.6, ahCharged: 0, ahRegen: 0.08, rfidTagUid: "04A1C3D2983C11" },
+      { bin: "2ME9YBRP1B001703", billedKWh: 1.05, rfidMismatch: false, slotDispense: 3, slotCollect: 8, ahDischarged: 23.5, ahCharged: 0, ahRegen: 0.07, rfidTagUid: "04A1C3D2983C11" },
+    ],
+    dispenseStationId: "bs0002",
+    collectStationId: "bs0002",
+    dispenseTimestamp: "2026-09-14T08:12:40+03:00",
+    collectTimestamp: "2026-09-14T23:59:41+03:00",
+    // Tapped before Upcountry Saver started at midnight: stays on Default.
+    rfidTapAt: "2026-09-14T23:59:20+03:00",
+    depositAt: "2026-09-14T23:59:41+03:00",
+    collectionAt: "2026-09-15T00:00:05+03:00",
+    completedAt: "2026-09-15T00:00:24+03:00",
+    skipped: false,
+    flagged: false,
+    manualIgnore: false,
+  },
+  {
+    id: "bs0043-20261018234210-37-0d47",
+    occurredAt: "2026-10-18T23:42:55+03:00",
+    customerName: "Dennis Kiprono",
+    phone: "254-711889900",
+    isCustomer: true,
+    type: "swap",
+    totalKWh: 2.05,
+    totalPoints: 184.5,
+    batteries: [
+      { bin: "2ME9YBRP1B001710", billedKWh: 1.03, rfidMismatch: false, slotDispense: 4, slotCollect: 1, ahDischarged: 23.0, ahCharged: 0, ahRegen: 0.09, rfidTagUid: "04B7E2F1983C22" },
+      { bin: "2ME9YBRP1B001711", billedKWh: 1.02, rfidMismatch: false, slotDispense: 5, slotCollect: 2, ahDischarged: 22.9, ahCharged: 0, ahRegen: 0.09, rfidTagUid: "04B7E2F1983C22" },
+    ],
+    dispenseStationId: "bs0043",
+    collectStationId: "bs0043",
+    dispenseTimestamp: "2026-10-18T07:15:02+03:00",
+    collectTimestamp: "2026-10-18T23:42:31+03:00",
+    rfidTapAt: "2026-10-18T23:42:10+03:00",
+    depositAt: "2026-10-18T23:42:31+03:00",
+    collectionAt: "2026-10-18T23:42:44+03:00",
+    completedAt: "2026-10-18T23:42:55+03:00",
+    skipped: false,
+    flagged: false,
+    manualIgnore: false,
+  },
+  {
+    id: "bs0010-20261020053105-38-0d48",
+    occurredAt: "2026-10-20T05:31:48+03:00",
+    customerName: "Lucy Wairimu",
+    phone: "254-790334455",
+    isCustomer: true,
+    type: "swap",
+    totalKWh: 1.88,
+    totalPoints: 169.2,
+    batteries: [
+      { bin: "2ME9YBRP1B001720", billedKWh: 0.94, rfidMismatch: false, slotDispense: 1, slotCollect: 3, ahDischarged: 21.0, ahCharged: 0, ahRegen: 0.06, rfidTagUid: "04C9A8B7983C33" },
+      { bin: "2ME9YBRP1B001721", billedKWh: 0.94, rfidMismatch: false, slotDispense: 2, slotCollect: 4, ahDischarged: 20.9, ahCharged: 0, ahRegen: 0.06, rfidTagUid: "04C9A8B7983C33" },
+    ],
+    dispenseStationId: "bs0010",
+    collectStationId: "bs0010",
+    dispenseTimestamp: "2026-10-19T17:48:20+03:00",
+    collectTimestamp: "2026-10-20T05:31:26+03:00",
+    rfidTapAt: "2026-10-20T05:31:05+03:00",
+    depositAt: "2026-10-20T05:31:26+03:00",
+    collectionAt: "2026-10-20T05:31:39+03:00",
+    completedAt: "2026-10-20T05:31:48+03:00",
+    skipped: false,
+    flagged: false,
+    manualIgnore: false,
+  },
+  {
+    id: "bs0027-20261021221500-39-0d49",
+    occurredAt: "2026-10-21T22:15:41+03:00",
+    customerName: "Kevin Otieno",
+    phone: "254-702667788",
+    isCustomer: true,
+    type: "swap",
+    totalKWh: 1.97,
+    totalPoints: 177.3,
+    batteries: [
+      { bin: "2ME9YBRP1B001730", billedKWh: 0.99, rfidMismatch: false, slotDispense: 6, slotCollect: 2, ahDischarged: 22.0, ahCharged: 0, ahRegen: 0.07, rfidTagUid: "04D2E3F4983C44" },
+      { bin: "2ME9YBRP1B001731", billedKWh: 0.98, rfidMismatch: false, slotDispense: 7, slotCollect: 3, ahDischarged: 21.9, ahCharged: 0, ahRegen: 0.07, rfidTagUid: "04D2E3F4983C44" },
+    ],
+    dispenseStationId: "bs0027",
+    collectStationId: "bs0027",
+    dispenseTimestamp: "2026-10-21T09:02:11+03:00",
+    collectTimestamp: "2026-10-21T22:15:19+03:00",
+    rfidTapAt: "2026-10-21T22:15:00+03:00",
+    depositAt: "2026-10-21T22:15:19+03:00",
+    collectionAt: "2026-10-21T22:15:32+03:00",
+    completedAt: "2026-10-21T22:15:41+03:00",
+    skipped: false,
+    flagged: false,
+    manualIgnore: false,
+  },
+  {
+    id: "bs0027-20261022083000-40-0d50",
+    occurredAt: "2026-10-22T08:30:40+03:00",
+    customerName: "Mercy Achieng",
+    phone: "254-725112233",
+    isCustomer: true,
+    type: "swap",
+    totalKWh: 1.95,
+    totalPoints: 175.5,
+    batteries: [
+      { bin: "2ME9YBRP1B001740", billedKWh: 0.98, rfidMismatch: false, slotDispense: 1, slotCollect: 5, ahDischarged: 21.8, ahCharged: 0, ahRegen: 0.08, rfidTagUid: "04E5F6A7983C55" },
+      { bin: "2ME9YBRP1B001741", billedKWh: 0.97, rfidMismatch: false, slotDispense: 2, slotCollect: 6, ahDischarged: 21.7, ahCharged: 0, ahRegen: 0.08, rfidTagUid: "04E5F6A7983C55" },
+    ],
+    dispenseStationId: "bs0027",
+    collectStationId: "bs0027",
+    dispenseTimestamp: "2026-10-21T18:40:05+03:00",
+    collectTimestamp: "2026-10-22T08:30:18+03:00",
+    rfidTapAt: "2026-10-22T08:30:00+03:00",
+    depositAt: "2026-10-22T08:30:18+03:00",
+    collectionAt: "2026-10-22T08:30:31+03:00",
+    completedAt: "2026-10-22T08:30:40+03:00",
+    skipped: false,
+    flagged: false,
+    manualIgnore: false,
+  },
+  {
+    id: "bs0006-20261019121000-41-0d51",
+    occurredAt: "2026-10-19T12:10:38+03:00",
+    customerName: "Samuel Gitonga",
+    phone: "254-768445566",
+    isCustomer: true,
+    type: "swap",
+    totalKWh: 2.02,
+    totalPoints: 181.8,
+    batteries: [
+      { bin: "2ME9YBRP1B001750", billedKWh: 1.01, rfidMismatch: false, slotDispense: 3, slotCollect: 1, ahDischarged: 22.6, ahCharged: 0, ahRegen: 0.08, rfidTagUid: "04F1A2B3983C66" },
+      { bin: "2ME9YBRP1B001751", billedKWh: 1.01, rfidMismatch: false, slotDispense: 4, slotCollect: 2, ahDischarged: 22.5, ahCharged: 0, ahRegen: 0.08, rfidTagUid: "04F1A2B3983C66" },
+    ],
+    dispenseStationId: "bs0006",
+    collectStationId: "bs0006",
+    dispenseTimestamp: "2026-10-18T16:22:40+03:00",
+    collectTimestamp: "2026-10-19T12:10:17+03:00",
+    rfidTapAt: "2026-10-19T12:10:00+03:00",
+    depositAt: "2026-10-19T12:10:17+03:00",
+    collectionAt: "2026-10-19T12:10:29+03:00",
+    completedAt: "2026-10-19T12:10:38+03:00",
+    skipped: false,
+    flagged: false,
+    manualIgnore: false,
+  },
 ];
 
 // ── Store ────────────────────────────────────────────────────────────────────
@@ -662,6 +822,7 @@ export const useSwapTransactionsStore = create<SwapTransactionsState>()(
     }),
     // v1: seed dates shifted into the recent window so the default "last 7 days"
     // filter shows data. Bump version so already-persisted clients re-seed.
-    { name: "zeno-swap-transactions", version: 2, migrate: () => ({ records: MOCK_RECORDS }) }
+    // v3: Custom Pricing samples with all four station events.
+    { name: "zeno-swap-transactions", version: 3, migrate: () => ({ records: MOCK_RECORDS }) }
   )
 );
