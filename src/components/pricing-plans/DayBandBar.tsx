@@ -177,7 +177,7 @@ export function DayBandBar({
 
   // One rate label per colour (each colour is one rate), at the start of that rate's widest segment.
   const rates = rateLabels ? rateSpots(bands) : [];
-  const ratesKey = rates.map((l) => `${l.color}:${l.rate}`).join("|");
+  const ratesKey = rates.map((l) => `${l.color}:${l.slab1}/${l.slab2}`).join("|");
   const measureRef = useRef<HTMLDivElement>(null);
   const [labelWidths, setLabelWidths] = useState<Record<string, number>>({});
   // Each label's real width, from invisible copies, so the layout never guesses at text widths.
@@ -224,7 +224,9 @@ export function DayBandBar({
         <div className="relative h-4 -mb-1" aria-hidden="true">
           <div ref={measureRef} className="invisible absolute flex" inert>
             {rates.map((l) => (
-              <span key={l.color} data-key={l.color} className={RATE_LABEL}>{l.rate}</span>
+              <span key={l.color} data-key={l.color} className={RATE_LABEL}>
+                <RateText slab1={l.slab1} slab2={l.slab2} />
+              </span>
             ))}
           </div>
           {placed.map((p) => {
@@ -237,7 +239,7 @@ export function DayBandBar({
                 className={cn(RATE_LABEL, "absolute top-0 cursor-default")}
                 style={{ left: p.left }}
               >
-                {rate.rate}
+                <RateText slab1={rate.slab1} slab2={rate.slab2} />
               </span>
             );
           })}
@@ -341,6 +343,16 @@ export function DayBandBar({
 /** A rate label's text style: small, tabular, in the default text colour. */
 const RATE_LABEL = "whitespace-nowrap text-[10px] leading-3 text-slate-700 tabular-nums";
 
+/** A rate label, "90/70": slab 1 in the label colour, "/" and slab 2 muted. */
+function RateText({ slab1, slab2 }: { slab1: number; slab2: number }) {
+  return (
+    <>
+      {rate(slab1)}
+      <span className="text-slate-400">/{rate(slab2)}</span>
+    </>
+  );
+}
+
 type TipDetail = { label: string; note: string; value: string }[];
 
 /** The plans table's tooltip heading: the window, how long it runs, and the Default Rate where it's grey. */
@@ -361,7 +373,7 @@ function tipDetail({ window: w }: BandItem, currency: string): TipDetail {
  * Each rate's label and where it wants to sit: one per colour, at the start
  * (as a fraction of the day) of that colour's widest piece.
  */
-function rateSpots(bands: (BandItem & { a: number; b: number })[]): { color: BandColor; rate: string; start: number }[] {
+function rateSpots(bands: (BandItem & { a: number; b: number })[]): { color: BandColor; slab1: number; slab2: number; start: number }[] {
   const widest = new Map<BandColor, BandItem & { a: number; b: number }>();
   for (const band of bands) {
     const best = widest.get(band.color);
@@ -369,7 +381,8 @@ function rateSpots(bands: (BandItem & { a: number; b: number })[]): { color: Ban
   }
   return [...widest.values()].map((band) => ({
     color: band.color,
-    rate: `${band.window.slab1}/${band.window.slab2}`,
+    slab1: band.window.slab1,
+    slab2: band.window.slab2,
     start: band.a,
   }));
 }
