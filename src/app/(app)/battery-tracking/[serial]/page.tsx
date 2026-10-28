@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useBatteries } from "@/components/battery-tracking/use-batteries";
 import { stationByCode, vehicleByVin, type BatteryAsset } from "@/lib/mock/battery-tracking";
 import { useAssetTrackingStore } from "@/store/asset-tracking";
-import { slotLabel } from "@/lib/mock/swap-audit";
+import { slotLabel } from "@/lib/slot-label";
 import { Dash, LastSeenLine, mapsUrl, showCoord, Soc, splitLocation } from "@/components/battery-tracking/cells";
 
 // MapLibre needs the browser; loaded as Asset Tracking's Map View loads FleetMap.

@@ -194,7 +194,7 @@ export function FilterBar({
         <button
           type="button"
           onClick={onExport}
-          className="ml-auto shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#003B49] text-white hover:bg-[#00505f] transition-colors"
+          className="ml-auto shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#003B49] text-white hover:bg-[#00505f] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003B49]/40 focus-visible:ring-offset-1"
         >
           <Download className="w-3.5 h-3.5" /> Export XLSX
         </button>

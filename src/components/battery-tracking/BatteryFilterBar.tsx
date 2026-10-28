@@ -6,7 +6,6 @@ import {
   anyFilter,
   ASSET_TYPES,
   describeFilter,
-  NO_FILTERS,
   REGIONS,
   type AssetType,
   type BatteryFilters,
@@ -29,13 +28,14 @@ const CONTROL =
 /**
  * Battery Tracking's filter bar, in Swap Audit's pattern: search, Swap
  * Transactions' time filter for Last Seen, Asset type, Region, Clear filters while
- * any filter is set, and the count on the right. The presets apply at once; a custom range on Apply.
+ * the search or any filter narrows the rows, and the count on the right. The presets apply at once; a custom range on Apply.
  */
 export function BatteryFilterBar({
   search,
   onSearch,
   filters,
   onFilters,
+  onClear,
   shown,
   total,
   year,
@@ -44,6 +44,8 @@ export function BatteryFilterBar({
   onSearch: (v: string) => void;
   filters: BatteryFilters;
   onFilters: (f: BatteryFilters) => void;
+  /** Clears the search and every filter. */
+  onClear: () => void;
   /** Batteries matching search and filters, and in all; null until the rows have loaded. */
   shown: number | null;
   total: number | null;
@@ -95,9 +97,7 @@ export function BatteryFilterBar({
         {REGIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
       </select>
 
-      {filtered && (
-        <ClearFiltersButton onClick={() => onFilters(NO_FILTERS)} />
-      )}
+      {narrowed && <ClearFiltersButton onClick={onClear} />}
 
       <span aria-live="polite" className="ml-auto text-xs text-slate-500 tabular-nums">
         {shown === null || total === null

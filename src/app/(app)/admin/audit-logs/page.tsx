@@ -209,6 +209,10 @@ export default function AuditLogsPage() {
               {[moduleFilter, actionFilter, roleFilter].filter(Boolean).length}
             </span>}
           </Button>
+          {/* In the always-visible bar, so it's there with the dropdowns closed too. */}
+          {(hasFilters || search) && (
+            <ClearFiltersButton onClick={() => { setSearch(""); setModuleFilter(""); setActionFilter(""); setRoleFilter(""); }} />
+          )}
           <p className="text-sm text-slate-400 ml-auto">{filtered.length} entries</p>
         </div>
 
@@ -241,9 +245,6 @@ export default function AuditLogsPage() {
               <option value="Admin">Admin</option>
               <option value="User">User</option>
             </select>
-            {hasFilters && (
-              <ClearFiltersButton onClick={() => { setModuleFilter(""); setActionFilter(""); setRoleFilter(""); }} />
-            )}
           </div>
         )}
 

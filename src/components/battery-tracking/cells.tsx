@@ -4,7 +4,7 @@ import { Bike, ExternalLink, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CopyButton } from "@/components/ui/CopyButton";
 import type { BatteryAsset } from "@/lib/mock/battery-tracking";
-import { slotLabel } from "@/lib/mock/swap-audit";
+import { slotLabel } from "@/lib/slot-label";
 
 /**
  * How Battery Tracking shows its values, shared by the table and the detail
@@ -24,7 +24,8 @@ export function splitLocation(text: string): [string, string] | null {
 export const showCoord = (n: string) => n.trim().replace(/^-/, "−");
 
 /** Google Maps at a stored "lat, long". */
-export const mapsUrl = (text: string) => `https://maps.google.com/?q=${encodeURIComponent(text.replace(/\s+/g, ""))}`;
+export const mapsUrl = (text: string) =>
+  `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(text.replace(/\s+/g, ""))}`;
 
 /**
  * "15 Oct 2026 09:56", stacked: date on top, time below in muted text, and the
@@ -97,7 +98,7 @@ export function Location({ text, region }: { text: string; region: string | null
       target="_blank"
       rel="noopener noreferrer"
       title="Open in Google Maps"
-      aria-label="Open in Google Maps"
+      aria-label={`${region ?? "Unknown region"}, ${text}. Open in Google Maps`}
       onCopy={onCopy}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}

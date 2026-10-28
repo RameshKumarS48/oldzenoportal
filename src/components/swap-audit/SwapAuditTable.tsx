@@ -337,7 +337,7 @@ export function SwapAuditTable() {
             />
           )}
           {day && (
-            <FilterChip label="Date" value={day} removeLabel="Remove Date filter" onRemove={() => { setDay(""); setPage(1); }} />
+            <FilterChip label="Date" value={fmtDay(day)} removeLabel="Remove Date filter" onRemove={() => { setDay(""); setPage(1); }} />
           )}
         </FilterChips>
       )}

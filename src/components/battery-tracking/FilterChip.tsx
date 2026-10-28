@@ -1,7 +1,5 @@
 import { stationByCode, type AssetRef } from "@/lib/mock/battery-tracking";
 
-export { FilterChip } from "@/components/ui/FilterChip";
-
 /**
  * The chip for a search naming one vehicle or station exactly:
  * "Station: BS0025 · Thika Rd" or "Vehicle: ME92ZPSBB1J000760".
