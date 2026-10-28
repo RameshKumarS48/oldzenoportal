@@ -39,7 +39,7 @@ import {
 import { summarizeMoves } from "@/lib/pricing/moves";
 import type { PricingPlan } from "@/lib/pricing/types";
 import { cn } from "@/lib/utils";
-import { DayBandBar, WindowSwatch, isDefaultRate, versionBands, type BandItem } from "./DayBandBar";
+import { DayBandBar, WindowSwatch, bandColors, versionBands, type BandColor, type BandItem } from "./DayBandBar";
 import { HourSelect } from "./HourSelect";
 import { StationPicker } from "./StationPicker";
 import { inputCls, labelCls, useActorName, useDefaultRate, usePricingBook } from "./shared";
@@ -60,27 +60,20 @@ const snapshot = (name: string, rows: HourRow[]) =>
   JSON.stringify([name.trim(), rows.map((r) => [r.origin, r.from, r.until, r.slab1.trim(), r.slab2.trim()])]);
 
 /**
- * Each row's colour: grey only while its rates are exactly Default's Default
- * Rate (`defaultRate`; null when the plan's currency isn't Default's), so a
- * filled row whose rates are changed takes a colour of its own. Slots keep
- * theirs; other rows take the colours no slot uses, in time order.
+ * Each row's colour, by the bars' rule (`bandColors`): grey only while its
+ * rates are exactly Default's Default Rate (`defaultRate`; null when the
+ * plan's currency isn't Default's), otherwise its rates' shade among the
+ * rows', cheapest lightest. A row without both rates yet has none, so shades
+ * can shift as rates are typed.
  */
-function rowColors(rows: HourRow[], defaultRate: BaseRates | null): Map<string, number | "base"> {
-  const used = new Set(rows.filter(isSlot).map((r) => r.color));
-  const free = [0, 1, 2, 3, 4, 5].filter((c) => !used.has(c));
-  let k = 0;
-  const out = new Map<string, number | "base">();
-  for (const r of rows) {
-    if (isDefaultRate({ slab1: typedRate(r.slab1), slab2: typedRate(r.slab2) }, defaultRate)) out.set(r.key, "base");
-    else if (isSlot(r)) out.set(r.key, r.color);
-    else out.set(r.key, free.length ? free[k++ % free.length] : 0);
-  }
-  return out;
+function rowColors(rows: HourRow[], defaultRate: BaseRates | null): Map<string, BandColor> {
+  const colors = bandColors(rows.map((r) => ({ slab1: typedRate(r.slab1), slab2: typedRate(r.slab2) })), defaultRate);
+  return new Map(rows.map((r, i) => [r.key, colors[i]]));
 }
 
 /** The rows as day-bar bands, each keyed by its row so a moving edge slides. */
-const rowBands = (rows: HourRow[], colors: Map<string, number | "base">): BandItem[] =>
-  rows.map((r) => ({ id: r.key, window: rowsToWindows([r])[0], color: colors.get(r.key) ?? 0 }));
+const rowBands = (rows: HourRow[], colors: Map<string, BandColor>): BandItem[] =>
+  rows.map((r) => ({ id: r.key, window: rowsToWindows([r])[0], color: colors.get(r.key) ?? "none" }));
 
 /** "1 Rates ─ 2 Stations": where a new plan's two steps are. */
 function Steps({ step }: { step: "rates" | "stations" }) {
@@ -427,7 +420,7 @@ export function PlanForm({
           </div>
 
           {rows.map((r, i) => {
-            const color = colors.get(r.key) ?? 0;
+            const color = colors.get(r.key) ?? "none";
             // Only the actual Default Rate is called that; a changed rate is the plan's own.
             const isDefault = color === "base";
             const label = `${isDefault ? BASE_LABEL : "slot"} ${rowLabel(r)}`;

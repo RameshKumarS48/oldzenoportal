@@ -285,7 +285,8 @@ export const usePricingStore = create<PricingState>()(
       // 9: station moves record why they happened, for station history.
       // Anything saved before is reset to the seed.
       // 10: history entries name how many stations moved, not which.
-      version: 10,
+      // 11: the Peak Hours Pilot plan, five rates on the day bar's full scale.
+      version: 11,
       partialize: (s) => ({ plans: s.plans, assignments: s.assignments, changes: s.changes }),
       migrate: () => ({ plans: SEED_PLANS, assignments: SEED_ASSIGNMENTS, changes: SEED_CHANGES }),
     }

@@ -35,8 +35,6 @@ export interface HourRow {
   until: number;
   slab1: string;
   slab2: string;
-  /** A slot's colour on the day bar, 0–5. Kept while rows re-sort, so a slot keeps its colour. */
-  color: number;
 }
 
 export interface HourChoice {
@@ -201,18 +199,13 @@ export function addBlocked(rows: HourRow[]): string | null {
   return null;
 }
 
-function nextColor(rows: HourRow[]): number {
-  const used = new Set(rows.filter(isSlot).map((r) => r.color));
-  return [0, 1, 2, 3, 4, 5].find((c) => !used.has(c)) ?? 0;
-}
-
 /** How long Add slot makes a new slot, in hours; the user can move either end. */
 export const NEW_SLOT_HOURS = 3;
 
 /**
- * Add a slot, `newKey`, with empty rates and the first unused colour, in the
- * first gap. It runs NEW_SLOT_HOURS from its start (07:00:00–09:59:59), or
- * less where the gap ends or the day does.
+ * Add a slot, `newKey`, with empty rates, in the first gap. It runs
+ * NEW_SLOT_HOURS from its start (07:00:00–09:59:59), or less where the gap
+ * ends or the day does.
  */
 export function addRow(rows: HourRow[], newKey: string, key: () => string): HourRow[] {
   const h = uncoveredHours(rows)[0];
@@ -220,7 +213,7 @@ export function addRow(rows: HourRow[], newKey: string, key: () => string): Hour
   const taken = new Set(rows.flatMap(rowHours));
   let until = h + 1;
   while (until < Math.min(h + NEW_SLOT_HOURS, 24) && !taken.has(until)) until++;
-  const slot: HourRow = { key: newKey, origin: "slot", from: h, until, slab1: "", slab2: "", color: nextColor(rows) };
+  const slot: HourRow = { key: newKey, origin: "slot", from: h, until, slab1: "", slab2: "" };
   return settle([...rows, slot], key);
 }
 
@@ -256,7 +249,7 @@ export function fillFromDefault(rows: HourRow[], defaultWindows: RateWindow[] | 
     if (defaultWindows && !rate) continue;
     added.push({
       key: key(), origin: "default", ...gap,
-      slab1: rate ? String(rate.slab1) : "", slab2: rate ? String(rate.slab2) : "", color: 0,
+      slab1: rate ? String(rate.slab1) : "", slab2: rate ? String(rate.slab2) : "",
     });
   }
   return sortRows([...rows, ...added]);
@@ -295,12 +288,11 @@ export function rowsToWindows(rows: HourRow[]): RateWindow[] {
 
 /**
  * Saved windows as rows: rest-of-day windows (as `splitVersion` reads them,
- * so old data without `isBase` works too) as rest-of-day rows, and slots
- * coloured in time order.
+ * so old data without `isBase` works too) as rest-of-day rows, and the rest
+ * as slots.
  */
 export function windowsToRows(windows: RateWindow[], key: () => string): HourRow[] {
   const base = new Set(splitVersion({ windows }).baseWindows.map((w) => w.start));
-  let color = 0;
   return sortRows(
     windows.map((w) => ({
       key: key(),
@@ -309,7 +301,6 @@ export function windowsToRows(windows: RateWindow[], key: () => string): HourRow
       until: (parseHHmmss(w.end) + 1) / 3600,
       slab1: String(w.slab1),
       slab2: String(w.slab2),
-      color: 0,
     }))
-  ).map((r) => (isSlot(r) ? { ...r, color: color++ } : r));
+  );
 }

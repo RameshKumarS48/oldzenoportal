@@ -23,6 +23,17 @@
   --color-status-cloud: #FACC15;    /* Cloud offline */
   --color-status-idle: #94A3B8;     /* unknown / no signal */
 
+  /* ── Pricing day bars ───────────────────────────────────────
+     Default Rate hours are grey; a plan's other rates are ranked by
+     price and spread over the teal scale, cheapest lightest
+     (lib/pricing/shades.ts). */
+  --color-pricing-base: #a1a1aa;
+  --color-pricing-rank1: #99f6e4;
+  --color-pricing-rank2: #2dd4bf;
+  --color-pricing-rank3: #0d9488;
+  --color-pricing-rank4: #115e59;
+  --color-pricing-rank5: #042f2e;
+
   /* ── Typography ─────────────────────────────────────────────
      `font-mono` is the face for anything that has to line up in a
      column: serial numbers, RFIDs, VINs, phone numbers, clocks. */

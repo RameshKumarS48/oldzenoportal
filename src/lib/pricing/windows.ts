@@ -90,6 +90,25 @@ export function windowAt(windows: RateWindow[], iso: string): RateWindow | null 
   return windows.find((w) => inRateWindow(second, w)) ?? null;
 }
 
+/**
+ * The rates in force at `iso` and the EAT second of the day (0–86399) they
+ * next change, which is the next window start with different rates. A
+ * neighbour with the same rates doesn't count, so "until" never names a time
+ * when nothing changes. `until` is null when the rates are the same all day;
+ * the whole result is null if no window covers `iso`.
+ */
+export function priceNow(windows: RateWindow[], iso: string): { rates: RateWindow; until: number | null } | null {
+  const rates = windowAt(windows, iso);
+  if (!rates) return null;
+  const second = eatSecondOfDay(iso);
+  // Window starts in the order they come round after now, today then tomorrow.
+  const ahead = (w: RateWindow) => (parseHHmmss(w.start) - second + DAY_SECONDS) % DAY_SECONDS || DAY_SECONDS;
+  const next = [...windows]
+    .sort((a, b) => ahead(a) - ahead(b))
+    .find((w) => w.slab1 !== rates.slab1 || w.slab2 !== rates.slab2);
+  return { rates, until: next ? parseHHmmss(next.start) : null };
+}
+
 /** Earliest start first. */
 export function sortWindows<W extends Pick<RateWindow, "start">>(windows: W[]): W[] {
   return [...windows].sort((a, b) => parseHHmmss(a.start) - parseHHmmss(b.start));

@@ -100,6 +100,16 @@ const NOV_REVISION_WINDOWS = [
   w("17:00:00", "21:59:59", 105, 85),
   w("22:00:00", "05:59:59", 65, 50),
 ];
+/** Five slots at five different rates, around Default Rate hours: the day bar's full teal scale. */
+const PEAK_PILOT_WINDOWS = [
+  w("00:00:00", "04:59:59", 60, 48),
+  w("05:00:00", "06:59:59", 80, 62),
+  w("07:00:00", "09:59:59", 115, 95),
+  b("10:00:00", "15:59:59", 90, 70),
+  w("16:00:00", "18:59:59", 105, 85),
+  w("19:00:00", "21:59:59", 95, 75),
+  b("22:00:00", "23:59:59", 90, 70),
+];
 
 export const SEED_PLANS: PricingPlan[] = [
   {
@@ -212,6 +222,28 @@ export const SEED_PLANS: PricingPlan[] = [
       },
     ],
   },
+  {
+    id: "pp-peak-pilot",
+    name: "Peak Hours Pilot",
+    isDefault: false,
+    createdAt: "2026-10-26T09:00:00+03:00",
+    versions: [
+      {
+        id: "pv-peak-pilot-1",
+        effectiveFrom: "2026-10-26T09:00:00+03:00",
+        windows: PEAK_PILOT_WINDOWS,
+        baseSlab1: 90,
+        baseSlab2: 70,
+        // Legacy single-rate fields; billing reads `windows`.
+        standardRate: 90,
+        customWindowStart: "07:00",
+        customWindowEnd: "10:00",
+        customRate: 115,
+        createdBy: RAMESH,
+        createdAt: "2026-10-26T09:00:00+03:00",
+      },
+    ],
+  },
 ];
 
 // ── Assignments ──────────────────────────────────────────────────────────────
@@ -261,4 +293,7 @@ export const SEED_CHANGES: PlanChange[] = [
 
   { id: "pc-09", planId: "pp-nov-revision", at: "2026-10-21T15:30:00+03:00", by: WILLIE, kind: "created",
     summary: `Created plan: ${versionSummary({ windows: NOV_REVISION_WINDOWS })}`, effectiveFrom: "2026-10-21T15:30:00+03:00" },
+
+  { id: "pc-10", planId: "pp-peak-pilot", at: "2026-10-26T09:00:00+03:00", by: RAMESH, kind: "created",
+    summary: `Created plan: ${versionSummary({ windows: PEAK_PILOT_WINDOWS })}`, effectiveFrom: "2026-10-26T09:00:00+03:00" },
 ];

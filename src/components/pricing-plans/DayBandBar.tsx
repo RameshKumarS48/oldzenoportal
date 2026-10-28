@@ -12,35 +12,54 @@ import {
   sortWindows,
   type BaseRates,
 } from "@/lib/pricing/windows";
+import { rateShades, shadeOf, type Shade } from "@/lib/pricing/shades";
 import type { RateWindow } from "@/lib/pricing/types";
 
 /**
- * One colour per custom window: Tailwind teal 800, 300, 600, 200, 700, 400.
- * The order alternates dark and light so neighbours (and the last against the
- * first, around midnight) stay easy to tell apart.
+ * A band's colour: "base" for Default Rate hours (grey), a shade 1–5 on the
+ * teal scale for every other rate, ranked by price (lib/pricing/shades.ts),
+ * or "none" for hours with no rate yet, drawn in the bar's empty slate.
  */
-export const WINDOW_COLORS = ["#115e59", "#5eead4", "#0d9488", "#99f6e4", "#0f766e", "#2dd4bf"];
-
-/**
- * Default Rate hours are a solid Tailwind slate 400: neutral against the
- * teal slots, clearly darker than the slate 100 of hours with no rate yet,
- * and a filled dot, so its swatch never reads as an empty radio button.
- */
-const BASE_FILL = "#94a3b8";
+export type BandColor = "base" | "none" | Shade;
 
 /** True when these are the Default plan's Default Rate: the only rates drawn grey. */
 export const isDefaultRate = (w: Pick<RateWindow, "slab1" | "slab2">, defaultRate: BaseRates | null) =>
   !!defaultRate && w.slab1 === defaultRate.slab1 && w.slab2 === defaultRate.slab2;
 
-/** A slot's colour by index, or slate for Default Rate hours. */
-const colorOf = (color: number | "base") => (color === "base" ? BASE_FILL : WINDOW_COLORS[color % WINDOW_COLORS.length]);
+/**
+ * The colour tokens in globals.css (`--color-pricing-*`); slate 100 for no
+ * rate yet. Each var() is written out in full: Tailwind only emits the @theme
+ * variables it finds named in the source, so a built name such as
+ * `--color-pricing-rank${n}` would leave the rank colours undefined.
+ */
+const FILLS: Record<BandColor, string> = {
+  base: "var(--color-pricing-base)",
+  none: "var(--color-slate-100)",
+  1: "var(--color-pricing-rank1)",
+  2: "var(--color-pricing-rank2)",
+  3: "var(--color-pricing-rank3)",
+  4: "var(--color-pricing-rank4)",
+  5: "var(--color-pricing-rank5)",
+};
+const colorOf = (color: BandColor) => FILLS[color];
+
+/**
+ * Each window's colour: grey where the rates are Default's Default Rate
+ * (`defaultRate`), otherwise its rates' shade among the plan's other rates,
+ * cheapest lightest; "none" while a rate isn't a number yet.
+ */
+export function bandColors<W extends Pick<RateWindow, "slab1" | "slab2">>(windows: W[], defaultRate: BaseRates | null): BandColor[] {
+  const shades = rateShades(windows.filter((w) => !isDefaultRate(w, defaultRate)));
+  return windows.map((w) => (isDefaultRate(w, defaultRate) ? "base" : shadeOf(shades, w) ?? "none"));
+}
 
 /** The small dot that ties a row to its band; round, so it never reads as a checkbox. */
-export function WindowSwatch({ color, className }: { color: number | "base"; className?: string }) {
+export function WindowSwatch({ color, className }: { color: BandColor; className?: string }) {
   return (
     <span
       aria-hidden="true"
-      className={cn("inline-block w-3 h-3 shrink-0 rounded-full", className)}
+      // A row with no rate yet is an empty slate dot, ringed so it still shows on white.
+      className={cn("inline-block w-3 h-3 shrink-0 rounded-full", color === "none" && "ring-1 ring-inset ring-slate-300", className)}
       style={{ backgroundColor: colorOf(color) }}
     />
   );
@@ -50,18 +69,22 @@ export interface BandItem {
   /** Stable across edits (a form row's key, or a saved window's start), so a moving boundary animates. */
   id: string;
   window: RateWindow;
-  color: number | "base";
+  color: BandColor;
 }
 
 /**
  * A saved version's bands, in time order: grey where the rates are the
  * Default plan's Default Rate (`defaultRate`; null for a plan in another
- * currency), and every other stretch in its own colour.
+ * currency), and every other stretch in its rates' shade (`bandColors`).
  */
 export function versionBands(windows: RateWindow[], defaultRate: BaseRates | null): BandItem[] {
-  let next = 0;
-  return sortWindows(windows).map((w) => ({ id: w.start, window: w, color: isDefaultRate(w, defaultRate) ? "base" : next++ }));
+  const sorted = sortWindows(windows);
+  const colors = bandColors(sorted, defaultRate);
+  return sorted.map((w, i) => ({ id: w.start, window: w, color: colors[i] }));
 }
+
+/** Half the white gap between neighbouring bands, in px: each side gives 1px, so the gap is 2px. */
+const HALF_GAP = 1;
 
 /** Rough width of a boundary label ("16:00") at 10px, with breathing room. */
 const LABEL_PX = 32;
@@ -74,16 +97,17 @@ const boundaryLabel = (at: number) => fmtHHmm(at >= DAY_SECONDS ? DAY_SECONDS - 
 const rate = (n: number) => (Number.isFinite(n) ? String(n) : "–");
 
 /**
- * The day as a 24 h strip: one band per window, no text inside; Default
- * Rate hours are slate and each slot has its colour.
+ * The day as a 24 h strip: one band per window, no text inside, 2px of white
+ * between neighbours; Default Rate hours are grey and every other rate takes
+ * its shade by price (`bandColors`).
  * A window that crosses midnight is two bands, one at each end. Under it,
  * the boundary times sit at their boundaries; where two would overlap, a real
  * boundary beats the day's ends, then the earlier one wins.
  *
  * Hovering or focusing a band shows its rates ("Slab 1 KES 110 · Slab 2 KES
  * 90 per kWh") and reports its id through `onHighlight`;
- * `highlighted` (an id) outlines it. `now` marks the current EAT time, with
- * "Now · 14:05" above the marker. Times on the bar are HH:mm; the day
+ * `highlighted` (an id) outlines it. `now` marks the current EAT time with
+ * an orange line standing past the bar, and "Now · 14:05" above it. Times on the bar are HH:mm; the day
  * always reads 00:00 to 23:59. `compact` is for a table cell: a thinner
  * bar and the marker without its label.
  */
@@ -107,7 +131,7 @@ export function DayBandBar({
 }) {
   const barRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
-  const [tip, setTip] = useState<{ text: string; color: BandItem["color"]; x: number; y: number } | null>(null);
+  const [tip, setTip] = useState<{ text: string; color: BandColor; x: number; y: number } | null>(null);
 
   // Labels depend on the bar's real width, which changes with the modal or page.
   useEffect(() => {
@@ -129,6 +153,8 @@ export function DayBandBar({
     const main = live.reduce((x, y) => (y.b - y.a > x.b - x.a ? y : x));
     return live.map((p) => ({ ...item, ...p, focusable: p === main }));
   });
+  // Hours no band covers (a form still being filled) are drawn too, so they get their gaps.
+  const empty = uncovered(bands);
 
   const labels = boundaryLabels(items.map((i) => parseHHmmss(i.window.start)), width);
   const marker = now ? eatSecondOfDay(now) / DAY_SECONDS : null;
@@ -150,7 +176,8 @@ export function DayBandBar({
   return (
     <div className={cn("space-y-1", className)}>
       {marker !== null && !compact && (
-        <div className="relative h-4 text-[10px] font-semibold text-slate-700 tabular-nums">
+        // mb-1: room for the marker's dot, which rises above the bar.
+        <div className="relative h-4 mb-1 text-[10px] font-semibold text-slate-700 tabular-nums">
           {width > 0 && (
             <span
               className="absolute top-0 -translate-x-1/2 whitespace-nowrap"
@@ -161,42 +188,48 @@ export function DayBandBar({
           )}
         </div>
       )}
-      {/* The bar's own colour shows through where an hour has no rate yet. */}
-      <div ref={barRef} className={cn("relative rounded-md bg-slate-100 overflow-hidden", compact ? "h-4" : "h-6")}>
-        {bands.map((band) => {
-          const on = highlighted === band.id;
-          const base = band.color === "base";
-          return (
-            <div
-              key={base ? `${band.id}-${band.window.start}-${band.side}` : `${band.id}-${band.side}`}
-              role={band.focusable ? "img" : undefined}
-              tabIndex={band.focusable ? 0 : undefined}
-              aria-label={band.focusable ? ariaText(band, currency) : undefined}
-              aria-hidden={band.focusable ? undefined : true}
-              onMouseEnter={(e) => show(band, e.currentTarget)}
-              onMouseLeave={hide}
-              onFocus={(e) => show(band, e.currentTarget)}
-              onBlur={hide}
-              className={cn(
-                "absolute inset-y-0 transition-[left,width,opacity] duration-300 ease-out focus:outline-none",
-                "border-r border-white focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white",
-                highlighted && !on && "opacity-40",
-                on && "ring-2 ring-inset ring-white"
-              )}
-              style={{
-                left: `${band.a * 100}%`,
-                width: `${(band.b - band.a) * 100}%`,
-                backgroundColor: colorOf(band.color),
-              }}
-            />
-          );
-        })}
+      {/* The marker sits outside the bar's clipped box, so it can stand above and below it. */}
+      <div className="relative">
+        {/* White behind the bands, so the 2px gaps between them read as white. */}
+        <div ref={barRef} className={cn("relative rounded-md bg-white overflow-hidden", compact ? "h-4" : "h-6")}>
+          {empty.map((p) => (
+            <div key={`empty-${p.a}`} aria-hidden="true" className="absolute inset-y-0" style={{ ...place(p.a, p.b), backgroundColor: colorOf("none") }} />
+          ))}
+          {bands.map((band) => {
+            const on = highlighted === band.id;
+            const base = band.color === "base";
+            return (
+              <div
+                key={base ? `${band.id}-${band.window.start}-${band.side}` : `${band.id}-${band.side}`}
+                role={band.focusable ? "img" : undefined}
+                tabIndex={band.focusable ? 0 : undefined}
+                aria-label={band.focusable ? ariaText(band, currency) : undefined}
+                aria-hidden={band.focusable ? undefined : true}
+                onMouseEnter={(e) => show(band, e.currentTarget)}
+                onMouseLeave={hide}
+                onFocus={(e) => show(band, e.currentTarget)}
+                onBlur={hide}
+                className={cn(
+                  "absolute inset-y-0 transition-[left,width,opacity] duration-300 ease-out focus:outline-none",
+                  "focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white",
+                  highlighted && !on && "opacity-40",
+                  on && "ring-2 ring-inset ring-white"
+                )}
+                style={{ ...place(band.a, band.b), backgroundColor: colorOf(band.color) }}
+              />
+            );
+          })}
+        </div>
         {marker !== null && (
+          // Now: a 2px line in the brand orange with 1px of white either side, 4px past the
+          // bar at both ends, and a 6px dot on top, so it shows on grey and every teal.
           <div
-            className="absolute -inset-y-px z-20 w-0.5 -translate-x-1/2 bg-zeno-red pointer-events-none"
-            style={{ left: `${marker * 100}%` }}
             aria-hidden="true"
-          />
+            className="absolute -top-1 -bottom-1 z-20 w-0.5 -translate-x-1/2 bg-zeno-red shadow-[0_0_0_1px_white] pointer-events-none"
+            style={{ left: `${marker * 100}%` }}
+          >
+            <span className="absolute left-1/2 -top-1.5 size-1.5 -translate-x-1/2 rounded-full bg-zeno-red shadow-[0_0_0_1px_white]" />
+          </div>
         )}
       </div>
 
@@ -224,6 +257,31 @@ export function DayBandBar({
       )}
     </div>
   );
+}
+
+/**
+ * A band's left and width: pulled in by HALF_GAP wherever it meets a
+ * neighbour, so neighbours sit 2px apart, and flush with the bar's ends.
+ */
+function place(a: number, b: number): React.CSSProperties {
+  const left = a > 0 ? HALF_GAP : 0;
+  const right = b < 1 ? HALF_GAP : 0;
+  return {
+    left: `calc(${a * 100}% + ${left}px)`,
+    width: `max(0px, calc(${(b - a) * 100}% - ${left + right}px))`,
+  };
+}
+
+/** The stretches of the day, as fractions, that no band covers. */
+function uncovered(bands: { a: number; b: number }[]): { a: number; b: number }[] {
+  const out: { a: number; b: number }[] = [];
+  let at = 0;
+  for (const p of [...bands].sort((x, y) => x.a - y.a)) {
+    if (p.a > at) out.push({ a: at, b: p.a });
+    at = Math.max(at, p.b);
+  }
+  if (at < 1) out.push({ a: at, b: 1 });
+  return out;
 }
 
 /** The tooltip: the band's rates, which the bar can't show; its times are already on the axis. */

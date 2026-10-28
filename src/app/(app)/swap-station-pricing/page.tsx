@@ -15,6 +15,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { stationsOnPlan, versionAt, sortedVersions } from "@/lib/pricing/engine";
 import { fmtEat } from "@/lib/pricing/format";
 import { countryOf } from "@/lib/pricing/country";
+import { fmtHHmm, fmtSlabs, priceNow } from "@/lib/pricing/windows";
 import { DayBandBar, versionBands } from "@/components/pricing-plans/DayBandBar";
 import { PlanActionsMenu } from "@/components/pricing-plans/PlanActionsMenu";
 import { DeletePlanModal } from "@/components/pricing-plans/DeletePlanModal";
@@ -28,7 +29,7 @@ const VIEWS = [
   { key: "stations", label: "Stations" },
 ];
 
-const SLABS_TIP = "The day from 00:00:00 to 23:59:59; the red line is now. Hover a stretch for its rates. Slab 1: a rider’s first 3 kWh each day. Slab 2: everything after.";
+const SLABS_TIP = "Per kWh, in the plan’s currency · slab 1 / slab 2. Slab 1: a rider’s first 3 kWh each day. Slab 2: everything after.";
 
 export default function PricingPlansPage() {
   const router = useRouter();
@@ -60,7 +61,7 @@ export default function PricingPlansPage() {
         const country = countryOf(plan);
         // Grey means Default's Default Rate, which only a plan in Default's currency can charge.
         const bands = versionBands(version.windows, country.code === "KE" ? defaultRate : null);
-        return { plan, country, bands, stations, lastUpdated };
+        return { plan, country, bands, price: priceNow(version.windows, now), stations, lastUpdated };
       })
       .filter(({ plan }) => {
         const q = query.trim().toLowerCase();
@@ -140,7 +141,7 @@ export default function PricingPlansPage() {
                     <td colSpan={5} className="px-4 py-14 text-center text-slate-400 text-sm">No plan matches “{query}”.</td>
                   </tr>
                 )}
-                {shown.map(({ plan, country, bands, stations, lastUpdated }) => (
+                {shown.map(({ plan, country, bands, price, stations, lastUpdated }) => (
                   <tr
                     key={plan.id}
                     className="hover:bg-slate-50 cursor-pointer"
@@ -153,7 +154,22 @@ export default function PricingPlansPage() {
                       <p className="text-[11px] text-slate-400">{country.name} · {country.currency}</p>
                     </td>
                     <td className="px-4 py-2.5">
-                      <DayBandBar items={bands} now={now} currency={country.currency} compact />
+                      {/* The rates in force and when they change, beside the day; both move with the clock. */}
+                      <div className="flex items-center gap-3">
+                        <div className="w-30 shrink-0">
+                          {price ? (
+                            <>
+                              <p className="font-medium text-slate-800 tabular-nums">{fmtSlabs(price.rates)}</p>
+                              <p className="text-[11px] text-slate-400 tabular-nums">
+                                {price.until === null ? "all day" : `until ${fmtHHmm(price.until)}`}
+                              </p>
+                            </>
+                          ) : (
+                            <span className="text-slate-400">–</span>
+                          )}
+                        </div>
+                        <DayBandBar items={bands} now={now} currency={country.currency} compact className="flex-1 min-w-0" />
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-slate-700">{stations}</td>
                     <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{lastUpdated ? fmtEat(lastUpdated) : "–"}</td>
