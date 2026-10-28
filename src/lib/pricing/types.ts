@@ -33,6 +33,13 @@ export interface RateWindow {
    * `splitVersion` in windows.ts.
    */
   isBase?: boolean;
+  /**
+   * Hours that follow the Default plan's Default Rate ("Fill with Default
+   * Rate"). They hold a copy of its slab rates, so every reader prices them
+   * like any window; changing the Default Rate saves a new version of each
+   * plan with linked hours, with the copies updated. Always `isBase` too.
+   */
+  linkedToDefault?: boolean;
 }
 
 export interface PlanVersion {

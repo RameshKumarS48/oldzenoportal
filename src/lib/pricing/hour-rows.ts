@@ -255,6 +255,45 @@ export function fillFromDefault(rows: HourRow[], defaultWindows: RateWindow[] | 
   return sortRows([...rows, ...added]);
 }
 
+// ── Linked to the Default Rate ───────────────────────────────────────────────
+
+/**
+ * The hours a plan's linked Default Rate covers: every hour its own rows
+ * don't, as continuous stretches (one crossing midnight stays one).
+ */
+export function linkedStretches(rows: HourRow[]): Pick<HourRow, "from" | "until">[] {
+  return runs(uncoveredHours(rows));
+}
+
+/** The linked hours as stored: one window per stretch, holding a copy of the Default Rate. */
+export function linkedWindows(rows: HourRow[], rate: BaseRates): RateWindow[] {
+  return linkedStretches(rows).map((r) => ({
+    start: hourStart(r.from),
+    end: hourEnd(r.until),
+    slab1: rate.slab1,
+    slab2: rate.slab2,
+    isBase: true,
+    linkedToDefault: true,
+  }));
+}
+
+/** Why Set own rate is refused. */
+export const SLOT_LIMIT = `Maximum ${MAX_WINDOWS} time slots. Remove one first.`;
+
+/**
+ * Set own rate: the linked hours become the plan's own slots, one per
+ * stretch, pre-filled with the Default Rate; or SLOT_LIMIT when that would
+ * make more than MAX_WINDOWS slots.
+ */
+export function ownRateRows(rows: HourRow[], rate: BaseRates, key: () => string): { rows: HourRow[] } | { error: string } {
+  const stretches = linkedStretches(rows);
+  if (rows.filter(isSlot).length + stretches.length > MAX_WINDOWS) return { error: SLOT_LIMIT };
+  const slots: HourRow[] = stretches.map((r) => ({
+    key: key(), origin: "slot", ...r, slab1: String(rate.slab1), slab2: String(rate.slab2),
+  }));
+  return { rows: sortRows([...rows, ...slots]) };
+}
+
 // ── Rates ────────────────────────────────────────────────────────────────────
 
 /** Typing or pasting "KES 90" or " 9 0 " keeps just the digits' text: "90". */

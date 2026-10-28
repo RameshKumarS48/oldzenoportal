@@ -89,27 +89,39 @@ const VIJAY = "Vijayanand P";
 const w = (start: string, end: string, slab1: number, slab2: number): RateWindow => ({ start, end, slab1, slab2, isBase: false });
 /** The same for rest-of-day hours. */
 const b = (start: string, end: string, slab1: number, slab2: number): RateWindow => ({ start, end, slab1, slab2, isBase: true });
+/** Hours linked to the Default Rate ("Fill with Default Rate"): a copy of Default's 90/70. */
+const l = (start: string, end: string): RateWindow => ({ start, end, slab1: 90, slab2: 70, isBase: true, linkedToDefault: true });
 
-const DEFAULT_WINDOWS = [b("06:00:00", "21:59:59", 90, 70), w("22:00:00", "05:59:59", 70, 55)];
+/** Default is one rate for the whole day: the Default Rate. */
+const DEFAULT_WINDOWS = [b("00:00:00", "23:59:59", 90, 70)];
 const CBD_WINDOWS = [b("06:00:00", "16:59:59", 100, 80), w("17:00:00", "21:59:59", 110, 90), w("22:00:00", "05:59:59", 70, 55)];
 const UPCOUNTRY_WINDOWS = [b("06:00:00", "21:59:59", 80, 65), w("22:00:00", "05:59:59", 60, 50)];
-const NIGHT_RIDER_WINDOWS = [b("05:00:00", "16:59:59", 90, 70), w("17:00:00", "22:59:59", 95, 75), w("23:00:00", "04:59:59", 55, 45)];
+const NIGHT_RIDER_WINDOWS = [l("05:00:00", "16:59:59"), w("17:00:00", "22:59:59", 95, 75), w("23:00:00", "04:59:59", 55, 45)];
 const NOV_REVISION_WINDOWS = [
   w("06:00:00", "07:59:59", 100, 80),
   b("08:00:00", "16:59:59", 95, 75),
   w("17:00:00", "21:59:59", 105, 85),
   w("22:00:00", "05:59:59", 65, 50),
 ];
-/** Five slots at five different rates, around Default Rate hours: the day bar's full teal scale. */
+/** Five slots at five different rates, around hours linked to the Default Rate: the day bar's full teal scale. */
 const PEAK_PILOT_WINDOWS = [
   w("00:00:00", "04:59:59", 60, 48),
   w("05:00:00", "06:59:59", 80, 62),
   w("07:00:00", "09:59:59", 115, 95),
-  b("10:00:00", "15:59:59", 90, 70),
+  l("10:00:00", "15:59:59"),
   w("16:00:00", "18:59:59", 105, 85),
   w("19:00:00", "21:59:59", 95, 75),
-  b("22:00:00", "23:59:59", 90, 70),
+  l("22:00:00", "23:59:59"),
 ];
+
+/**
+ * The seed's revision, which is the pricing store's persist version: bump it
+ * whenever the seed changes, so browsers drop their saved copy for the new
+ * seed. It lives here, beside the seed, so the seed and its version always
+ * change in the same edit (a hot reload between the two would save the old
+ * seed under the new version).
+ */
+export const SEED_REVISION = 13;
 
 export const SEED_PLANS: PricingPlan[] = [
   {
@@ -126,9 +138,9 @@ export const SEED_PLANS: PricingPlan[] = [
         baseSlab2: 70,
         // Legacy single-rate fields; billing reads `windows`.
         standardRate: 90,
-        customWindowStart: "22:00",
-        customWindowEnd: "06:00",
-        customRate: 70,
+        customWindowStart: "00:00",
+        customWindowEnd: "00:00",
+        customRate: 90,
         createdBy: RAMESH,
         createdAt: "2025-12-20T10:00:00+03:00",
       },

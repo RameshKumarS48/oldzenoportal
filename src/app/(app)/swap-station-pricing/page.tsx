@@ -15,11 +15,11 @@ import { Pagination } from "@/components/ui/Pagination";
 import { stationsOnPlan, versionAt, sortedVersions } from "@/lib/pricing/engine";
 import { fmtEat } from "@/lib/pricing/format";
 import { countryOf } from "@/lib/pricing/country";
-import { fmtHHmm, fmtSlabs, priceNow } from "@/lib/pricing/windows";
-import { DayBandBar, versionBands } from "@/components/pricing-plans/DayBandBar";
+import { versionBands } from "@/components/pricing-plans/DayBandBar";
+import { ScheduleCell } from "@/components/pricing-plans/ScheduleCell";
 import { PlanActionsMenu } from "@/components/pricing-plans/PlanActionsMenu";
 import { DeletePlanModal } from "@/components/pricing-plans/DeletePlanModal";
-import { useDefaultRate, usePricingBook, usePricingNow } from "@/components/pricing-plans/shared";
+import { usePricingBook, usePricingNow } from "@/components/pricing-plans/shared";
 import { StationsDirectory } from "@/components/pricing-plans/StationsDirectory";
 import { usePricingStore } from "@/store/pricing-plans";
 import type { PricingPlan } from "@/lib/pricing/types";
@@ -29,7 +29,8 @@ const VIEWS = [
   { key: "stations", label: "Stations" },
 ];
 
-const SLABS_TIP = "Per kWh, in the plan’s currency · slab 1 / slab 2. Slab 1: a rider’s first 3 kWh each day. Slab 2: everything after.";
+const SCHEDULE_TIP =
+  "Each label is slab 1 / slab 2, in KES/kWh. Slab 1 is a rider’s first 3 kWh each day; slab 2 is every kWh after that. Hover a segment for its times and both slabs. Lighter is cheaper, grey is the Default Rate.";
 
 export default function PricingPlansPage() {
   const router = useRouter();
@@ -43,7 +44,6 @@ export default function PricingPlansPage() {
   const [perPage, setPerPage] = useState(25);
   // Price now follows the clock, so the now-marker moves, and any change just made.
   const now = usePricingNow();
-  const defaultRate = useDefaultRate(now);
 
   const rows = useMemo(() => {
     // Deleted plans stay in the book, so swaps priced on them still resolve, but aren't listed.
@@ -59,16 +59,16 @@ export default function PricingPlansPage() {
           .sort()
           .at(-1);
         const country = countryOf(plan);
-        // Grey means Default's Default Rate, which only a plan in Default's currency can charge.
-        const bands = versionBands(version.windows, country.code === "KE" ? defaultRate : null);
-        return { plan, country, bands, price: priceNow(version.windows, now), stations, lastUpdated };
+        // Grey is the Default Rate: all of Default, or hours another plan links to it.
+        const bands = versionBands(version.windows, plan.isDefault);
+        return { plan, country, bands, stations, lastUpdated };
       })
       .filter(({ plan }) => {
         const q = query.trim().toLowerCase();
         return !q || plan.name.toLowerCase().includes(q);
       })
       .sort((a, b) => Number(b.plan.isDefault) - Number(a.plan.isDefault) || a.plan.name.localeCompare(b.plan.name));
-  }, [book, changes, query, now, defaultRate]);
+  }, [book, changes, query, now]);
 
   // A search or a delete can leave the page past the end, so clamp it.
   const pages = Math.max(1, Math.ceil(rows.length / perPage));
@@ -115,9 +115,9 @@ export default function PricingPlansPage() {
             <div className="overflow-auto">
             <table className="w-full table-fixed text-sm min-w-[760px]">
               <colgroup>
-                <col className="w-[28%]" />
-                <col className="w-[44%]" />
-                <col className="w-[10%]" />
+                <col className="w-[22%]" />
+                <col className="w-[52%]" />
+                <col className="w-[8%]" />
                 <col className="w-[18%]" />
                 <col className="w-10" />
               </colgroup>
@@ -126,9 +126,11 @@ export default function PricingPlansPage() {
                   <th className="px-4 py-2.5">Plan</th>
                   <th className="px-4 py-2.5">
                     <span className="inline-flex items-center gap-1">
-                      Price now
-                      <InfoTip content={SLABS_TIP} placement="top" />
+                      Daily schedule
+                      <InfoTip content={SCHEDULE_TIP} placement="top" />
                     </span>
+                    {/* What the labels above the bars are: both slabs, per kWh. */}
+                    <span className="block text-[10px] font-medium normal-case tracking-normal text-slate-400">KES/kWh · slab 1 / slab 2</span>
                   </th>
                   <th className="px-4 py-2.5 text-right">Stations</th>
                   <th className="px-4 py-2.5">Last updated</th>
@@ -141,7 +143,7 @@ export default function PricingPlansPage() {
                     <td colSpan={5} className="px-4 py-14 text-center text-slate-400 text-sm">No plan matches “{query}”.</td>
                   </tr>
                 )}
-                {shown.map(({ plan, country, bands, price, stations, lastUpdated }) => (
+                {shown.map(({ plan, country, bands, stations, lastUpdated }) => (
                   <tr
                     key={plan.id}
                     className="hover:bg-slate-50 cursor-pointer"
@@ -154,22 +156,7 @@ export default function PricingPlansPage() {
                       <p className="text-[11px] text-slate-400">{country.name} · {country.currency}</p>
                     </td>
                     <td className="px-4 py-2.5">
-                      {/* The rates in force and when they change, beside the day; both move with the clock. */}
-                      <div className="flex items-center gap-3">
-                        <div className="w-30 shrink-0">
-                          {price ? (
-                            <>
-                              <p className="font-medium text-slate-800 tabular-nums">{fmtSlabs(price.rates)}</p>
-                              <p className="text-[11px] text-slate-400 tabular-nums">
-                                {price.until === null ? "all day" : `until ${fmtHHmm(price.until)}`}
-                              </p>
-                            </>
-                          ) : (
-                            <span className="text-slate-400">–</span>
-                          )}
-                        </div>
-                        <DayBandBar items={bands} now={now} currency={country.currency} compact className="flex-1 min-w-0" />
-                      </div>
+                      <ScheduleCell bands={bands} currency={country.currency} />
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-slate-700">{stations}</td>
                     <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{lastUpdated ? fmtEat(lastUpdated) : "–"}</td>
