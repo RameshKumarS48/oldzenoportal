@@ -187,6 +187,19 @@ check("fill falls back to Default's rate at the gap's start when Default has no 
   assert.deepEqual(hours(fillFromDefault([slot(6, 22)], mixed, key)), ["default:0-6:70/55", "slot:6-22:110/90", "default:22-24:70/55"]);
 });
 
+check("with no Default to copy (another currency) fill adds the hours with blank rates", () => {
+  assert.deepEqual(hours(fillFromDefault([slot(6, 18)], null, key)), ["default:0-6:/", "slot:6-18:110/90", "default:18-24:/"]);
+});
+
+check("rate limits follow the currency: KES 1–500, UGX 1–20,000", () => {
+  const ugx = [win("00:00:00", "23:59:59", 2600, 2000)];
+  assert.match(validateWindows(ugx), /1 to 500/);
+  assert.equal(validateWindows(ugx, 20000), null);
+  assert.match(validateWindows([win("00:00:00", "23:59:59", 20001, 2000)], 20000), /1 to 20,000/);
+  assert.equal(rateError("2600", 20000), null);
+  assert.notEqual(rateError("2600"), null);
+});
+
 check("a Default Rate row's times can't run into any row; a slot's can run over Default Rate rows", () => {
   const rows = fillFromDefault([slot(6, 10)], DEFAULT_WINDOWS, key); // 0–6, 6–10, 10–24
   const first = rows.findIndex((r) => r.from === 0);

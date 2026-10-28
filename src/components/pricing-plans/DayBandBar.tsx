@@ -9,7 +9,8 @@ import {
   fmtRateWindowHHmm,
   parseHHmmss,
   windowBoundary,
-  type SplitVersion,
+  sortWindows,
+  type BaseRates,
 } from "@/lib/pricing/windows";
 import type { RateWindow } from "@/lib/pricing/types";
 
@@ -27,8 +28,9 @@ export const WINDOW_COLORS = ["#115e59", "#5eead4", "#0d9488", "#99f6e4", "#0f76
  */
 const BASE_FILL = "#94a3b8";
 
-/** A rest-of-day band's id: each stretch has its own row and rates, so its own id. */
-export const baseBandId = (w: Pick<RateWindow, "start">) => `base-${w.start}`;
+/** True when these are the Default plan's Default Rate: the only rates drawn grey. */
+export const isDefaultRate = (w: Pick<RateWindow, "slab1" | "slab2">, defaultRate: BaseRates | null) =>
+  !!defaultRate && w.slab1 === defaultRate.slab1 && w.slab2 === defaultRate.slab2;
 
 /** A slot's colour by index, or slate for Default Rate hours. */
 const colorOf = (color: number | "base") => (color === "base" ? BASE_FILL : WINDOW_COLORS[color % WINDOW_COLORS.length]);
@@ -45,18 +47,20 @@ export function WindowSwatch({ color, className }: { color: number | "base"; cla
 }
 
 export interface BandItem {
-  /** Stable across edits (a form row's key), so a moving boundary animates. baseBandId for a rest-of-day stretch. */
+  /** Stable across edits (a form row's key, or a saved window's start), so a moving boundary animates. */
   id: string;
   window: RateWindow;
   color: number | "base";
 }
 
-/** A saved version's bands: white rest-of-day hours, then the time slots coloured in time order. */
-export function versionBands({ baseWindows, custom }: Pick<SplitVersion, "baseWindows" | "custom">): BandItem[] {
-  return [
-    ...baseWindows.map((w) => ({ id: baseBandId(w), window: w, color: "base" as const })),
-    ...custom.map((w, i) => ({ id: w.start, window: w, color: i })),
-  ];
+/**
+ * A saved version's bands, in time order: grey where the rates are the
+ * Default plan's Default Rate (`defaultRate`; null for a plan in another
+ * currency), and every other stretch in its own colour.
+ */
+export function versionBands(windows: RateWindow[], defaultRate: BaseRates | null): BandItem[] {
+  let next = 0;
+  return sortWindows(windows).map((w) => ({ id: w.start, window: w, color: isDefaultRate(w, defaultRate) ? "base" : next++ }));
 }
 
 /** Rough width of a boundary label ("16:00") at 10px, with breathing room. */
@@ -89,6 +93,7 @@ export function DayBandBar({
   highlighted,
   onHighlight,
   compact = false,
+  currency = "KES",
   className,
 }: {
   items: BandItem[];
@@ -96,6 +101,8 @@ export function DayBandBar({
   highlighted?: string | null;
   onHighlight?: (id: string | null) => void;
   compact?: boolean;
+  /** The plan's currency, for the rates in the tooltip. */
+  currency?: string;
   className?: string;
 }) {
   const barRef = useRef<HTMLDivElement>(null);
@@ -130,7 +137,7 @@ export function DayBandBar({
     const r = el.getBoundingClientRect();
     // A start the axis had no room to label goes in the tooltip, so the times are never lost.
     const unlabelled = !labels.some((l) => l.at === parseHHmmss(item.window.start));
-    const text = unlabelled ? `${fmtRateWindowHHmm(item.window)} · ${tipText(item)}` : tipText(item);
+    const text = unlabelled ? `${fmtRateWindowHHmm(item.window)} · ${tipText(item, currency)}` : tipText(item, currency);
     setTip({ text, color: item.color, x: r.left + r.width / 2, y: r.top });
     onHighlight?.(item.id);
   }
@@ -164,7 +171,7 @@ export function DayBandBar({
               key={base ? `${band.id}-${band.window.start}-${band.side}` : `${band.id}-${band.side}`}
               role={band.focusable ? "img" : undefined}
               tabIndex={band.focusable ? 0 : undefined}
-              aria-label={band.focusable ? ariaText(band) : undefined}
+              aria-label={band.focusable ? ariaText(band, currency) : undefined}
               aria-hidden={band.focusable ? undefined : true}
               onMouseEnter={(e) => show(band, e.currentTarget)}
               onMouseLeave={hide}
@@ -220,14 +227,14 @@ export function DayBandBar({
 }
 
 /** The tooltip: the band's rates, which the bar can't show; its times are already on the axis. */
-function tipText({ window: w }: BandItem): string {
+function tipText({ window: w }: BandItem, currency: string): string {
   if (!Number.isFinite(w.slab1) && !Number.isFinite(w.slab2)) return "No rates yet";
-  return `Slab 1 KES ${rate(w.slab1)} · Slab 2 KES ${rate(w.slab2)} per kWh`;
+  return `Slab 1 ${currency} ${rate(w.slab1)} · Slab 2 ${currency} ${rate(w.slab2)} per kWh`;
 }
 
 /** For screen readers, which can't see the axis: the times as well as the rates. */
-function ariaText(item: BandItem): string {
-  return `${fmtRateWindowHHmm(item.window)}: ${tipText(item)}`;
+function ariaText(item: BandItem, currency: string): string {
+  return `${fmtRateWindowHHmm(item.window)}: ${tipText(item, currency)}`;
 }
 
 /**

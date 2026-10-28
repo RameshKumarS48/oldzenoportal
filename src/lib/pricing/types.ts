@@ -11,6 +11,8 @@
  * so any past moment can be priced exactly as it was then.
  */
 
+import type { CountryCode } from "./country";
+
 /** Rest-of-day hours or a custom window: the badge Swap Transactions shows. */
 export type RateSlot = "standard" | "custom_window";
 
@@ -62,6 +64,8 @@ export interface PricingPlan {
   name: string;
   /** The fallback for any station without an assignment. Exactly one plan has this. */
   isDefault: boolean;
+  /** Where it prices swaps, which fixes its currency (country.ts). Unset means Kenya. */
+  country?: CountryCode;
   /** Append-only, any order. */
   versions: PlanVersion[];
   createdAt: string;

@@ -32,9 +32,9 @@ export const MAX_RATE = 500;
 /** The hours a plan doesn't set itself, priced like the Default plan. */
 export const BASE_LABEL = "Default Rate";
 
-/** Is the rate a whole number from MIN_RATE to MAX_RATE? */
-export function isValidRate(n: number): boolean {
-  return Number.isInteger(n) && n >= MIN_RATE && n <= MAX_RATE;
+/** Is the rate a whole number from MIN_RATE to `max` (MAX_RATE, KES, unless the plan's currency says otherwise)? */
+export function isValidRate(n: number, max = MAX_RATE): boolean {
+  return Number.isInteger(n) && n >= MIN_RATE && n <= max;
 }
 
 /** Hour h (0–24) as a window start, "06:00:00"; 24 is midnight, "00:00:00". */
@@ -338,7 +338,7 @@ export function sameWindows(a: RateWindow[], b: RateWindow[]): boolean {
  * hours, with valid rates and at most MAX_WINDOWS slots; otherwise what's
  * wrong, in words. Rest-of-day windows may carry different rates.
  */
-export function validateWindows(windows: RateWindow[]): string | null {
+export function validateWindows(windows: RateWindow[], maxRate = MAX_RATE): string | null {
   if (windows.length === 0) return "Add at least one time slot.";
   if (windows.filter((w) => !w.isBase).length > MAX_WINDOWS) return `Use at most ${MAX_WINDOWS} time slots.`;
   for (const w of windows) {
@@ -346,8 +346,8 @@ export function validateWindows(windows: RateWindow[]): string | null {
     if (!w.start.endsWith(":00:00") || !w.end.endsWith(":59:59")) {
       return `Windows run in whole hours: ${w.start}–${w.end} doesn't.`;
     }
-    if (!isValidRate(w.slab1) || !isValidRate(w.slab2)) {
-      return `Slab 1 and slab 2 for ${fmtRateWindow(w)} must be whole numbers from ${MIN_RATE} to ${MAX_RATE}.`;
+    if (!isValidRate(w.slab1, maxRate) || !isValidRate(w.slab2, maxRate)) {
+      return `Slab 1 and slab 2 for ${fmtRateWindow(w)} must be whole numbers from ${MIN_RATE} to ${maxRate.toLocaleString()}.`;
     }
   }
 

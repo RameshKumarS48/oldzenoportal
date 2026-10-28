@@ -12,6 +12,7 @@
 
 import { SWAP_STATIONS, type SwapStation } from "@/lib/mock/kpi-infra";
 import { versionSummary } from "@/lib/pricing/windows";
+import type { CountryCode } from "@/lib/pricing/country";
 import type { PlanChange, PricingPlan, RateWindow, StationAssignment } from "@/lib/pricing/types";
 
 // ── Stations ─────────────────────────────────────────────────────────────────
@@ -63,6 +64,8 @@ export interface PricingStation {
   longAddress: string;
   region: SwapStation["region"];
   regionLabel: string;
+  /** Every station is in Kenya today. */
+  country: CountryCode;
 }
 
 export const PRICING_STATIONS: PricingStation[] = SWAP_STATIONS.map((s) => ({
@@ -71,6 +74,7 @@ export const PRICING_STATIONS: PricingStation[] = SWAP_STATIONS.map((s) => ({
   longAddress: STATION_LONG_ADDRESS[s.id] ?? s.location,
   region: s.region,
   regionLabel: PRICING_REGIONS.find((r) => r.key === s.region)?.label ?? s.location,
+  country: "KE" as const,
 })).sort((a, b) => a.id.localeCompare(b.id));
 
 export const ALL_STATION_IDS = PRICING_STATIONS.map((s) => s.id);

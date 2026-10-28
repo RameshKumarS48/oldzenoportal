@@ -5,6 +5,7 @@ import { SearchInput } from "@/components/ui/FilterControls";
 import { Pagination } from "@/components/ui/Pagination";
 import { cn } from "@/lib/utils";
 import { PRICING_STATIONS } from "@/lib/mock/pricing-plans";
+import { COUNTRIES, type CountryCode } from "@/lib/pricing/country";
 import { resolvePlan } from "@/lib/pricing/engine";
 import { usePricingBook } from "./shared";
 
@@ -23,12 +24,15 @@ export function StationPicker({
   onChange,
   now,
   hideAlreadyOnTarget = false,
+  country = "KE",
 }: {
   targetPlanId: string | null;
   selected: Set<string>;
   onChange: (next: Set<string>) => void;
   now: string;
   hideAlreadyOnTarget?: boolean;
+  /** The target plan's country: only its stations are listed. */
+  country?: CountryCode;
 }) {
   const book = usePricingBook();
   const [query, setQuery] = useState("");
@@ -42,8 +46,8 @@ export function StationPicker({
         const current = resolvePlan(book, s.id, now).plan;
         const already = targetPlanId === null ? current.isDefault : current.id === targetPlanId;
         return { ...s, current, already };
-      }).filter((s) => !(hideAlreadyOnTarget && s.already)),
-    [book, now, targetPlanId, hideAlreadyOnTarget]
+      }).filter((s) => s.country === country && !(hideAlreadyOnTarget && s.already)),
+    [book, now, targetPlanId, hideAlreadyOnTarget, country]
   );
 
   const visible = useMemo(() => {
@@ -88,7 +92,10 @@ export function StationPicker({
   );
 
   if (rows.length === 0) {
-    return <p className="rounded-xl border border-slate-200 py-10 text-center text-sm text-slate-400">Every station is already on this plan.</p>;
+    const none = PRICING_STATIONS.every((s) => s.country !== country)
+      ? `No stations in ${COUNTRIES[country].name} yet. You can create the plan now and assign stations once there are some.`
+      : "Every station is already on this plan.";
+    return <p className="rounded-xl border border-slate-200 px-6 py-10 text-center text-sm text-slate-400">{none}</p>;
   }
 
   return (

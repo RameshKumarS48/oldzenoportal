@@ -17,10 +17,11 @@ import { useAccess } from "@/lib/access";
 import { cn } from "@/lib/utils";
 import { usePricingStore } from "@/store/pricing-plans";
 import { ALL_STATION_IDS, PRICING_STATIONS } from "@/lib/mock/pricing-plans";
-import { planStatus, sortedVersions, stationsOnPlan, versionAt, versionNumber } from "@/lib/pricing/engine";
+import { planStatus, sortedVersions, stationsOnPlan, versionAt } from "@/lib/pricing/engine";
 import { summarizeMoves } from "@/lib/pricing/moves";
 import { fmtEat } from "@/lib/pricing/format";
-import { compareWindows, fmtSlabs, splitVersion } from "@/lib/pricing/windows";
+import { compareWindows, fmtSlabs } from "@/lib/pricing/windows";
+import { countryOf } from "@/lib/pricing/country";
 import type { PricingPlan } from "@/lib/pricing/types";
 import { DayBandBar, versionBands } from "@/components/pricing-plans/DayBandBar";
 import { WindowRates } from "@/components/pricing-plans/WindowRates";
@@ -31,12 +32,11 @@ import { DeletePlanModal } from "@/components/pricing-plans/DeletePlanModal";
 import { AssignStationsModal } from "@/components/pricing-plans/AssignStationsModal";
 import { StationHistoryDrawer } from "@/components/pricing-plans/StationHistoryDrawer";
 import { PlanCombobox } from "@/components/pricing-plans/PlanCombobox";
-import { PlanStatusBadge, useActorName, usePricingBook, usePricingNow } from "@/components/pricing-plans/shared";
+import { PlanStatusBadge, useActorName, useDefaultRate, usePricingBook, usePricingNow } from "@/components/pricing-plans/shared";
 
 const TABS = [
   { key: "overview", label: "Overview" },
   { key: "stations", label: "Stations" },
-  { key: "versions", label: "Rate versions" },
   { key: "history", label: "History" },
 ];
 
@@ -77,14 +77,18 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
   const [editing, setEditing] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  /** The window under the pointer (a slot's start, or baseBandId for a rest-of-day stretch), shared by the day bar and the rates table. */
+  /** The window under the pointer (its start), shared by the day bar and the rates table. */
   const [highlight, setHighlight] = useState<string | null>(null);
   const now = usePricingNow();
 
   const status = planStatus(book, plan, ALL_STATION_IDS, now);
   // Changes apply when saved, so a plan's latest version is in force.
   const current = versionAt(plan, now) ?? sortedVersions(plan)[0];
-  const split = splitVersion(current);
+  const country = countryOf(plan);
+  const defaultRate = useDefaultRate(now);
+  // Grey means Default's Default Rate, which only a plan in Default's currency can charge.
+  const shownDefault = country.code === "KE" ? defaultRate : null;
+  const bands = versionBands(current.windows, shownDefault);
   const stationCount = stationsOnPlan(book, plan.id, ALL_STATION_IDS, now).length;
 
   return (
@@ -99,7 +103,10 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
               <h2 className="font-semibold text-slate-800 truncate">{plan.name}</h2>
               <PlanStatusBadge status={status} />
             </div>
-            {plan.isDefault && <p className="text-xs text-slate-400 truncate">{DEFAULT_NOTE}</p>}
+            <p className="text-xs text-slate-400 truncate">
+              {country.name} · {country.currency}
+              {plan.isDefault && <> · {DEFAULT_NOTE}</>}
+            </p>
           </div>
         </div>
         {canWrite && (
@@ -130,9 +137,9 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
                 <h3 className="text-sm font-semibold text-slate-700">Rates in force</h3>
                 <span className="text-[11px] text-slate-400">Updated {fmtEat(current.effectiveFrom)}</span>
               </div>
-              <DayBandBar items={versionBands(split)} now={now} highlighted={highlight} onHighlight={setHighlight} />
-              <WindowRates split={split} now={now} highlighted={highlight} onHighlight={setHighlight} />
-              <p className="text-[11px] text-slate-400">KES per kWh. Slab 1 is a rider&apos;s first 3 kWh each day; slab 2 is everything after.</p>
+              <DayBandBar items={bands} now={now} currency={country.currency} highlighted={highlight} onHighlight={setHighlight} />
+              <WindowRates bands={bands} now={now} highlighted={highlight} onHighlight={setHighlight} />
+              <p className="text-[11px] text-slate-400">{country.currency} per kWh. Slab 1 is a rider&apos;s first 3 kWh each day; slab 2 is everything after.</p>
               <p className="text-xs text-slate-500">
                 {plan.isDefault
                   ? `Prices every station without another plan: ${stationCount} today.`
@@ -155,11 +162,9 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
 
         {tab === "stations" && <StationsTab plan={plan} now={now} canWrite={canWrite} onAssign={() => setAssigning(true)} />}
 
-        {tab === "versions" && <VersionsTab plan={plan} currentId={current.id} />}
-
         {tab === "history" && (
           <div className="bg-white border border-slate-200 rounded-xl p-5">
-            <ChangeHistory planId={plan.id} />
+            <ChangeHistory plan={plan} currentId={current.id} defaultRate={shownDefault} />
           </div>
         )}
       </div>
@@ -412,8 +417,9 @@ function MoveStationsModal({
   const assignStations = usePricingStore((s) => s.assignStations);
   const book = usePricingBook();
   const actor = useActorName();
+  // Stations stay in their country, so only plans in this plan's country are offered.
   const targets = book.plans
-    .filter((p) => !p.archived && p.id !== from.id)
+    .filter((p) => !p.archived && p.id !== from.id && countryOf(p).code === countryOf(from).code)
     .sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.name.localeCompare(b.name));
   const [targetId, setTargetId] = useState("");
   const target = targets.find((p) => p.id === targetId);
@@ -475,7 +481,7 @@ function MoveStationsModal({
             </tbody>
           </table>
           <p className="border-t border-slate-100 bg-slate-50 px-3 py-1.5 text-[11px] text-slate-500">
-            KES per kWh, slab 1 / slab 2. Now: {from.name}. After: {target.name}.
+            {countryOf(from).currency} per kWh, slab 1 / slab 2. Now: {from.name}. After: {target.name}.
           </p>
         </div>
       )}
@@ -488,66 +494,5 @@ function MoveStationsModal({
         </div>
       )}
     </ConfirmModal>
-  );
-}
-
-/** Every rate version, newest first: its number, when it took over, its day as a bar, who made it, and whether it's in force. */
-function VersionsTab({ plan, currentId }: { plan: PricingPlan; currentId: string }) {
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(25);
-  const versions = sortedVersions(plan).reverse();
-  const pages = Math.max(1, Math.ceil(versions.length / perPage));
-  const current = Math.min(page, pages);
-  const shown = versions.slice((current - 1) * perPage, current * perPage);
-
-  return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-      <div className="overflow-auto">
-        <table className="w-full table-fixed text-sm min-w-[760px]">
-          <colgroup>
-            <col className="w-[10%]" />
-            <col className="w-[20%]" />
-            <col className="w-[42%]" />
-            <col className="w-[16%]" />
-            <col className="w-[12%]" />
-          </colgroup>
-          <thead className="bg-slate-50 border-b border-slate-200">
-            <tr className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              <th className="px-4 py-2.5">Version</th>
-              <th className="px-4 py-2.5">Effective from</th>
-              <th className="px-4 py-2.5">Rates</th>
-              <th className="px-4 py-2.5">Created by</th>
-              <th className="px-4 py-2.5">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {shown.map((v) => {
-              const active = v.id === currentId;
-              return (
-                <tr key={v.id}>
-                  <td className="px-4 py-3 font-mono text-xs text-slate-700">v{versionNumber(plan, v.id)}</td>
-                  <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{fmtEat(v.effectiveFrom)}</td>
-                  <td className="px-4 py-2.5">
-                    <DayBandBar items={versionBands(splitVersion(v))} compact />
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-600 truncate">{v.createdBy}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={cn(
-                        "px-2 py-0.5 rounded-full text-[11px] font-medium",
-                        active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
-                      )}
-                    >
-                      {active ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <Pagination total={versions.length} page={current} perPage={perPage} onPage={setPage} onPerPage={setPerPage} />
-    </div>
   );
 }

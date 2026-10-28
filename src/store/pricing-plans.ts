@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { ALL_STATION_IDS, SEED_ASSIGNMENTS, SEED_CHANGES, SEED_PLANS } from "@/lib/mock/pricing-plans";
+import { ALL_STATION_IDS, PRICING_STATIONS, SEED_ASSIGNMENTS, SEED_CHANGES, SEED_PLANS } from "@/lib/mock/pricing-plans";
+import { COUNTRIES, countryOf, type CountryCode } from "@/lib/pricing/country";
 import { sortedVersions, stationsOnPlan, versionAt } from "@/lib/pricing/engine";
 import { summarizeMoves } from "@/lib/pricing/moves";
 import {
@@ -35,9 +36,12 @@ function uid(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
-export function validateVersion(v: VersionInput): string | null {
-  return validateWindows(v.windows);
+/** `maxRate` is the plan currency's top rate; KES's by default. */
+export function validateVersion(v: VersionInput, maxRate?: number): string | null {
+  return validateWindows(v.windows, maxRate);
 }
+
+const STATION_COUNTRY = new Map(PRICING_STATIONS.map((s) => [s.id, s.country]));
 
 export const NAME_MIN = 2;
 export const NAME_MAX = 60;
@@ -95,6 +99,12 @@ function planMoves(
   if (summary.unknown.length > 0) {
     return { error: `Unknown station${summary.unknown.length === 1 ? "" : "s"}: ${summary.unknown.join(", ")}.`, rows: [], logs: [] };
   }
+  // A station can only be on a plan in its own country (Default is Kenya's).
+  const target = countryOf((planId && book.plans.find((p) => p.id === planId)) || {});
+  const abroad = summary.moves.filter((m) => (STATION_COUNTRY.get(m.id) ?? "KE") !== target.code);
+  if (abroad.length > 0) {
+    return { error: `${abroad.length === 1 ? "That station isn't" : "Those stations aren't"} in ${target.name}.`, rows: [], logs: [] };
+  }
   const ids = summary.moves.map((m) => m.id);
   const rows: StationAssignment[] = ids.map((stationId) => ({
     id: uid("sa"), stationId, planId, effectiveFrom: at, assignedBy: by, assignedAt: at, reason,
@@ -127,7 +137,7 @@ interface PricingState extends PricingBook {
   changes: PlanChange[];
   /** Create a plan, and move `stationIds` onto it, in one update: all or nothing. */
   createPlan: (
-    input: { name: string; version: VersionInput; stationIds?: string[]; note?: string },
+    input: { name: string; version: VersionInput; stationIds?: string[]; note?: string; country?: CountryCode },
     by: string
   ) => Result & { planId?: string; moved?: number };
   /** `note` goes on the change entry this logs, like every note below. */
@@ -152,11 +162,12 @@ export const usePricingStore = create<PricingState>()(
         assignments: SEED_ASSIGNMENTS,
         changes: SEED_CHANGES,
 
-        createPlan: ({ name, version, stationIds = [], note }, by) => {
+        createPlan: ({ name, version, stationIds = [], note, country = "KE" }, by) => {
           const trimmed = name.trim();
           const nameError = validatePlanName(trimmed, get().plans);
           if (nameError) return { ok: false, error: nameError };
-          const error = validateVersion(version);
+          if (!COUNTRIES[country]) return { ok: false, error: "Choose Kenya or Uganda." };
+          const error = validateVersion(version, COUNTRIES[country].maxRate);
           if (error) return { ok: false, error };
 
           const now = new Date().toISOString();
@@ -165,6 +176,7 @@ export const usePricingStore = create<PricingState>()(
             id: planId,
             name: trimmed,
             isDefault: false,
+            country,
             createdAt: now,
             versions: [toVersion(version, by, now)],
           };
@@ -184,7 +196,7 @@ export const usePricingStore = create<PricingState>()(
         addVersion: (planId, version, by, note) => {
           const plan = get().plans.find((p) => p.id === planId && !p.archived);
           if (!plan) return { ok: false, error: PLAN_GONE };
-          const error = validateVersion(version);
+          const error = validateVersion(version, countryOf(plan).maxRate);
           if (error) return { ok: false, error };
 
           const now = new Date().toISOString();

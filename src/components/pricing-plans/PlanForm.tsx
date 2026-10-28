@@ -10,9 +10,10 @@ import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { toast } from "@/store/toast";
 import { NOTE_MAX, PLAN_GONE, usePricingStore, validatePlanName, type VersionInput } from "@/store/pricing-plans";
 import { ALL_STATION_IDS } from "@/lib/mock/pricing-plans";
+import { COUNTRIES, COUNTRY_LIST, DEFAULT_COUNTRY, type CountryCode } from "@/lib/pricing/country";
 import { SLAB1_DAILY_KWH, defaultPlan, sortedVersions, stationsOnPlan, versionAt } from "@/lib/pricing/engine";
 import {
-  BASE_LABEL, MAX_WINDOWS, fmtRateWindow, fmtSlabs, rateRows, rateWarnings, rowChanged, sameWindows, sortWindows, splitVersion,
+  BASE_LABEL, MAX_WINDOWS, fmtRateWindow, fmtSlabs, rateRows, rateWarnings, rowChanged, sameWindows, sortWindows, type BaseRates,
 } from "@/lib/pricing/windows";
 import {
   addBlocked,
@@ -32,15 +33,16 @@ import {
   uncoveredHours,
   untilChoices,
   windowsToRows,
+  typedRate,
   type HourRow,
 } from "@/lib/pricing/hour-rows";
 import { summarizeMoves } from "@/lib/pricing/moves";
 import type { PricingPlan } from "@/lib/pricing/types";
 import { cn } from "@/lib/utils";
-import { DayBandBar, WindowSwatch, versionBands, type BandItem } from "./DayBandBar";
+import { DayBandBar, WindowSwatch, isDefaultRate, versionBands, type BandItem } from "./DayBandBar";
 import { HourSelect } from "./HourSelect";
 import { StationPicker } from "./StationPicker";
-import { inputCls, labelCls, useActorName, usePricingBook } from "./shared";
+import { inputCls, labelCls, useActorName, useDefaultRate, usePricingBook } from "./shared";
 
 let rowSeq = 0;
 const rowKey = () => `w${++rowSeq}`;
@@ -57,9 +59,28 @@ const ROW_GRID = "grid grid-cols-[0.75rem_minmax(0,1.15fr)_minmax(0,1.15fr)_minm
 const snapshot = (name: string, rows: HourRow[]) =>
   JSON.stringify([name.trim(), rows.map((r) => [r.origin, r.from, r.until, r.slab1.trim(), r.slab2.trim()])]);
 
+/**
+ * Each row's colour: grey only while its rates are exactly Default's Default
+ * Rate (`defaultRate`; null when the plan's currency isn't Default's), so a
+ * filled row whose rates are changed takes a colour of its own. Slots keep
+ * theirs; other rows take the colours no slot uses, in time order.
+ */
+function rowColors(rows: HourRow[], defaultRate: BaseRates | null): Map<string, number | "base"> {
+  const used = new Set(rows.filter(isSlot).map((r) => r.color));
+  const free = [0, 1, 2, 3, 4, 5].filter((c) => !used.has(c));
+  let k = 0;
+  const out = new Map<string, number | "base">();
+  for (const r of rows) {
+    if (isDefaultRate({ slab1: typedRate(r.slab1), slab2: typedRate(r.slab2) }, defaultRate)) out.set(r.key, "base");
+    else if (isSlot(r)) out.set(r.key, r.color);
+    else out.set(r.key, free.length ? free[k++ % free.length] : 0);
+  }
+  return out;
+}
+
 /** The rows as day-bar bands, each keyed by its row so a moving edge slides. */
-const rowBands = (rows: HourRow[]): BandItem[] =>
-  rows.map((r) => ({ id: r.key, window: rowsToWindows([r])[0], color: isSlot(r) ? r.color : "base" }));
+const rowBands = (rows: HourRow[], colors: Map<string, number | "base">): BandItem[] =>
+  rows.map((r) => ({ id: r.key, window: rowsToWindows([r])[0], color: colors.get(r.key) ?? 0 }));
 
 /** "1 Rates ─ 2 Stations": where a new plan's two steps are. */
 function Steps({ step }: { step: "rates" | "stations" }) {
@@ -89,6 +110,7 @@ function RateInput({
   touched,
   onChange,
   onBlur,
+  max,
 }: {
   id: string;
   label: string;
@@ -96,8 +118,10 @@ function RateInput({
   touched: boolean;
   onChange: (v: string) => void;
   onBlur: () => void;
+  /** The plan currency's top rate. */
+  max: number;
 }) {
-  const err = rateError(value);
+  const err = rateError(value, max);
   const show = err && (touched || value !== "");
   return (
     <div>
@@ -117,11 +141,11 @@ function RateInput({
 }
 
 /** A labelled day bar in the confirmation. */
-function ConfirmBar({ label, items }: { label?: string; items: BandItem[] }) {
+function ConfirmBar({ label, items, currency }: { label?: string; items: BandItem[]; currency: string }) {
   return (
     <div>
       {label && <p className="mb-1 text-[11px] font-medium text-slate-500">{label}</p>}
-      <DayBandBar items={items} />
+      <DayBandBar items={items} currency={currency} />
     </div>
   );
 }
@@ -165,6 +189,13 @@ export function PlanForm({
   const defaultWindows = (versionAt(fallback, now) ?? sortedVersions(fallback)[0]).windows;
 
   const [name, setName] = useState(plan?.name ?? "");
+  // Chosen when the plan is created and fixed after; it sets the currency.
+  const [countryCode, setCountryCode] = useState<CountryCode>(plan?.country ?? DEFAULT_COUNTRY);
+  const country = COUNTRIES[countryCode];
+  // Default is Kenya's plan, so only a Kenya plan can copy (or match) its Default Rate.
+  const sameAsDefault = country.code === DEFAULT_COUNTRY;
+  const kenyaDefaultRate = useDefaultRate(now);
+  const defaultRate = sameAsDefault ? kenyaDefaultRate : null;
   const [note, setNote] = useState("");
   // A new plan starts with one empty slot; an existing one with its saved windows.
   const [rows, setRows] = useState<HourRow[]>(() => (latest ? windowsToRows(latest.windows, rowKey) : addRow([], rowKey(), rowKey)));
@@ -190,14 +221,16 @@ export function PlanForm({
   const gaps = gapStretches(rows);
   const covered = 24 - uncoveredHours(rows).length;
   const slotCount = rows.filter(isSlot).length;
+  const colors = rowColors(rows, defaultRate);
 
   const nameError = validatePlanName(name, book.plans, plan?.id);
-  const missingRates = rows.some((r) => rateError(r.slab1) || rateError(r.slab2));
-  const badRates = rows.some((r) => [r.slab1, r.slab2].some((v) => v.trim() !== "" && rateError(v)));
+  const missingRates = rows.some((r) => rateError(r.slab1, country.maxRate) || rateError(r.slab2, country.maxRate));
+  const badRates = rows.some((r) => [r.slab1, r.slab2].some((v) => v.trim() !== "" && rateError(v, country.maxRate)));
   const ratesChanged = !latest || !sameWindows(windows, latest.windows);
   const nameChanged = !!plan && name.trim() !== plan.name;
   // A note alone isn't a change: it describes one.
-  const dirty = snapshot(name, rows) !== initial || picked.size > 0 || note.trim() !== "";
+  const dirty =
+    snapshot(name, rows) !== initial || picked.size > 0 || note.trim() !== "" || (!plan && countryCode !== DEFAULT_COUNTRY);
   const blocked = addBlocked(rows);
 
   // The first thing standing in the way of saving, for the footer.
@@ -208,7 +241,7 @@ export function PlanForm({
       : gaps.length > 0
         ? `No rate yet for ${gapText(rows)}.`
         : badRates
-          ? "Fix the rates marked in red: whole numbers from 1 to 500."
+          ? `Fix the rates marked in red: whole numbers from 1 to ${country.maxRate.toLocaleString()}.`
           : missingRates
             ? "Enter both rates for every row."
             : plan && !ratesChanged && !nameChanged
@@ -274,7 +307,7 @@ export function PlanForm({
     if (saving) return;
     setSaving(true);
     if (!plan) {
-      const res = createPlan({ name, version, stationIds: moves.moves.map((m) => m.id), note }, actor);
+      const res = createPlan({ name, version, stationIds: moves.moves.map((m) => m.id), note, country: countryCode }, actor);
       if (!res.ok) return fail(res.error);
       const n = res.moved ?? 0;
       toast.success(
@@ -311,10 +344,12 @@ export function PlanForm({
         touched={touched.has(`${r.key}:${field}`)}
         onChange={(v) => setRate(r.key, field, v)}
         onBlur={() => touch(`${r.key}:${field}`)}
+        max={country.maxRate}
       />
     ));
 
-  const warnings = confirming ? rateWarnings(windows, editingDefault ? null : defaultWindows) : null;
+  // Comparing with Default only makes sense in Default's currency.
+  const warnings = confirming ? rateWarnings(windows, editingDefault || !sameAsDefault ? null : defaultWindows) : null;
   const stationCount = (n: number) => `${n} station${n === 1 ? "" : "s"}`;
 
   // ── The rates step ─────────────────────────────────────────────────────────
@@ -336,17 +371,49 @@ export function PlanForm({
         {nameError && touched.has("name") && <p className="mt-1 text-[11px] text-red-600">{nameError}</p>}
       </div>
 
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label htmlFor="plan-country" className={labelCls}>Country</label>
+          {plan ? (
+            // Fixed once the plan exists: its rates and stations are in this country.
+            <p id="plan-country" className={cn(inputCls, "bg-slate-50 text-slate-600")}>{country.name}</p>
+          ) : (
+            <select
+              id="plan-country"
+              value={countryCode}
+              onChange={(e) => {
+                setCountryCode(e.target.value as CountryCode);
+                // Stations are in one country, so a change of country clears the picks.
+                setPicked(new Set());
+              }}
+              className={inputCls}
+            >
+              {COUNTRY_LIST.map((c) => (
+                <option key={c.code} value={c.code}>{c.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
+        <div>
+          <span className={labelCls}>Currency</span>
+          <p className={cn(inputCls, "bg-slate-50 text-slate-600")} aria-live="polite">
+            {country.currency} <span className="text-slate-400">· set by the country</span>
+          </p>
+        </div>
+      </div>
+
       <section className="space-y-3">
         <div>
-          <h3 className="text-xs font-semibold text-slate-700">Your time slots (EAT, KES per kWh)</h3>
+          <h3 className="text-xs font-semibold text-slate-700">Your time slots (EAT, {country.currency} per kWh)</h3>
           <p className="mt-0.5 text-[11px] text-slate-400">
-            Add the hours you want to price differently, up to {MAX_WINDOWS}. Fill the rest with the {BASE_LABEL}.
+            Add the hours you want to price differently, up to {MAX_WINDOWS}.{" "}
+            {sameAsDefault ? `Fill the rest with the ${BASE_LABEL}.` : "Then fill the rest of the day and set its rates."}
           </p>
         </div>
 
         {/* The day stays in view while the rows scroll under it. */}
         <div className="sticky top-0 z-10 -mx-1 bg-white px-1 pt-1 pb-2">
-          <DayBandBar items={rowBands(rows)} highlighted={highlight} onHighlight={setHighlight} />
+          <DayBandBar items={rowBands(rows, colors)} currency={country.currency} highlighted={highlight} onHighlight={setHighlight} />
         </div>
 
         <div className="space-y-2">
@@ -360,8 +427,10 @@ export function PlanForm({
           </div>
 
           {rows.map((r, i) => {
-            const slot = isSlot(r);
-            const label = `${slot ? "slot" : BASE_LABEL} ${rowLabel(r)}`;
+            const color = colors.get(r.key) ?? 0;
+            // Only the actual Default Rate is called that; a changed rate is the plan's own.
+            const isDefault = color === "base";
+            const label = `${isDefault ? BASE_LABEL : "slot"} ${rowLabel(r)}`;
             return (
               <div
                 key={r.key}
@@ -369,7 +438,7 @@ export function PlanForm({
                 className={cn("rounded-lg -mx-1 px-1 py-1 transition-colors", highlight === r.key && "bg-slate-50")}
               >
                 <div className={cn(ROW_GRID, "items-start")}>
-                  <WindowSwatch color={slot ? r.color : "base"} className="mt-3" />
+                  <WindowSwatch color={color} className="mt-3" />
                   <HourSelect
                     aria-label={`${label} from`}
                     value={r.from}
@@ -394,7 +463,7 @@ export function PlanForm({
                     <X className="w-4 h-4" />
                   </button>
                 </div>
-                {!slot && <p className="mt-0.5 pl-5 text-[11px] text-slate-400">{BASE_LABEL}</p>}
+                {isDefault && <p className="mt-0.5 pl-5 text-[11px] text-slate-400">{BASE_LABEL}</p>}
               </div>
             );
           })}
@@ -445,8 +514,12 @@ export function PlanForm({
               </div>
             </div>
             {!editingDefault && (
-              <Button size="sm" variant="outline" onClick={() => setRows((rs) => fillFromDefault(rs, defaultWindows, rowKey))}>
-                Fill with {BASE_LABEL}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setRows((rs) => fillFromDefault(rs, sameAsDefault ? defaultWindows : null, rowKey))}
+              >
+                {sameAsDefault ? `Fill with ${BASE_LABEL}` : "Fill remaining hours"}
               </Button>
             )}
           </div>
@@ -481,10 +554,12 @@ export function PlanForm({
           <span className="font-semibold">Slab 2</span> is the rate for every kWh after that, the same day. It&apos;s usually the
           same as slab 1 or cheaper.
         </p>
-        <p className="tabular-nums">
-          <span className="font-semibold">Default plan:</span>{" "}
-          {sortWindows(defaultWindows).map((w) => `${fmtRateWindow(w)} at ${fmtSlabs(w)}`).join(", ")} (slab 1 / slab 2).
-        </p>
+        {sameAsDefault && (
+          <p className="tabular-nums">
+            <span className="font-semibold">Default plan:</span>{" "}
+            {sortWindows(defaultWindows).map((w) => `${fmtRateWindow(w)} at ${fmtSlabs(w)}`).join(", ")} (slab 1 / slab 2).
+          </p>
+        )}
       </Callout>
 
       {error && <Callout variant="danger" role="alert">{error}</Callout>}
@@ -515,7 +590,7 @@ export function PlanForm({
           assign stations later from the plan&apos;s Stations tab.
         </p>
       </div>
-      <StationPicker targetPlanId={NEW_PLAN} selected={picked} onChange={setPicked} now={now} />
+      <StationPicker targetPlanId={NEW_PLAN} selected={picked} onChange={setPicked} now={now} country={countryCode} />
     </div>
   );
 
@@ -537,8 +612,8 @@ export function PlanForm({
 
         {latest ? (
           <div className="space-y-3">
-            <ConfirmBar label="Current" items={versionBands(splitVersion(latest))} />
-            <ConfirmBar label="New" items={rowBands(rows)} />
+            <ConfirmBar label="Current" items={versionBands(latest.windows, defaultRate)} currency={country.currency} />
+            <ConfirmBar label="New" items={rowBands(rows, colors)} currency={country.currency} />
             {/* A rate change alone doesn't show on the bars, so spell out what changes. */}
             <div>
               <p className="text-[11px] font-medium text-slate-500">Changes (slab 1 / slab 2)</p>
@@ -555,7 +630,7 @@ export function PlanForm({
             </div>
           </div>
         ) : (
-          <ConfirmBar items={rowBands(rows)} />
+          <ConfirmBar items={rowBands(rows, colors)} currency={country.currency} />
         )}
 
         {warnings && warnings.items.length > 0 && (

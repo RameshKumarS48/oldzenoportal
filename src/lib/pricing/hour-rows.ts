@@ -245,14 +245,19 @@ export function defaultFillRate(defaultWindows: RateWindow[], from: number): Bas
 /**
  * Fill every gap with one continuous Default Rate row, split only at
  * midnight (the day runs 00:00:00 to 23:59:59), so 18:00 to 05:59 fills as
- * 18:00–23:59 and 00:00–05:59.
+ * 18:00–23:59 and 00:00–05:59. With `defaultWindows` null (a plan whose
+ * currency isn't Default's) the rows come with empty rates to fill in.
  */
-export function fillFromDefault(rows: HourRow[], defaultWindows: RateWindow[], key: () => string): HourRow[] {
+export function fillFromDefault(rows: HourRow[], defaultWindows: RateWindow[] | null, key: () => string): HourRow[] {
   const added: HourRow[] = [];
   for (const gap of gapStretches(rows)) {
-    const rate = defaultFillRate(defaultWindows, gap.from);
-    if (!rate) continue;
-    added.push({ key: key(), origin: "default", ...gap, slab1: String(rate.slab1), slab2: String(rate.slab2), color: 0 });
+    // No Default to copy (a plan in another currency): the hours, with rates left to type.
+    const rate = defaultWindows ? defaultFillRate(defaultWindows, gap.from) : null;
+    if (defaultWindows && !rate) continue;
+    added.push({
+      key: key(), origin: "default", ...gap,
+      slab1: rate ? String(rate.slab1) : "", slab2: rate ? String(rate.slab2) : "", color: 0,
+    });
   }
   return sortRows([...rows, ...added]);
 }
@@ -264,11 +269,11 @@ export function cleanRate(text: string): string {
   return text.replace(/^\s*kes\s*/i, "").replace(/\s+/g, "");
 }
 
-/** Null when the typed rate is fine; otherwise the inline error. */
-export function rateError(text: string): string | null {
+/** Null when the typed rate is fine; otherwise the inline error. `max` is the plan currency's top rate. */
+export function rateError(text: string, max = MAX_RATE): string | null {
   const t = text.trim();
   if (t === "") return "Required";
-  if (!/^\d+$/.test(t) || !isValidRate(Number(t))) return `Whole number, ${MIN_RATE}–${MAX_RATE}`;
+  if (!/^\d+$/.test(t) || !isValidRate(Number(t), max)) return `Whole number, ${MIN_RATE}–${max.toLocaleString()}`;
   return null;
 }
 

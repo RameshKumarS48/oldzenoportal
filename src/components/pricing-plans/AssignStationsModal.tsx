@@ -9,6 +9,7 @@ import { toast } from "@/store/toast";
 import { usePricingStore } from "@/store/pricing-plans";
 import { ALL_STATION_IDS } from "@/lib/mock/pricing-plans";
 import { summarizeMoves } from "@/lib/pricing/moves";
+import { countryOf } from "@/lib/pricing/country";
 import type { PricingPlan } from "@/lib/pricing/types";
 import { StationPicker } from "./StationPicker";
 import { useActorName, usePricingBook } from "./shared";
@@ -42,7 +43,7 @@ export function AssignStationsModal({ plan, onClose }: { plan: PricingPlan; onCl
   return (
     <Modal open onClose={confirming ? () => {} : onClose} title={`Assign stations to ${plan.name}`} className="max-w-3xl">
       <div className="space-y-4">
-        <StationPicker targetPlanId={targetId} selected={selected} onChange={setSelected} now={now} hideAlreadyOnTarget />
+        <StationPicker targetPlanId={targetId} selected={selected} onChange={setSelected} now={now} hideAlreadyOnTarget country={countryOf(plan).code} />
 
         {error && <Callout variant="danger" role="alert">{error}</Callout>}
 

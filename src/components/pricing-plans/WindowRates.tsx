@@ -1,58 +1,30 @@
-import { eatSecondOfDay, fmtRateWindow, inRateWindow, sortWindows, type SplitVersion } from "@/lib/pricing/windows";
+import { eatSecondOfDay, fmtRateWindow, inRateWindow } from "@/lib/pricing/windows";
 import { cn } from "@/lib/utils";
-import { baseBandId, WindowSwatch } from "./DayBandBar";
+import { WindowSwatch, type BandItem } from "./DayBandBar";
 
 const NowTag = () => (
   <span className="px-1.5 py-0.5 rounded bg-zeno-teal text-[10px] font-semibold leading-none text-white">Now</span>
 );
 
 /**
- * A version's rates, one row per window in time order: the time slots in
- * their colours, and each Default Rate stretch (slate) with its own rates. With `now`, the row in force at that EAT time is
- * tinted, with an accent bar and a "Now" tag, so it never relies on colour
- * alone. Swatches and ids match `versionBands`, so `highlighted` and
- * `onHighlight` link a row to its band.
+ * A version's rates, one row per band in time order, each with the swatch
+ * its band has on the day bar (grey only for the Default Rate). With `now`,
+ * the row in force at that EAT time is tinted, with an accent bar and a
+ * "Now" tag, so it never relies on colour alone. Ids match the bar's, so
+ * `highlighted` and `onHighlight` link a row to its band.
  */
 export function WindowRates({
-  split,
+  bands,
   now,
   highlighted,
   onHighlight,
 }: {
-  split: SplitVersion;
+  bands: BandItem[];
   now?: string;
   highlighted?: string | null;
   onHighlight?: (id: string | null) => void;
 }) {
   const second = now ? eatSecondOfDay(now) : null;
-  const { baseWindows, custom } = split;
-  const slotColor = new Map(custom.map((w, i) => [w.start, i]));
-  const isBase = new Set(baseWindows.map((w) => w.start));
-
-  const row = (
-    id: string,
-    label: React.ReactNode,
-    color: number | "base",
-    rates: { slab1: number; slab2: number },
-    live: boolean
-  ) => (
-    <tr
-      key={id}
-      onMouseEnter={() => onHighlight?.(id)}
-      onMouseLeave={() => onHighlight?.(null)}
-      className={cn("transition-colors", highlighted === id && "bg-slate-50", live && "bg-zeno-teal/5")}
-    >
-      <td className={cn("py-2 pl-2 text-slate-600", live && "shadow-[inset_3px_0_0_var(--color-zeno-teal)]")}>
-        <div className="flex items-center gap-2">
-          <WindowSwatch color={color} />
-          {label}
-          {live && <NowTag />}
-        </div>
-      </td>
-      <td className="py-2 text-right tabular-nums font-semibold text-slate-800 align-top">{rates.slab1}</td>
-      <td className="py-2 pr-2 text-right tabular-nums text-slate-700 align-top">{rates.slab2}</td>
-    </tr>
-  );
 
   return (
     <table className="w-full text-sm">
@@ -64,15 +36,25 @@ export function WindowRates({
         </tr>
       </thead>
       <tbody className="divide-y divide-slate-100">
-        {sortWindows([...baseWindows, ...custom]).map((w) => {
-          const base = isBase.has(w.start);
+        {bands.map(({ id, window: w, color }) => {
           const live = second !== null && inRateWindow(second, w);
-          return row(
-            base ? baseBandId(w) : w.start,
-            <span className="tabular-nums whitespace-nowrap">{fmtRateWindow(w)}</span>,
-            base ? "base" : slotColor.get(w.start)!,
-            w,
-            live
+          return (
+            <tr
+              key={id}
+              onMouseEnter={() => onHighlight?.(id)}
+              onMouseLeave={() => onHighlight?.(null)}
+              className={cn("transition-colors", highlighted === id && "bg-slate-50", live && "bg-zeno-teal/5")}
+            >
+              <td className={cn("py-2 pl-2 text-slate-600", live && "shadow-[inset_3px_0_0_var(--color-zeno-teal)]")}>
+                <div className="flex items-center gap-2">
+                  <WindowSwatch color={color} />
+                  <span className="tabular-nums whitespace-nowrap">{fmtRateWindow(w)}</span>
+                  {live && <NowTag />}
+                </div>
+              </td>
+              <td className="py-2 text-right tabular-nums font-semibold text-slate-800 align-top">{w.slab1}</td>
+              <td className="py-2 pr-2 text-right tabular-nums text-slate-700 align-top">{w.slab2}</td>
+            </tr>
           );
         })}
       </tbody>

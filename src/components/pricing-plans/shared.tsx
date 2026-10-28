@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
 import { usePricingStore } from "@/store/pricing-plans";
 import { SLOT_BADGE, SLOT_LABELS, STATUS_META, displayStatus } from "@/lib/pricing/format";
-import type { PlanStatus } from "@/lib/pricing/engine";
+import { defaultPlan, sortedVersions, versionAt, type PlanStatus } from "@/lib/pricing/engine";
+import { splitVersion, type BaseRates } from "@/lib/pricing/windows";
 import type { PricingBook, RateSlot } from "@/lib/pricing/types";
 
 /** The plans and assignments as one book, stable between renders. */
@@ -38,6 +39,18 @@ export function usePricingNow(): string {
     };
   }, []);
   return new Date(latestChange).getTime() > new Date(clock).getTime() ? latestChange : clock;
+}
+
+/**
+ * The Default plan's Default Rate in force at `now` (its non-slot hours), the
+ * one set of rates the day bars draw grey. Null if Default has none.
+ */
+export function useDefaultRate(now: string): BaseRates | null {
+  const book = usePricingBook();
+  return useMemo(() => {
+    const d = defaultPlan(book);
+    return splitVersion(versionAt(d, now) ?? sortedVersions(d)[0]).base;
+  }, [book, now]);
 }
 
 export function useActorName(): string {
