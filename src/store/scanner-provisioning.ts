@@ -812,7 +812,7 @@ function computeActiveRfid(actions: ScannerAction[], vin: string): string | null
   return tag;
 }
 
-// Write-through: reflect a scanner action onto the linked Asset Tracking vehicle by VIN.
+// Write-through: reflect a scanner action onto the linked Vehicle Tracking vehicle by VIN.
 function applyWriteThrough(a: ScannerAction) {
   if (!a.vin) return; // customer-only rows have nothing to write through yet
   const at = useAssetTrackingStore.getState();

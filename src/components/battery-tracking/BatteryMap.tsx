@@ -52,7 +52,7 @@ const FRAME = "absolute bg-white rounded-lg border border-slate-200 overflow-hid
 const STEP = 120;
 
 /**
- * One battery's position on a MapLibre map, as Asset Tracking's Map View draws
+ * One battery's position on a MapLibre map, as Vehicle Tracking's Map View draws
  * maps: zoom +/− always showing (top right), a Map / Satellite switch (top
  * left), and up/down/left/right pan buttons under the zoom, in the same
  * control style. The pin is the brand orange-red.

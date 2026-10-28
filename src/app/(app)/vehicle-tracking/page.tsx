@@ -18,7 +18,7 @@ type View = "list" | "map";
 async function exportToXLSX(vehicles: ReturnType<typeof useAssetTrackingStore.getState>["vehicles"]) {
   const ExcelJS = (await import("exceljs")).default;
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet("Asset Tracking");
+  const sheet = workbook.addWorksheet("Vehicle Tracking");
 
   const headers = [
     "VIN", "Customer Name", "Customer Phone", "Status", "Tenant", "Store Code",
@@ -48,7 +48,7 @@ async function exportToXLSX(vehicles: ReturnType<typeof useAssetTrackingStore.ge
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "asset-tracking-export.xlsx";
+  a.download = "vehicle-tracking-export.xlsx";
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -75,7 +75,7 @@ export default function AssetTrackingPage() {
 
   return (
     <AccessGuard module="vehicle">
-      <Topbar title="Asset Tracking" />
+      <Topbar title="Vehicle Tracking" />
       <main className="flex flex-col flex-1 overflow-hidden">
       {/* Page controls */}
       <div className="flex items-center px-6 py-3.5 border-b border-slate-200 bg-white shrink-0">

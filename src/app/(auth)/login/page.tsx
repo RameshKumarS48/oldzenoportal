@@ -62,7 +62,7 @@ export default function LoginPage() {
   const [, setTick] = useState(0);
 
   useEffect(() => {
-    if (hasHydrated && user) router.replace("/asset-tracking");
+    if (hasHydrated && user) router.replace("/vehicle-tracking");
   }, [hasHydrated, user, router]);
 
   useEffect(() => {
@@ -97,7 +97,7 @@ export default function LoginPage() {
       setBusy(false);
       if (!auth.success) return setError(auth.error ?? "Couldn't sign you in.");
       clearChallenge();
-      router.push("/asset-tracking");
+      router.push("/vehicle-tracking");
     });
   };
 

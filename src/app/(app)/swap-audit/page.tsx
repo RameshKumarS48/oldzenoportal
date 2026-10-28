@@ -23,7 +23,7 @@ export default function SwapAuditPage() {
         </div>
 
         {/* Content */}
-        {/* As on Asset Tracking: the page doesn't scroll; the table card fills the rest and scrolls its own rows. */}
+        {/* As on Vehicle Tracking: the page doesn't scroll; the table card fills the rest and scrolls its own rows. */}
         <div className="flex flex-col flex-1 overflow-hidden bg-zeno-bg p-6">
           {/* The table reads ?txn= from the URL, which Next requires inside Suspense. */}
           <Suspense fallback={null}>

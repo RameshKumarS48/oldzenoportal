@@ -27,7 +27,7 @@ export function DeleteConfirmModal({
               </p>
               <p className="mt-1 text-red-600/80">
                 Note: deleting the log row does not reverse any state already written to the linked
-                vehicle in Asset Tracking.
+                vehicle in Vehicle Tracking.
               </p>
             </div>
           </div>

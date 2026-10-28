@@ -120,7 +120,7 @@ export function describeFilter(f: BatteryFilters, year: number): string | null {
 export type SortKey = "lastSeen" | "soc";
 export type Sort = { column: SortKey; direction: "asc" | "desc" } | null;
 
-/** As Asset Tracking's setSort: a new column sorts ascending, the same one flips. */
+/** As Vehicle Tracking's setSort: a new column sorts ascending, the same one flips. */
 export function nextSort(sort: Sort, column: SortKey): Sort {
   return sort?.column === column
     ? { column, direction: sort.direction === "asc" ? "desc" : "asc" }

@@ -12,7 +12,7 @@
  *
  * Assets: 15 swap stations holding 5–8 batteries each, one per slot, 15 vehicles holding
  * exactly 2, and 12 batteries (10%) in neither. The vehicles are the first 15
- * of Asset Tracking's mock fleet, so a VIN here finds the same bike there.
+ * of Vehicle Tracking's mock fleet, so a VIN here finds the same bike there.
  */
 
 /** A station or vehicle, as a search or link names it. */
@@ -104,7 +104,7 @@ export const STATIONS: SwapStation[] = [
   { code: "BS0034", shortAddress: "Nyeri–Othaya Rd, Ngangarithi", longAddress: "Nyeri–Othaya Rd, Ngangarithi, Nyeri, Kenya", region: "Nyeri" },
 ];
 
-/** VIN, plate and IMEI as in Asset Tracking's mock fleet (store/asset-tracking.ts). */
+/** VIN, plate and IMEI as in Vehicle Tracking's mock fleet (store/asset-tracking.ts). */
 export const VEHICLES: AssetVehicle[] = [
   { vin: "ME92ZPSBB1J000760", plate: "KMGY105Z", model: "Zeno Emflux", imei: "867963074737462", region: "Nyeri" },
   { vin: "ME92ZPSDB1J001111", plate: "KMHA287J", model: "Zeno Emflux", imei: "860851086846248", region: "Nanyuki" },

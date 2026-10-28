@@ -35,7 +35,7 @@ const MIN_WIDTH = COLUMNS.reduce((sum, c) => sum + c.width, 0);
 const colWidth = (min: number) =>
   `calc(${min}px + max(0px, (100cqw - ${MIN_WIDTH}px) / ${COLUMNS.length}))`;
 
-/** Asset Tracking's sort icon: neutral until sorted, then the direction in brand red. */
+/** Vehicle Tracking's sort icon: neutral until sorted, then the direction in brand red. */
 function SortIcon({ active, direction }: { active: boolean; direction?: "asc" | "desc" }) {
   if (!active) return <ArrowUpDown className="w-3 h-3 ml-1 text-slate-300" />;
   return direction === "asc"
@@ -44,7 +44,7 @@ function SortIcon({ active, direction }: { active: boolean; direction?: "asc" | 
 }
 
 /**
- * The batteries list: Asset Tracking's table card, rows and pagination, with
+ * The batteries list: Vehicle Tracking's table card, rows and pagination, with
  * the dev portal's five columns plus Asset. A row opens that battery's detail page, by
  * click or by Enter once focused; its copy buttons and map link do their own
  * thing only.

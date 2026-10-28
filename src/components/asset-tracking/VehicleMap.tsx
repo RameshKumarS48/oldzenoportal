@@ -25,7 +25,7 @@ const CONNECTIVITY_LABELS: Record<AssetVehicle["connectivity"], string> = {
 };
 
 /**
- * Map View for Asset Tracking. These vehicles carry real coordinates from the
+ * Map View for Vehicle Tracking. These vehicles carry real coordinates from the
  * tracker, so pins sit where the bike last reported rather than on a synthesized
  * scatter. It reads the same filtered list as the table, so switching views
  * never changes which vehicles you are looking at.

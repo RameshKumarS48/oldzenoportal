@@ -3,7 +3,7 @@
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Asset Tracking's filter chip (asset-tracking/FilterBar.tsx), whose own copy
+// Vehicle Tracking's filter chip (asset-tracking/FilterBar.tsx), whose own copy
 // also opens its filter; every other filter bar uses this one.
 const TINT = "bg-zeno-teal/10 text-zeno-teal dark:bg-(--sidebar-text)/10 dark:text-(--sidebar-text)";
 const RING = "focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40";

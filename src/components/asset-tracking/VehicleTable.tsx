@@ -180,7 +180,7 @@ export function VehicleTable({ visible }: { visible: ColumnId[] }) {
               <tr
                 key={v.id}
                 className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
-                onClick={() => router.push(`/asset-tracking/${encodeURIComponent(v.vin)}`)}
+                onClick={() => router.push(`/vehicle-tracking/${encodeURIComponent(v.vin)}`)}
               >
                 {columns.map(({ id }) => (
                   <Cell key={id} id={id} v={v} />

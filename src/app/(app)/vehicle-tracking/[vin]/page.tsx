@@ -78,7 +78,7 @@ export default function VehicleDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-200 bg-white shrink-0">
         <button
-          onClick={() => router.push("/asset-tracking")}
+          onClick={() => router.push("/vehicle-tracking")}
           className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-800 transition-colors font-medium"
         >
           <ArrowLeft className="w-4 h-4" />

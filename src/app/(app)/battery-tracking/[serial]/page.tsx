@@ -15,7 +15,7 @@ import { useAssetTrackingStore } from "@/store/asset-tracking";
 import { slotLabel } from "@/lib/slot-label";
 import { Dash, LastSeenLine, mapsUrl, showCoord, Soc, splitLocation } from "@/components/battery-tracking/cells";
 
-// MapLibre needs the browser; loaded as Asset Tracking's Map View loads FleetMap.
+// MapLibre needs the browser; loaded as Vehicle Tracking's Map View loads FleetMap.
 const BatteryMap = dynamic(() => import("@/components/battery-tracking/BatteryMap").then((m) => m.BatteryMap), {
   ssr: false,
   loading: () => (
@@ -279,9 +279,9 @@ function AssetCard({ asset, count }: { asset: BatteryAsset | null; count: number
             </InfoRow>
           </div>
           <CardActions>
-            {/* Asset Tracking keeps its search in its store, not the URL, so set it on the way there. */}
+            {/* Vehicle Tracking keeps its search in its store, not the URL, so set it on the way there. */}
             <Link
-              href="/asset-tracking"
+              href="/vehicle-tracking"
               onClick={() => {
                 const { resetFilters, setFilter } = useAssetTrackingStore.getState();
                 resetFilters();
@@ -289,7 +289,7 @@ function AssetCard({ asset, count }: { asset: BatteryAsset | null; count: number
               }}
               className={ACTION}
             >
-              <ActionLabel>Open in Asset Tracking</ActionLabel>
+              <ActionLabel>Open in Vehicle Tracking</ActionLabel>
               <ArrowRight className="w-3.5 h-3.5 shrink-0" aria-hidden />
             </Link>
             <Link href={batteriesIn(vehicle.vin)} className={ACTION}>

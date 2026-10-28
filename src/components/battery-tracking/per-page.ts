@@ -36,7 +36,7 @@ function subscribe(onChange: () => void) {
 
 /**
  * Battery Tracking's rows per page, remembered per signed-in user in this
- * browser's localStorage, as Asset Tracking remembers its columns. The server
+ * browser's localStorage, as Vehicle Tracking remembers its columns. The server
  * render and any storage failure fall back to 20.
  */
 export function usePerPage(userId: string | undefined): [number, (n: number) => void] {

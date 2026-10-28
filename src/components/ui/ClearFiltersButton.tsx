@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 /**
  * The filter bars' "Clear filters": the app's link style, teal (lightened in
  * dark mode like the portal's other teal links), so it doesn't read as
- * disabled, with an × before it. First drawn in Asset Tracking's FilterBar.
+ * disabled, with an × before it. First drawn in Vehicle Tracking's FilterBar.
  */
 export function ClearFiltersButton({ onClick, className }: { onClick: () => void; className?: string }) {
   return (

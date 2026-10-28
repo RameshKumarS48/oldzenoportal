@@ -41,7 +41,7 @@ export default function WalletTransactionsPage() {
       </div>
 
       {/* Content */}
-      {/* As on Asset Tracking: the page doesn't scroll; the table card fills the rest and scrolls its own rows. */}
+      {/* As on Vehicle Tracking: the page doesn't scroll; the table card fills the rest and scrolls its own rows. */}
       <div className="flex flex-col flex-1 overflow-hidden bg-zeno-bg p-6">
         {view === "ledger" ? <WalletLedgerTable /> : <RechargeRequestsTable />}
       </div>

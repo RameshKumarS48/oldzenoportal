@@ -37,7 +37,7 @@ const GAP = 8; // gap-2
 type Panel = { kind: "filters"; focusId: FilterId | null } | { kind: "columns" } | null;
 
 /**
- * Asset Tracking's toolbar. Row 1: search, Columns (List view), Filters, Export XLSX.
+ * Vehicle Tracking's toolbar. Row 1: search, Columns (List view), Filters, Export XLSX.
  * Row 2, only while something is active: a chip per filter in FILTERS order,
  * "+N more" past two lines, and Clear filters. Chips open the Filters popover
  * at their filter; their × and Clear filters apply at once. Both popovers wait

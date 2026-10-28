@@ -9,7 +9,7 @@ export default function TamperingAlertsPage() {
   return (
     <SupportGuard>
       <Topbar title="Tampering Alerts" />
-      {/* As on Asset Tracking: the page doesn't scroll; the table card fills the rest and scrolls its own rows. */}
+      {/* As on Vehicle Tracking: the page doesn't scroll; the table card fills the rest and scrolls its own rows. */}
       <main className="flex flex-col flex-1 overflow-hidden bg-zeno-bg p-6">
         {/* Tampering Alerts reads Swap Audit's return parameters, which Next requires inside Suspense. */}
         <Suspense fallback={null}>

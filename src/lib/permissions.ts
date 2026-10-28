@@ -40,7 +40,7 @@ export function permsAllow(perms: PermissionEntry[], module: Module | string, ac
 const ROUTE_MODULES: { prefix: string; module: Module }[] = [
   { prefix: "/dashboard",              module: "dashboards" },
   { prefix: "/reports",                module: "reports" },
-  { prefix: "/asset-tracking",         module: "vehicles" },
+  { prefix: "/vehicle-tracking",         module: "vehicles" },
   { prefix: "/data/vehicles",          module: "vehicles" },
   { prefix: "/data/batteries",         module: "batteries" },
   { prefix: "/data/swap-stations",     module: "swap_stations" },

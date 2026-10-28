@@ -87,7 +87,7 @@ function RfidCell({ id, status }: { id: string; status: RfidStatus }) {
         <button
           onClick={() => {
             retryRfid(id);
-            toast.success("RFID assigned", "The tag is now linked to the bike in Asset Tracking.");
+            toast.success("RFID assigned", "The tag is now linked to the bike in Vehicle Tracking.");
           }}
           className="flex items-center gap-1 text-xs text-zeno-teal hover:text-zeno-teal-hover font-medium"
           title="Retry RFID assignment"

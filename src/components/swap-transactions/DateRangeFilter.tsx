@@ -47,7 +47,7 @@ const PRESETS: [string, string][] = [
   ["", "All Time"], ["today", "Today"], ["7d", "Last 7 days"], ["30d", "Last 30 days"],
 ];
 
-/** The filters' native date field, as Asset Tracking's "Pick Date" draws it. */
+/** The filters' native date field, as Vehicle Tracking's "Pick Date" draws it. */
 const FIELD =
   "mt-1 w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-zeno-teal/20";
 

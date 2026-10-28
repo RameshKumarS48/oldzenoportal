@@ -162,7 +162,7 @@ export function canWrite(role: UserRole | string | undefined, module: AccessModu
  * `swap_info` rather than getting a module of its own.
  */
 export const ROUTE_MODULES: { prefix: string; module: AccessModule }[] = [
-  { prefix: "/asset-tracking",       module: "vehicle" },
+  { prefix: "/vehicle-tracking",       module: "vehicle" },
   { prefix: "/battery-tracking",     module: "vehicle" },
   { prefix: "/scanner-provisioning", module: "scanner" },
   { prefix: "/swap-transactions",    module: "swap_info" },

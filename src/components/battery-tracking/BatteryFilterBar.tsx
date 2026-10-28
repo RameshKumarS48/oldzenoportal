@@ -16,7 +16,7 @@ import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
 
 // Swap Audit's filter bar (SwapAuditTable.tsx): a white card holding compact
 // text-xs controls. Its styles are repeated here so that file stays untouched.
-// The search is w-72, Asset Tracking's width, to fit its longer placeholder.
+// The search is w-72, Vehicle Tracking's width, to fit its longer placeholder.
 const BAR = "bg-white rounded-xl border border-slate-200 px-4 py-2.5 flex items-center gap-3 flex-wrap shrink-0";
 const SEARCH =
   "pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white " +
