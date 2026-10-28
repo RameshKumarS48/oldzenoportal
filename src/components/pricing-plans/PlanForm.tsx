@@ -397,7 +397,7 @@ export function PlanForm({
         <div>
           <span className={labelCls}>Currency</span>
           <p className={cn(inputCls, "bg-slate-50 text-slate-600")} aria-live="polite">
-            {country.currency} <span className="text-slate-400">· set by the country</span>
+            {country.currency}
           </p>
         </div>
       </div>
