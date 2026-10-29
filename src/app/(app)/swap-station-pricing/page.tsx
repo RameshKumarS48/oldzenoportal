@@ -130,7 +130,7 @@ export default function PricingPlansPage() {
                       <InfoTip content={SCHEDULE_TIP} placement="top" />
                     </span>
                     {/* What the labels above the bars are: both slabs, per kWh. */}
-                    <span className="block text-[10px] font-medium normal-case tracking-normal text-slate-400">KES/kWh · slab 1 / slab 2</span>
+                    <span className="block text-[10px] font-medium normal-case tracking-normal text-slate-500">KES/kWh · slab 1 / slab 2</span>
                   </th>
                   <th className="px-4 py-2.5 text-right">Stations</th>
                   <th className="px-4 py-2.5">Last updated</th>

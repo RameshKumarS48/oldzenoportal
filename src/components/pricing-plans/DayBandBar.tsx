@@ -219,9 +219,10 @@ export function DayBandBar({
   return (
     <div className={cn("space-y-1", className)}>
       {rateLabels && (
-        // The rate labels, then a 4px strip for the ticks down to segments a label had to move off;
-        // -mb-1 cancels the stack's gap, so the ticks meet the bar.
-        <div className="relative h-4 -mb-1" aria-hidden="true">
+        // The labels' 16px line, then a 4px strip, so text always ends at least 4px above the bar;
+        // the strip carries the ticks down to segments a label had to move off. -mb-1 cancels the
+        // stack's gap, so the ticks meet the bar.
+        <div className="relative h-5 -mb-1" aria-hidden="true">
           <div ref={measureRef} className="invisible absolute flex" inert>
             {rates.map((l) => (
               <span key={l.color} data-key={l.color} className={RATE_LABEL}>
@@ -243,7 +244,7 @@ export function DayBandBar({
               </span>
             );
           })}
-          <svg className="absolute left-0 top-3 h-1 w-full overflow-visible" aria-hidden="true">
+          <svg className="absolute left-0 top-4 h-1 w-full overflow-visible" aria-hidden="true">
             {placed
               .filter((p) => p.tick)
               .map((p) => (
@@ -292,7 +293,11 @@ export function DayBandBar({
         })}
       </div>
 
-      <div className="relative h-4 text-[10px] text-slate-400 tabular-nums" aria-hidden="true">
+      {/* The plans table's times are 11px slate-500, for 4.5:1 on white; elsewhere they stay 10px slate-400. */}
+      <div
+        className={cn("relative h-4 tabular-nums", rateLabels ? "text-[11px] text-slate-500" : "text-[10px] text-slate-400")}
+        aria-hidden="true"
+      >
         {labels.map((l) => (
           <span
             key={l.at}
@@ -341,14 +346,15 @@ export function DayBandBar({
 }
 
 /** A rate label's text style: small, tabular, in the default text colour. */
-const RATE_LABEL = "whitespace-nowrap text-[10px] leading-3 text-slate-700 tabular-nums";
+// 12px regular on a 16px line; slab 1 slate-700, "/slab 2" slate-500 (RateText), one baseline.
+const RATE_LABEL = "whitespace-nowrap text-xs leading-4 text-slate-700 tabular-nums";
 
-/** A rate label, "90/70": slab 1 in the label colour, "/" and slab 2 muted. */
+/** A rate label, "90/70": slab 1 in the label colour, "/" and slab 2 muted, never lighter than slate-500 (4.5:1 on white). */
 function RateText({ slab1, slab2 }: { slab1: number; slab2: number }) {
   return (
     <>
       {rate(slab1)}
-      <span className="text-slate-400">/{rate(slab2)}</span>
+      <span className="text-slate-500">/{rate(slab2)}</span>
     </>
   );
 }
