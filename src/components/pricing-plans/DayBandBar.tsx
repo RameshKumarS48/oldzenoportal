@@ -10,7 +10,6 @@ import {
   windowBoundary,
   sortWindows,
 } from "@/lib/pricing/windows";
-import { SLAB1_DAILY_KWH } from "@/lib/pricing/engine";
 import { LABEL_INSET, placeLabels } from "@/lib/pricing/rate-labels";
 import { rateShades, shadeOf, type Shade } from "@/lib/pricing/shades";
 import type { RateWindow } from "@/lib/pricing/types";
@@ -140,7 +139,7 @@ export function DayBandBar({
 }) {
   const barRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
-  const [tip, setTip] = useState<{ text: string; detail?: TipDetail; color: BandColor; x: number; y: number } | null>(null);
+  const [tip, setTip] = useState<{ text: string; parts?: string[]; color: BandColor; x: number; y: number } | null>(null);
 
   // Labels depend on the bar's real width, which changes with the modal or page.
   useEffect(() => {
@@ -195,8 +194,10 @@ export function DayBandBar({
     // A start the axis had no room to label goes in the tooltip, so the times are never lost.
     const unlabelled = !labels.some((l) => l.at === parseHHmmss(item.window.start));
     if (rateLabels) {
-      // The plans table: the window and its rate, then each slab spelt out on its own line.
-      setTip({ text: tipTitle(item), detail: tipDetail(item, currency), color: item.color, x: r.left + r.width / 2, y: r.top });
+      // The plans table: how long the window runs and each slab, on one line. Its times are on the
+      // axis, so they lead the line only when the axis had no room to label its start.
+      const parts = tipParts(item, currency);
+      setTip({ text: "", parts: unlabelled ? [fmtRateWindowHHmm(item.window), ...parts] : parts, color: item.color, x: r.left + r.width / 2, y: r.top });
     } else {
       const text = unlabelled ? `${fmtRateWindowHHmm(item.window)} · ${tipText(item, currency)}` : tipText(item, currency);
       setTip({ text, color: item.color, x: r.left + r.width / 2, y: r.top });
@@ -318,20 +319,14 @@ export function DayBandBar({
           style={{ left: tip.x, top: tip.y }}
         >
           {/* A 1px light ring keeps every rate's colour, dark teals included, visible on the dark tooltip. */}
-          <WindowSwatch color={tip.color} className={cn("ring-1 ring-white/70", tip.detail && "self-start mt-0.5")} />
-          {tip.detail ? (
-            <span className="grid grid-cols-[auto_auto] gap-x-4 gap-y-1">
-              <span className="col-span-2 font-semibold">{tip.text}</span>
-              {tip.detail.map((row) => (
-                <Fragment key={row.label}>
-                  <span>
-                    <span className="font-medium">{row.label}</span>
-                    <span className="block text-[11px] text-slate-300">{row.note}</span>
-                  </span>
-                  <span className="text-right font-semibold">{row.value}</span>
-                </Fragment>
-              ))}
-            </span>
+          <WindowSwatch color={tip.color} className="ring-1 ring-white/70" />
+          {tip.parts ? (
+            tip.parts.map((part, i) => (
+              <Fragment key={part}>
+                {i > 0 && <span aria-hidden className="size-1 shrink-0 rounded-full bg-slate-400" />}
+                <span>{part}</span>
+              </Fragment>
+            ))
           ) : (
             tip.text
           )}
@@ -355,20 +350,10 @@ function RateText({ slab1, slab2 }: { slab1: number; slab2: number }) {
   );
 }
 
-type TipDetail = { label: string; note: string; value: string }[];
-
-/** The plans table's tooltip heading: the window, how long it runs, and the Default Rate where it's grey. */
-function tipTitle({ window: w, color }: BandItem): string {
+/** The plans table's tooltip, one line: how long the window runs, then each slab's rate. */
+function tipParts({ window: w }: BandItem, currency: string): string[] {
   const hours = Math.round((windowBoundary(w) - parseHHmmss(w.start) + DAY_SECONDS) % DAY_SECONDS / 3600) || 24;
-  return `${fmtRateWindowHHmm(w)} · ${hours} h${color === "base" ? " · Default Rate" : ""}`;
-}
-
-/** The plans table's tooltip rows: each slab named, what it covers, and its rate. */
-function tipDetail({ window: w }: BandItem, currency: string): TipDetail {
-  return [
-    { label: "Slab 1", note: `A rider's first ${SLAB1_DAILY_KWH} kWh each day`, value: `${rate(w.slab1)} ${currency}/kWh` },
-    { label: "Slab 2", note: "Every kWh after that, the same day", value: `${rate(w.slab2)} ${currency}/kWh` },
-  ];
+  return [`${hours}h`, `Slab 1: ${rate(w.slab1)} ${currency}/kWh`, `Slab 2: ${rate(w.slab2)} ${currency}/kWh`];
 }
 
 /**

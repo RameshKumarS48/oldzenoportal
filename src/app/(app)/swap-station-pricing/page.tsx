@@ -30,7 +30,7 @@ const VIEWS = [
 ];
 
 const SCHEDULE_TIP =
-  "Each label is slab 1 / slab 2, in KES/kWh. Slab 1 is a rider’s first 3 kWh each day; slab 2 is every kWh after that. Hover a segment for its times and both slabs. Lighter is cheaper, grey is the Default Rate.";
+  "Each label is slab 1 / slab 2, in KES/kWh. Slab 1 is a rider’s first 3 kWh each day; slab 2 is every kWh after that. Hover a segment for its length and both slabs. Lighter is cheaper, grey is the Default Rate.";
 
 export default function PricingPlansPage() {
   const router = useRouter();
