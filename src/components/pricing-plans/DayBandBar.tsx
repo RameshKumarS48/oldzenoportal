@@ -194,8 +194,10 @@ export function DayBandBar({
     // A start the axis had no room to label goes in the tooltip, so the times are never lost.
     const unlabelled = !labels.some((l) => l.at === parseHHmmss(item.window.start));
     if (rateLabels) {
-      // The plans table: how long the window runs and each slab, on one line; its times are on the axis.
-      setTip({ text: "", parts: tipParts(item, currency), color: item.color, x: r.left + r.width / 2, y: r.top });
+      // The plans table: how long the window runs and each slab, on one line. Its times are on the
+      // axis, so they lead the line only when the axis had no room to label its start.
+      const parts = tipParts(item, currency);
+      setTip({ text: "", parts: unlabelled ? [fmtRateWindowHHmm(item.window), ...parts] : parts, color: item.color, x: r.left + r.width / 2, y: r.top });
     } else {
       const text = unlabelled ? `${fmtRateWindowHHmm(item.window)} · ${tipText(item, currency)}` : tipText(item, currency);
       setTip({ text, color: item.color, x: r.left + r.width / 2, y: r.top });
