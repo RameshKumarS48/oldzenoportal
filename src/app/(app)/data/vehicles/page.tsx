@@ -12,6 +12,8 @@ import { Pagination } from "@/components/ui/Pagination";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { ColumnFilterPanel } from "@/components/ui/ColumnFilterPanel";
 import { QuickActionModal } from "@/components/ui/QuickActionModal";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
+import { FilterChip, FilterChips } from "@/components/ui/FilterChip";
 
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
@@ -127,6 +129,13 @@ export default function VehiclesPage() {
     { title: "Off-Road Vehicles", snapshotValue: vehicles.filter(v => v.status === "offroad").length, snapshotLabel: "taken off-road", snapshotSource: "Vehicle Telemetry" },
   ];
 
+  const filterDefs = [
+    ["Status",       statusFilter,  setStatusFilter,  [["","All Status"],["active","Active"],["offroad","Off-Road"],["provisioning","Provisioning"]]],
+    ["Connectivity", connFilter,    setConnFilter,    [["","All Connectivity"],["Online","Online"],["GpsOffline","GPS Offline"],["Offline","Offline"]]],
+    ["Region",       regionFilter,  setRegionFilter,  [["","All Regions"],["nbo","NBO"],["nanyuki","Nanyuki"],["naromoru","Naro Moru"],["nyeri","Nyeri"]]],
+    ["Partner",      partnerFilter, setPartnerFilter, [["","All Partners"], ...partners.map(p => [p, p])]],
+  ] as [string, string, (v: string) => void, [string, string][]][];
+
   return (
     <>
       <Topbar
@@ -162,12 +171,7 @@ export default function VehiclesPage() {
               className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 focus:border-[#003B49] w-52"
             />
           </div>
-          {([
-            ["Status",       statusFilter,  setStatusFilter,  [["","All Status"],["active","Active"],["offroad","Off-Road"],["provisioning","Provisioning"]]],
-            ["Connectivity", connFilter,    setConnFilter,    [["","All Connectivity"],["Online","Online"],["GpsOffline","GPS Offline"],["Offline","Offline"]]],
-            ["Region",       regionFilter,  setRegionFilter,  [["","All Regions"],["nbo","NBO"],["nanyuki","Nanyuki"],["naromoru","Naro Moru"],["nyeri","Nyeri"]]],
-            ["Partner",      partnerFilter, setPartnerFilter, [["","All Partners"], ...partners.map(p => [p, p])]],
-          ] as [string, string, (v: string) => void, [string, string][]][]).map(([label, val, setter, opts]) => (
+          {filterDefs.map(([label, val, setter, opts]) => (
             <select key={label} value={val} onChange={e => setter(e.target.value)}
               className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 text-slate-600"
             >
@@ -175,17 +179,29 @@ export default function VehiclesPage() {
             </select>
           ))}
           {(statusFilter || connFilter || regionFilter || partnerFilter || search) && (
-            <button
-              onClick={() => { setStatusFilter(""); setConnFilter(""); setRegionFilter(""); setPartnerFilter(""); setSearch(""); setPage(1); }}
-              className="text-xs text-slate-400 hover:text-slate-600"
-            >
-              Clear
-            </button>
+            <ClearFiltersButton onClick={() => { setStatusFilter(""); setConnFilter(""); setRegionFilter(""); setPartnerFilter(""); setSearch(""); setPage(1); }} />
           )}
           <div className="ml-auto">
             <ColumnFilterPanel columns={ALL_COLUMNS.filter(c => c.key !== "actions")} visible={visibleCols} onChange={setVisibleCols} storageKey="zeno-cols-vehicles" />
           </div>
         </div>
+
+        {/* The active filters as chips; × removes one. The search shows in its own box. */}
+        {filterDefs.some(([, val]) => val) && (
+          <div className="bg-white border-b border-slate-200 px-6 py-2 shrink-0">
+            <FilterChips>
+              {filterDefs.filter(([, val]) => val).map(([label, val, setter, opts]) => (
+                <FilterChip
+                  key={label}
+                  label={label}
+                  value={opts.find(([v]) => v === val)?.[1] ?? val}
+                  removeLabel={`Remove ${label} filter`}
+                  onRemove={() => { setter(""); setPage(1); }}
+                />
+              ))}
+            </FilterChips>
+          </div>
+        )}
 
         {/* Bulk action bar */}
         <BulkActionBar

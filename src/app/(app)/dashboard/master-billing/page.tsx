@@ -9,6 +9,8 @@ import { BarChart } from "@/components/charts/BarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { BILLING_SESSIONS, BILLING_SUMMARY, type BillingSession, type SessionType } from "@/lib/mock/kpi-billing";
 import { cn } from "@/lib/utils";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
+import { FilterChip, FilterChips } from "@/components/ui/FilterChip";
 
 const TYPE_META: Record<SessionType, { label: string; badge: string; color: string }> = {
   swap:        { label: "Swap",        badge: "bg-[#003B49]/10 text-[#003B49]",  color: "#003B49" },
@@ -266,11 +268,35 @@ export default function MasterBillingPage() {
             {stations.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
           </select>
           {hasFilter && (
-            <button onClick={() => { setSearch(""); setTypeFilter(""); setFlagFilter(""); setStationFilter(""); }}
-              className="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+            <ClearFiltersButton onClick={() => { setSearch(""); setTypeFilter(""); setFlagFilter(""); setStationFilter(""); }} />
           )}
           <span className="ml-auto text-xs text-slate-400">{filtered.length} sessions</span>
         </div>
+
+        {/* The active filters as chips; × removes one. The search shows in its own box. */}
+        {(typeFilter || flagFilter || stationFilter) && (
+          <FilterChips>
+            {typeFilter && (
+              <FilterChip
+                label="Type"
+                value={{ swap: "Swap", fast_charge: "Fast Charge", home_charge: "Home Charge" }[typeFilter]}
+                removeLabel="Remove Type filter"
+                onRemove={() => setTypeFilter("")}
+              />
+            )}
+            {flagFilter && (
+              <FilterChip
+                label="Sessions"
+                value={{ flagged: "Flagged", skipped: "Skipped", rfid: "RFID Mismatch", multiday: "Multi-day" }[flagFilter]}
+                removeLabel="Remove Sessions filter"
+                onRemove={() => setFlagFilter("")}
+              />
+            )}
+            {stationFilter && (
+              <FilterChip label="Station" value={stationFilter.toUpperCase()} removeLabel="Remove Station filter" onRemove={() => setStationFilter("")} />
+            )}
+          </FilterChips>
+        )}
 
         {/* Raw data table */}
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">

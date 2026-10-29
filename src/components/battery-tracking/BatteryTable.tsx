@@ -7,19 +7,22 @@ import { Pagination } from "@/components/ui/Pagination";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { PER_PAGE_OPTIONS } from "./per-page";
 import type { Sort, SortKey } from "./filters";
-import { Dash, LastSeen, Location, Soc } from "./cells";
+import { Asset, Dash, LastSeen, Location, Soc } from "./cells";
 
 /**
  * Each column's width, in px including px-3 padding: its widest content (header
  * with sort icon, or value) measured in the browser, plus the padding. Nothing
- * wraps at this width, and below their sum (684px) the table scrolls sideways.
+ * wraps at this width, and below their sum (852px) the table scrolls sideways.
+ * Asset is sized for a 17-character VIN after its 14px icon and 6px gap, at the
+ * Serial column's 7.25px per monospace character.
  */
 const COLUMNS: { label: string; width: number; sortKey?: SortKey }[] = [
   { label: "Battery Serial No.", width: 140 },
   { label: "IMEI", width: 132 },
   { label: "Last Seen (UTC)", width: 132, sortKey: "lastSeen" },
   { label: "SOC %", width: 80, sortKey: "soc" },
-  { label: "Last Known Location (lat, long)", width: 200 },
+  { label: "Asset", width: 168 },
+  { label: "Last Known Location", width: 200 },
 ];
 const MIN_WIDTH = COLUMNS.reduce((sum, c) => sum + c.width, 0);
 
@@ -42,7 +45,7 @@ function SortIcon({ active, direction }: { active: boolean; direction?: "asc" | 
 
 /**
  * The batteries list: Asset Tracking's table card, rows and pagination, with
- * the dev portal's five columns. A row opens that battery's detail page, by
+ * the dev portal's five columns plus Asset. A row opens that battery's detail page, by
  * click or by Enter once focused; its copy buttons and map link do their own
  * thing only.
  */
@@ -151,7 +154,10 @@ export function BatteryTable({
                   <Soc value={b.soc} />
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
-                  <Location text={b.location} />
+                  <Asset asset={b.asset} />
+                </td>
+                <td className="px-3 py-2.5 whitespace-nowrap">
+                  <Location text={b.location} region={b.region} />
                 </td>
               </tr>
             ))}

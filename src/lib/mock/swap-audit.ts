@@ -18,6 +18,8 @@
  * between a UTC server and a browser on East Africa Time.
  */
 
+import { slotLabel } from "@/lib/slot-label";
+
 // ── Seeded PRNG ──────────────────────────────────────────────────────────────
 
 let seed = 20261006;
@@ -55,10 +57,8 @@ export function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-/** Slot label as it appears everywhere in the UI: S01 … S10. */
-export function slotLabel(slot: number): string {
-  return `S${pad(slot)}`;
-}
+// In its own module so Battery Tracking can use it without loading this sample data.
+export { slotLabel };
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

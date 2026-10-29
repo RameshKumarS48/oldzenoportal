@@ -1,7 +1,10 @@
 "use client";
 
-import { ExternalLink } from "lucide-react";
+import { Bike, ExternalLink, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CopyButton } from "@/components/ui/CopyButton";
+import type { BatteryAsset } from "@/lib/mock/battery-tracking";
+import { slotLabel } from "@/lib/slot-label";
 
 /**
  * How Battery Tracking shows its values, shared by the table and the detail
@@ -21,7 +24,8 @@ export function splitLocation(text: string): [string, string] | null {
 export const showCoord = (n: string) => n.trim().replace(/^-/, "−");
 
 /** Google Maps at a stored "lat, long". */
-export const mapsUrl = (text: string) => `https://maps.google.com/?q=${encodeURIComponent(text.replace(/\s+/g, ""))}`;
+export const mapsUrl = (text: string) =>
+  `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(text.replace(/\s+/g, ""))}`;
 
 /**
  * "15 Oct 2026 09:56", stacked: date on top, time below in muted text, and the
@@ -42,6 +46,18 @@ export function LastSeen({ text }: { text: string }) {
   );
 }
 
+/** Last Seen on one line, "27 Oct 2026 · 05:33", for the detail card; the exact stored time on hover. */
+export function LastSeenLine({ text }: { text: string }) {
+  if (!text) return <Dash />;
+  const date = text.slice(0, 11);
+  const time = text.slice(12);
+  return (
+    <time title={time ? `${date}, ${time} UTC` : `${date} UTC`} className="tabular-nums whitespace-nowrap">
+      {time ? `${date} · ${time}` : date}
+    </time>
+  );
+}
+
 /**
  * SOC as a plain number ("78"); the "%" is in the column header and the card's
  * label ("SOC %"). It sits right-aligned in a slot as wide as "100" (26px, in
@@ -54,20 +70,18 @@ export function Soc({ value, className }: { value: number | null; className?: st
 }
 
 /**
- * The table's "lat, long" link to Google Maps, in the vehicle page's "Show on
- * Google Map" style, lightened in dark mode like the portal's other teal links.
- * Latitude and longitude each sit right-aligned in a fixed slot, sized for the
- * widest valid value ("−90.00000" in 72px, "−180.00000" in 80px), so the
- * decimal points line up down the column whatever the sign. The link and a
- * copy of the text use the stored numbers, with their hyphens.
+ * The table's Last Known Location, two lines like Last Seen's so the row lines
+ * up: the region with the external-link icon, then "−1.33069, 36.85595" under
+ * it in smaller muted text. Both lines are one link to Google Maps, taking the
+ * link colour and an underline on hover and focus; a copy of the text gives the
+ * stored numbers, with their hyphens. No location shows "No location reported",
+ * muted, with no link.
  *
- * It's inside a clickable row: its click and Enter open Maps only.
+ * It's inside a clickable row: the link's click and Enter open Maps only.
  */
-export function Location({ text }: { text: string }) {
-  if (!text) return <Dash />;
+export function Location({ text, region }: { text: string; region: string | null }) {
+  if (!text.trim()) return <span className="text-slate-400">No location reported</span>;
   const pair = splitLocation(text);
-  if (!pair) return <span className="text-slate-600 tabular-nums">{text}</span>;
-  const [lat, long] = pair;
 
   // Copying from inside this one link gives the stored text, not the minus signs.
   function onCopy(e: React.ClipboardEvent<HTMLElement>) {
@@ -77,21 +91,53 @@ export function Location({ text }: { text: string }) {
     e.clipboardData.setData("text/plain", text);
   }
 
+  const LINKED = "group-hover:text-zeno-teal group-hover:underline group-focus-visible:text-zeno-teal group-focus-visible:underline dark:group-hover:text-(--sidebar-text) dark:group-focus-visible:text-(--sidebar-text)";
   return (
     <a
       href={mapsUrl(text)}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label={`${text}, open in Google Maps (new tab)`}
+      title="Open in Google Maps"
+      aria-label={`${region ?? "Unknown region"}, ${text}. Open in Google Maps`}
       onCopy={onCopy}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
-      className="inline-flex items-center text-zeno-teal dark:text-(--sidebar-text) hover:underline tabular-nums whitespace-nowrap rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
+      className="group inline-block rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
     >
-      <span className="w-18 shrink-0 text-right">{showCoord(lat)}</span>
-      <span>,</span>
-      <span className="w-20 shrink-0 text-right">{showCoord(long)}</span>
-      <ExternalLink className="w-3.5 h-3.5 shrink-0 ml-1.5" />
+      <span className={cn("flex items-center gap-1.5 text-slate-700", LINKED)}>
+        {region ?? "Unknown region"}
+        <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+      </span>
+      <span className={cn("block text-xs text-slate-400 tabular-nums whitespace-nowrap", LINKED)}>
+        {pair ? `${showCoord(pair[0])}, ${showCoord(pair[1])}` : text}
+      </span>
     </a>
+  );
+}
+
+/**
+ * Where the battery is: a station code and its slot ("BS0019 · S03", the
+ * slot muted, labelled as Swap Audit labels slots) or a VIN, after a small station or vehicle icon, in the IDs'
+ * monospace. The code or VIN has their copy button; the slot isn't copied. In neither,
+ * the muted dash, with the reason on hover.
+ */
+export function Asset({ asset }: { asset: BatteryAsset | null }) {
+  if (!asset) {
+    return (
+      <span title="Not in a vehicle or station" className="text-slate-300">
+        <span aria-hidden>–</span>
+        <span className="sr-only">Not in a vehicle or station</span>
+      </span>
+    );
+  }
+  const station = asset.type === "station";
+  const Icon = station ? Zap : Bike;
+  const value = station ? asset.code : asset.vin;
+  return (
+    <span className="inline-flex items-center gap-1.5 font-mono text-xs tabular-nums text-slate-700">
+      <Icon className="w-3.5 h-3.5 shrink-0 text-slate-400" role="img" aria-label={station ? "Station" : "Vehicle"} />
+      <CopyButton value={value} label={station ? "station code" : "VIN"} />
+      {station && <span className="text-slate-400">· {slotLabel(asset.slot)}</span>}
+    </span>
   );
 }

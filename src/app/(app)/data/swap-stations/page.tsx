@@ -11,6 +11,8 @@ import type { SwapStation } from "@/lib/mock/kpi-infra";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { cn } from "@/lib/utils";
 import { AddToDashboardModal } from "@/components/widgets/AddToDashboardModal";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
+import { FilterChip, FilterChips } from "@/components/ui/FilterChip";
 
 const REGION_LABELS: Record<string, string> = { nbo: "NBO", nanyuki: "Nanyuki", nyeri: "Nyeri" };
 const REGION_COLORS: Record<string, string> = { nbo: "bg-[#003B49]/10 text-[#003B49]", nanyuki: "bg-[#FF3B06]/10 text-[#FF3B06]", nyeri: "bg-emerald-50 text-emerald-700" };
@@ -85,6 +87,13 @@ export default function SwapStationsPage() {
     { name: "Nyeri", value: SWAP_STATIONS.filter(s=>s.region==="nyeri").length, color: "#10b981" },
   ];
 
+  const filterDefs = [
+    ["Region", regionFilter, setRegionFilter, [["","All Regions"],["nbo","NBO"],["nanyuki","Nanyuki"],["nyeri","Nyeri"]]],
+    ["Status", statusFilter, setStatusFilter, [["","All Status"],["live","Live"],["offline","Offline"]]],
+    ["Type", typeFilter, setTypeFilter, [["","All Types"],["single_phase","Single Phase"],["three_phase","Three Phase"]]],
+    ["Rating", ratingFilter, setRatingFilter, [["","All Ratings"],["H","High"],["M","Medium"],["L","Low"]]],
+  ] as [string, string, (v: string) => void, [string, string][]][];
+
   return (
     <>
       <Topbar
@@ -140,12 +149,7 @@ export default function SwapStationsPage() {
               className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 focus:border-[#003B49] w-52"
             />
           </div>
-          {([
-            ["Region", regionFilter, setRegionFilter, [["","All Regions"],["nbo","NBO"],["nanyuki","Nanyuki"],["nyeri","Nyeri"]]],
-            ["Status", statusFilter, setStatusFilter, [["","All Status"],["live","Live"],["offline","Offline"]]],
-            ["Type", typeFilter, setTypeFilter, [["","All Types"],["single_phase","Single Phase"],["three_phase","Three Phase"]]],
-            ["Rating", ratingFilter, setRatingFilter, [["","All Ratings"],["H","High"],["M","Medium"],["L","Low"]]],
-          ] as [string, string, (v: string) => void, [string, string][]][]).map(([label, val, setter, opts]) => (
+          {filterDefs.map(([label, val, setter, opts]) => (
             <select key={label} value={val} onChange={e => setter(e.target.value)}
               className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 text-slate-600"
             >
@@ -153,10 +157,24 @@ export default function SwapStationsPage() {
             </select>
           ))}
           {(search || regionFilter || statusFilter || typeFilter || ratingFilter) && (
-            <button onClick={() => { setSearch(""); setRegionFilter(""); setStatusFilter(""); setTypeFilter(""); setRatingFilter(""); }}
-              className="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+            <ClearFiltersButton onClick={() => { setSearch(""); setRegionFilter(""); setStatusFilter(""); setTypeFilter(""); setRatingFilter(""); }} />
           )}
         </div>
+
+        {/* The active filters as chips; × removes one. The search shows in its own box. */}
+        {filterDefs.some(([, val]) => val) && (
+          <FilterChips>
+            {filterDefs.filter(([, val]) => val).map(([label, val, setter, opts]) => (
+              <FilterChip
+                key={label}
+                label={label}
+                value={opts.find(([v]) => v === val)?.[1] ?? val}
+                removeLabel={`Remove ${label} filter`}
+                onRemove={() => setter("")}
+              />
+            ))}
+          </FilterChips>
+        )}
 
         {/* Table */}
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">

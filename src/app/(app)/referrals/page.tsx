@@ -9,6 +9,8 @@ import { useReferralsStore } from "@/store/referrals";
 import { useCustomersStore } from "@/store/customers";
 import type { ReferralStatus } from "@/store/referrals";
 import { cn } from "@/lib/utils";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
+import { FilterChip, FilterChips } from "@/components/ui/FilterChip";
 
 const STATUS_META: Record<ReferralStatus, { label: string; badge: string }> = {
   pending: { label: "Pending",  badge: "bg-amber-50 text-amber-700" },
@@ -87,9 +89,21 @@ export default function ReferralsPage() {
             <option value="pending">Pending</option>
             <option value="expired">Expired</option>
           </select>
-          {statusFilter && <button onClick={() => setStatusFilter("")} className="text-xs text-slate-400 hover:text-slate-600">Clear</button>}
+          {statusFilter && <ClearFiltersButton onClick={() => setStatusFilter("")} />}
           <span className="ml-auto text-xs text-slate-400">{filtered.length} referrals</span>
         </div>
+
+        {/* The active filter as a chip; × removes it. */}
+        {statusFilter && (
+          <FilterChips>
+            <FilterChip
+              label="Status"
+              value={statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}
+              removeLabel="Remove Status filter"
+              onRemove={() => setStatusFilter("")}
+            />
+          </FilterChips>
+        )}
 
         {/* Referral Table */}
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">

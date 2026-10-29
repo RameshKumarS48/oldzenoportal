@@ -15,6 +15,8 @@ import { AdminGuard } from "@/components/ui/AdminGuard";
 import type { Partner, PartnerType, PartnerStatus } from "@/store/partners";
 // PartnerType used in edit form selects
 import { cn } from "@/lib/utils";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
+import { FilterChip, FilterChips } from "@/components/ui/FilterChip";
 
 const STATUS_META: Record<PartnerStatus, { label: string; badge: string }> = {
   active:   { label: "Active",   badge: "bg-emerald-50 text-emerald-700" },
@@ -115,9 +117,21 @@ export default function PartnersPage() {
             <option value="pending">Pending</option>
           </select>
           {(search || statusFilter) && (
-            <button onClick={() => { setSearch(""); setStatusFilter(""); }} className="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+            <ClearFiltersButton onClick={() => { setSearch(""); setStatusFilter(""); }} />
           )}
         </div>
+
+        {/* The active filters as chips; × removes one. The search shows in its own box. */}
+        {statusFilter && (
+          <FilterChips>
+            <FilterChip
+              label="Status"
+              value={STATUS_META[statusFilter as keyof typeof STATUS_META]?.label ?? statusFilter}
+              removeLabel="Remove Status filter"
+              onRemove={() => setStatusFilter("")}
+            />
+          </FilterChips>
+        )}
 
         {/* Table */}
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">

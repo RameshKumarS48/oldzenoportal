@@ -2,6 +2,7 @@
 
 import { Fragment, useMemo, useState } from "react";
 import { Search, Download, ChevronDown, ChevronUp, PackageOpen, ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { toast } from "@/store/toast";
 import { Pagination } from "@/components/ui/Pagination";
@@ -223,7 +224,7 @@ export function WalletLedgerTable() {
         </select>
 
         {(search || dirFilter || catFilter || dateFilter) && (
-          <button onClick={clearFilters} className="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+          <ClearFiltersButton onClick={clearFilters} />
         )}
 
         <button

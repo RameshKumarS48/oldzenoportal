@@ -9,6 +9,12 @@ import { PieChart } from "@/components/charts/PieChart";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { cn } from "@/lib/utils";
 import { AddToDashboardModal } from "@/components/widgets/AddToDashboardModal";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
+import { FilterChip, FilterChips } from "@/components/ui/FilterChip";
+
+/** The filter dropdowns' options, shared with their chips. */
+const STATUS_OPTIONS: [string, string][] = [["", "All Status"], ["discharging", "In Use"], ["charging", "Charging"], ["idle", "Idle"], ["fault", "Fault"]];
+const REGION_OPTIONS: [string, string][] = [["", "All Regions"], ["nbo", "NBO"], ["nanyuki", "Nanyuki"], ["naromoru", "Naro Moru"], ["nyeri", "Nyeri"]];
 
 interface BatteryTelemetry {
   id: string;
@@ -218,25 +224,38 @@ export default function BatteryTelemetryPage() {
           </div>
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
             className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 text-slate-600">
-            <option value="">All Status</option>
-            <option value="discharging">In Use</option>
-            <option value="charging">Charging</option>
-            <option value="idle">Idle</option>
-            <option value="fault">Fault</option>
+            {STATUS_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
           <select value={regionFilter} onChange={e => setRegionFilter(e.target.value)}
             className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 text-slate-600">
-            <option value="">All Regions</option>
-            <option value="nbo">NBO</option>
-            <option value="nanyuki">Nanyuki</option>
-            <option value="naromoru">Naro Moru</option>
-            <option value="nyeri">Nyeri</option>
+            {REGION_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
           {(statusFilter || regionFilter || search) && (
-            <button onClick={() => { setStatusFilter(""); setRegionFilter(""); setSearch(""); }}
-              className="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+            <ClearFiltersButton onClick={() => { setStatusFilter(""); setRegionFilter(""); setSearch(""); }} />
           )}
         </div>
+
+        {/* The active filters as chips; × removes one. The search shows in its own box. */}
+        {(statusFilter || regionFilter) && (
+          <FilterChips>
+            {statusFilter && (
+              <FilterChip
+                label="Status"
+                value={STATUS_OPTIONS.find(([v]) => v === statusFilter)?.[1] ?? statusFilter}
+                removeLabel="Remove Status filter"
+                onRemove={() => setStatusFilter("")}
+              />
+            )}
+            {regionFilter && (
+              <FilterChip
+                label="Region"
+                value={REGION_OPTIONS.find(([v]) => v === regionFilter)?.[1] ?? regionFilter}
+                removeLabel="Remove Region filter"
+                onRemove={() => setRegionFilter("")}
+              />
+            )}
+          </FilterChips>
+        )}
 
         {/* Table */}
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">

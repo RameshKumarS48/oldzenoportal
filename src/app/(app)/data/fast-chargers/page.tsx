@@ -9,6 +9,8 @@ import { PieChart } from "@/components/charts/PieChart";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { cn } from "@/lib/utils";
 import { AddToDashboardModal } from "@/components/widgets/AddToDashboardModal";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
+import { FilterChip, FilterChips } from "@/components/ui/FilterChip";
 
 // ── Session Telemetry ─────────────────────────────────────────────────────────
 
@@ -158,6 +160,11 @@ export default function FastChargersDataPage() {
     { name: "Nyeri",   value: SESSIONS.filter(s => s.region === "nyeri").length,   color: "#10b981" },
   ];
 
+  const filterDefs = [
+    ["Region", regionFilter, setRegionFilter, [["","All Regions"],["nbo","NBO"],["nanyuki","Nanyuki"],["nyeri","Nyeri"]]],
+    ["Status", statusFilter, setStatusFilter, [["","All Status"],["active","Active"],["completed","Completed"],["error","Error"]]],
+  ] as [string, string, (v:string)=>void, [string,string][]][];
+
   return (
     <>
       <Topbar
@@ -232,20 +239,31 @@ export default function FastChargersDataPage() {
               className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 focus:border-[#003B49] w-60"
             />
           </div>
-          {([
-            ["Region", regionFilter, setRegionFilter, [["","All Regions"],["nbo","NBO"],["nanyuki","Nanyuki"],["nyeri","Nyeri"]]],
-            ["Status", statusFilter, setStatusFilter, [["","All Status"],["active","Active"],["completed","Completed"],["error","Error"]]],
-          ] as [string, string, (v:string)=>void, [string,string][]][]).map(([label, val, setter, opts]) => (
+          {filterDefs.map(([label, val, setter, opts]) => (
             <select key={label} value={val} onChange={e => setter(e.target.value)}
               className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 text-slate-600">
               {opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           ))}
           {(regionFilter || statusFilter || search) && (
-            <button onClick={() => { setRegionFilter(""); setStatusFilter(""); setSearch(""); }}
-              className="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+            <ClearFiltersButton onClick={() => { setRegionFilter(""); setStatusFilter(""); setSearch(""); }} />
           )}
         </div>
+
+        {/* The active filters as chips; × removes one. The search shows in its own box. */}
+        {filterDefs.some(([, val]) => val) && (
+          <FilterChips>
+            {filterDefs.filter(([, val]) => val).map(([label, val, setter, opts]) => (
+              <FilterChip
+                key={label}
+                label={label}
+                value={opts.find(([v]) => v === val)?.[1] ?? val}
+                removeLabel={`Remove ${label} filter`}
+                onRemove={() => setter("")}
+              />
+            ))}
+          </FilterChips>
+        )}
 
         {/* Table */}
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">

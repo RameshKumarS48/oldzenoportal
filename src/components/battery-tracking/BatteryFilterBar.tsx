@@ -1,33 +1,41 @@
 "use client";
 
-import { Search, X } from "lucide-react";
+import { Search } from "lucide-react";
 import { DateRangeFilter } from "@/components/swap-transactions/DateRangeFilter";
-import { anyFilter, describeFilter, NO_FILTERS, type BatteryFilters, type LastSeenPreset } from "./filters";
+import {
+  anyFilter,
+  ASSET_TYPES,
+  describeFilter,
+  REGIONS,
+  type AssetType,
+  type BatteryFilters,
+  type LastSeenPreset,
+  type RegionFilter,
+} from "./filters";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
 
 // Swap Audit's filter bar (SwapAuditTable.tsx): a white card holding compact
 // text-xs controls. Its styles are repeated here so that file stays untouched.
+// The search is w-72, Asset Tracking's width, to fit its longer placeholder.
 const BAR = "bg-white rounded-xl border border-slate-200 px-4 py-2.5 flex items-center gap-3 flex-wrap shrink-0";
 const SEARCH =
   "pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white " +
-  "focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 focus:border-[#003B49] w-60";
+  "focus:outline-none focus:ring-2 focus:ring-[#003B49]/20 focus:border-[#003B49] w-72";
 const CONTROL =
   "text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-600 " +
   "focus:outline-none focus:ring-2 focus:ring-[#003B49]/20";
-// Asset Tracking's Clear filters link (FilterBar.tsx).
-const CLEAR =
-  "inline-flex items-center gap-1 text-xs font-medium text-zeno-teal hover:underline dark:text-(--sidebar-text) rounded " +
-  "focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40";
 
 /**
  * Battery Tracking's filter bar, in Swap Audit's pattern: search, Swap
- * Transactions' time filter for Last Seen, Clear filters while it's set, and the
- * count on the right. The presets apply at once; a custom range on Apply.
+ * Transactions' time filter for Last Seen, Asset type, Region, Clear filters while
+ * the search or any filter narrows the rows, and the count on the right. The presets apply at once; a custom range on Apply.
  */
 export function BatteryFilterBar({
   search,
   onSearch,
   filters,
   onFilters,
+  onClear,
   shown,
   total,
   year,
@@ -36,6 +44,8 @@ export function BatteryFilterBar({
   onSearch: (v: string) => void;
   filters: BatteryFilters;
   onFilters: (f: BatteryFilters) => void;
+  /** Clears the search and every filter. */
+  onClear: () => void;
   /** Batteries matching search and filters, and in all; null until the rows have loaded. */
   shown: number | null;
   total: number | null;
@@ -54,8 +64,8 @@ export function BatteryFilterBar({
         <input
           value={search}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder="Search serial no. or IMEI"
-          aria-label="Search by battery serial number or IMEI"
+          placeholder="Search serial no., IMEI, VIN, station or region"
+          aria-label="Search by battery serial number, IMEI, VIN, station code or region"
           className={SEARCH}
         />
       </div>
@@ -64,16 +74,30 @@ export function BatteryFilterBar({
       <DateRangeFilter
         value={filters.lastSeen}
         range={filters.range}
-        onChange={(v, r) => onFilters({ lastSeen: v as LastSeenPreset, range: r })}
+        onChange={(v, r) => onFilters({ ...filters, lastSeen: v as LastSeenPreset, range: r })}
         className={CONTROL}
       />
 
-      {filtered && (
-        <button onClick={() => onFilters(NO_FILTERS)} className={CLEAR}>
-          <X className="w-3.5 h-3.5" />
-          Clear filters
-        </button>
-      )}
+      {/* Asset type, in the same native dropdown and style; it applies on selection. */}
+      <select
+        aria-label="Asset type"
+        value={filters.asset}
+        onChange={(e) => onFilters({ ...filters, asset: e.target.value as AssetType })}
+        className={CONTROL}
+      >
+        {ASSET_TYPES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+      </select>
+
+      <select
+        aria-label="Region"
+        value={filters.region}
+        onChange={(e) => onFilters({ ...filters, region: e.target.value as RegionFilter })}
+        className={CONTROL}
+      >
+        {REGIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+      </select>
+
+      {narrowed && <ClearFiltersButton onClick={onClear} />}
 
       <span aria-live="polite" className="ml-auto text-xs text-slate-500 tabular-nums">
         {shown === null || total === null

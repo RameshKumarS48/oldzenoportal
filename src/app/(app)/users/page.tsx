@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
-  Plus, Pencil, Trash2, Mail, Copy, Check, Clock, X, RotateCcw, Search, ChevronDown,
+  Plus, Pencil, Trash2, Mail, Copy, Check, Clock, X, Search, ChevronDown,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { AccessGuard } from "@/components/ui/AccessGuard";
@@ -21,6 +21,8 @@ import { useTenantOptions, tenantLabel } from "@/lib/tenants";
 import { ROLE_LABELS } from "@/lib/mock/users";
 import type { AppUser, UserRole } from "@/lib/mock/users";
 import { cn } from "@/lib/utils";
+import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
+import { FilterChip, FilterChips } from "@/components/ui/FilterChip";
 
 /** Pill-shaped filter control, matching the approved design. */
 function FilterSelect({
@@ -142,12 +144,7 @@ export default function UsersPage() {
             </FilterSelect>
 
             {hasFilters && (
-              <button
-                onClick={clearFilters}
-                className="flex items-center gap-2 px-2 py-2 text-sm text-slate-500 hover:text-slate-700 transition-colors rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#003B49]/30"
-              >
-                <RotateCcw className="w-4 h-4" /> Clear
-              </button>
+              <ClearFiltersButton onClick={clearFilters} />
             )}
 
             <span className="ml-auto text-xs text-slate-400 tabular-nums">
@@ -162,6 +159,28 @@ export default function UsersPage() {
             <Plus className="w-4 h-4" /> Invite User
           </button>
         </div>
+
+        {/* The active filters as chips; × removes one. The search shows in its own box. */}
+        {(partnerFilter || roleFilter) && (
+          <FilterChips>
+            {partnerFilter && (
+              <FilterChip
+                label="Partner"
+                value={tenants.find((t) => t.id === partnerFilter)?.label ?? partnerFilter}
+                removeLabel="Remove Partner filter"
+                onRemove={() => { setPartnerFilter(""); setPage(1); }}
+              />
+            )}
+            {roleFilter && (
+              <FilterChip
+                label="Role"
+                value={ROLE_LABELS[roleFilter as UserRole] ?? roleFilter}
+                removeLabel="Remove Role filter"
+                onRemove={() => { setRoleFilter(""); setPage(1); }}
+              />
+            )}
+          </FilterChips>
+        )}
 
         {/* Roster */}
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
