@@ -32,7 +32,7 @@ import { DeletePlanModal } from "@/components/pricing-plans/DeletePlanModal";
 import { AssignStationsModal } from "@/components/pricing-plans/AssignStationsModal";
 import { StationHistoryDrawer } from "@/components/pricing-plans/StationHistoryDrawer";
 import { PlanCombobox } from "@/components/pricing-plans/PlanCombobox";
-import { PlanStatusBadge, useActorName, useDefaultRate, usePricingBook, usePricingNow } from "@/components/pricing-plans/shared";
+import { PlanStatusBadge, useActorName, usePricingBook, usePricingNow } from "@/components/pricing-plans/shared";
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -85,10 +85,8 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
   // Changes apply when saved, so a plan's latest version is in force.
   const current = versionAt(plan, now) ?? sortedVersions(plan)[0];
   const country = countryOf(plan);
-  const defaultRate = useDefaultRate(now);
-  // Grey means Default's Default Rate, which only a plan in Default's currency can charge.
-  const shownDefault = country.code === "KE" ? defaultRate : null;
-  const bands = versionBands(current.windows, shownDefault);
+  // Grey is the Default Rate: all of Default, or hours another plan links to it.
+  const bands = versionBands(current.windows, plan.isDefault);
   const stationCount = stationsOnPlan(book, plan.id, ALL_STATION_IDS, now).length;
 
   return (
@@ -137,8 +135,8 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
                 <h3 className="text-sm font-semibold text-slate-700">Rates in force</h3>
                 <span className="text-[11px] text-slate-400">Updated {fmtEat(current.effectiveFrom)}</span>
               </div>
-              <DayBandBar items={bands} now={now} currency={country.currency} highlighted={highlight} onHighlight={setHighlight} />
-              <WindowRates bands={bands} now={now} highlighted={highlight} onHighlight={setHighlight} />
+              <DayBandBar items={bands} currency={country.currency} highlighted={highlight} onHighlight={setHighlight} />
+              <WindowRates bands={bands} highlighted={highlight} onHighlight={setHighlight} />
               <p className="text-[11px] text-slate-400">{country.currency} per kWh. Slab 1 is a rider&apos;s first 3 kWh each day; slab 2 is everything after.</p>
               <p className="text-xs text-slate-500">
                 {plan.isDefault
@@ -164,7 +162,7 @@ function PlanDetail({ plan }: { plan: PricingPlan }) {
 
         {tab === "history" && (
           <div className="bg-white border border-slate-200 rounded-xl p-5">
-            <ChangeHistory plan={plan} currentId={current.id} defaultRate={shownDefault} />
+            <ChangeHistory plan={plan} currentId={current.id} />
           </div>
         )}
       </div>

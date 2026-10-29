@@ -328,7 +328,8 @@ export function sameWindows(a: RateWindow[], b: RateWindow[]): boolean {
     x.length === y.length &&
     x.every(
       (w, i) =>
-        w.start === y[i].start && w.end === y[i].end && w.slab1 === y[i].slab1 && w.slab2 === y[i].slab2 && !!w.isBase === !!y[i].isBase
+        w.start === y[i].start && w.end === y[i].end && w.slab1 === y[i].slab1 && w.slab2 === y[i].slab2 &&
+        !!w.isBase === !!y[i].isBase && !!w.linkedToDefault === !!y[i].linkedToDefault
     )
   );
 }

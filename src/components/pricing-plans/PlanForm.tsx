@@ -8,12 +8,13 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { toast } from "@/store/toast";
-import { NOTE_MAX, PLAN_GONE, usePricingStore, validatePlanName, type VersionInput } from "@/store/pricing-plans";
+import { NOTE_MAX, PLAN_GONE, plansFollowingDefault, usePricingStore, validatePlanName, type VersionInput } from "@/store/pricing-plans";
 import { ALL_STATION_IDS } from "@/lib/mock/pricing-plans";
 import { COUNTRIES, COUNTRY_LIST, DEFAULT_COUNTRY, type CountryCode } from "@/lib/pricing/country";
 import { SLAB1_DAILY_KWH, defaultPlan, sortedVersions, stationsOnPlan, versionAt } from "@/lib/pricing/engine";
 import {
-  BASE_LABEL, MAX_WINDOWS, fmtRateWindow, fmtSlabs, rateRows, rateWarnings, rowChanged, sameWindows, sortWindows, type BaseRates,
+  BASE_LABEL, MAX_WINDOWS, fmtRateWindow, fmtRateWindowHHmm, fmtSlabs, rateRows, rateWarnings, rowChanged, sameWindows,
+  splitVersion,
 } from "@/lib/pricing/windows";
 import {
   addBlocked,
@@ -24,6 +25,8 @@ import {
   gapStretches,
   gapText,
   isSlot,
+  linkedWindows,
+  ownRateRows,
   rateError,
   removeRow,
   rowLabel,
@@ -37,9 +40,9 @@ import {
   type HourRow,
 } from "@/lib/pricing/hour-rows";
 import { summarizeMoves } from "@/lib/pricing/moves";
-import type { PricingPlan } from "@/lib/pricing/types";
+import type { PricingPlan, RateWindow } from "@/lib/pricing/types";
 import { cn } from "@/lib/utils";
-import { DayBandBar, WindowSwatch, isDefaultRate, versionBands, type BandItem } from "./DayBandBar";
+import { DayBandBar, WindowSwatch, bandColors, versionBands, type BandColor, type BandItem } from "./DayBandBar";
 import { HourSelect } from "./HourSelect";
 import { StationPicker } from "./StationPicker";
 import { inputCls, labelCls, useActorName, useDefaultRate, usePricingBook } from "./shared";
@@ -55,32 +58,35 @@ const NOTE_WARN = 450;
 
 const ROW_GRID = "grid grid-cols-[0.75rem_minmax(0,1.15fr)_minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2";
 
-/** A row's rates and times, for telling whether the form changed. */
-const snapshot = (name: string, rows: HourRow[]) =>
-  JSON.stringify([name.trim(), rows.map((r) => [r.origin, r.from, r.until, r.slab1.trim(), r.slab2.trim()])]);
+/** A row's rates and times, and whether the rest is linked, for telling whether the form changed. */
+const snapshot = (name: string, rows: HourRow[], linked: boolean) =>
+  JSON.stringify([name.trim(), linked, rows.map((r) => [r.origin, r.from, r.until, r.slab1.trim(), r.slab2.trim()])]);
 
 /**
- * Each row's colour: grey only while its rates are exactly Default's Default
- * Rate (`defaultRate`; null when the plan's currency isn't Default's), so a
- * filled row whose rates are changed takes a colour of its own. Slots keep
- * theirs; other rows take the colours no slot uses, in time order.
+ * Each row's colour, by the bars' rule (`bandColors`): grey for the Default
+ * plan's row, otherwise its rates' shade among the plan's own rows, cheapest
+ * lightest; linked hours aren't rows, so they're left out. A row without both
+ * rates yet has none, so shades can shift as rates are typed.
  */
-function rowColors(rows: HourRow[], defaultRate: BaseRates | null): Map<string, number | "base"> {
-  const used = new Set(rows.filter(isSlot).map((r) => r.color));
-  const free = [0, 1, 2, 3, 4, 5].filter((c) => !used.has(c));
-  let k = 0;
-  const out = new Map<string, number | "base">();
-  for (const r of rows) {
-    if (isDefaultRate({ slab1: typedRate(r.slab1), slab2: typedRate(r.slab2) }, defaultRate)) out.set(r.key, "base");
-    else if (isSlot(r)) out.set(r.key, r.color);
-    else out.set(r.key, free.length ? free[k++ % free.length] : 0);
-  }
-  return out;
+function rowColors(rows: HourRow[], isDefaultPlan: boolean): Map<string, BandColor> {
+  const colors = bandColors(rows.map((r) => ({ slab1: typedRate(r.slab1), slab2: typedRate(r.slab2) })), isDefaultPlan);
+  return new Map(rows.map((r, i) => [r.key, colors[i]]));
 }
 
-/** The rows as day-bar bands, each keyed by its row so a moving edge slides. */
-const rowBands = (rows: HourRow[], colors: Map<string, number | "base">): BandItem[] =>
-  rows.map((r) => ({ id: r.key, window: rowsToWindows([r])[0], color: colors.get(r.key) ?? 0 }));
+/** The Default plan's one row: the Default Rate, all day, at its saved rates. */
+function defaultRow(windows: RateWindow[]): HourRow {
+  const rate = splitVersion({ windows }).base ?? windows[0];
+  return { key: rowKey(), origin: "default", from: 0, until: 24, slab1: rate ? String(rate.slab1) : "", slab2: rate ? String(rate.slab2) : "" };
+}
+
+/** Stands in for the linked Default Rate's id on the bar, so its stretches highlight together with its row. */
+const LINKED_ID = "linked";
+
+/** The rows as day-bar bands, each keyed by its row so a moving edge slides, then the linked hours in grey. */
+const rowBands = (rows: HourRow[], colors: Map<string, BandColor>, linked: RateWindow[] = []): BandItem[] => [
+  ...rows.map((r) => ({ id: r.key, window: rowsToWindows([r])[0], color: colors.get(r.key) ?? ("none" as const) })),
+  ...linked.map((w) => ({ id: LINKED_ID, window: w, color: "base" as const })),
+];
 
 /** "1 Rates ─ 2 Stations": where a new plan's two steps are. */
 function Steps({ step }: { step: "rates" | "stations" }) {
@@ -177,6 +183,7 @@ export function PlanForm({
 }) {
   const createPlan = usePricingStore((s) => s.createPlan);
   const addVersion = usePricingStore((s) => s.addVersion);
+  const changeDefaultRate = usePricingStore((s) => s.changeDefaultRate);
   const renamePlan = usePricingStore((s) => s.renamePlan);
   const actor = useActorName();
   const book = usePricingBook();
@@ -197,9 +204,20 @@ export function PlanForm({
   const kenyaDefaultRate = useDefaultRate(now);
   const defaultRate = sameAsDefault ? kenyaDefaultRate : null;
   const [note, setNote] = useState("");
-  // A new plan starts with one empty slot; an existing one with its saved windows.
-  const [rows, setRows] = useState<HourRow[]>(() => (latest ? windowsToRows(latest.windows, rowKey) : addRow([], rowKey(), rowKey)));
-  const [initial] = useState(() => snapshot(name, rows));
+  // A new plan starts with one empty slot; an existing one with its saved windows. Default is
+  // its one all-day Default Rate row; elsewhere, hours linked to the Default Rate aren't rows.
+  const [rows, setRows] = useState<HourRow[]>(() =>
+    editingDefault
+      ? [defaultRow(latest?.windows ?? [])]
+      : latest
+        ? windowsToRows(latest.windows.filter((w) => !w.linkedToDefault), rowKey)
+        : addRow([], rowKey(), rowKey)
+  );
+  /** Whether the hours the plan's own rows leave free follow the Default Rate. */
+  const [linked, setLinked] = useState(() => !editingDefault && !!latest?.windows.some((w) => w.linkedToDefault));
+  /** Why Set own rate was refused, shown under the linked row. */
+  const [linkedError, setLinkedError] = useState<string | null>(null);
+  const [initial] = useState(() => snapshot(name, rows, linked));
   /** Fields left at least once, "key:slab1" or "name"; their errors show from then on. */
   const [touched, setTouched] = useState<Set<string>>(new Set());
   /** The row under the pointer or focus, shared by the rows and the bar. */
@@ -216,12 +234,16 @@ export function PlanForm({
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const moves = summarizeMoves(book, Array.from(picked), NEW_PLAN, ALL_STATION_IDS, now);
 
-  const windows = rowsToWindows(rows);
+  // Linked hours are saved as copies of the Default Rate, so every reader prices them as it does any window.
+  const linkedRate = linked ? defaultRate : null;
+  const linkedHours = linkedRate ? linkedWindows(rows, linkedRate) : [];
+  const windows = [...rowsToWindows(rows), ...linkedHours];
   const version: VersionInput = { windows };
-  const gaps = gapStretches(rows);
-  const covered = 24 - uncoveredHours(rows).length;
+  const gaps = linkedRate ? [] : gapStretches(rows);
+  const covered = 24 - (linkedRate ? 0 : uncoveredHours(rows).length);
   const slotCount = rows.filter(isSlot).length;
-  const colors = rowColors(rows, defaultRate);
+  const colors = rowColors(rows, editingDefault);
+  const bandItems = rowBands(rows, colors, linkedHours);
 
   const nameError = validatePlanName(name, book.plans, plan?.id);
   const missingRates = rows.some((r) => rateError(r.slab1, country.maxRate) || rateError(r.slab2, country.maxRate));
@@ -230,7 +252,7 @@ export function PlanForm({
   const nameChanged = !!plan && name.trim() !== plan.name;
   // A note alone isn't a change: it describes one.
   const dirty =
-    snapshot(name, rows) !== initial || picked.size > 0 || note.trim() !== "" || (!plan && countryCode !== DEFAULT_COUNTRY);
+    snapshot(name, rows, linked) !== initial || picked.size > 0 || note.trim() !== "" || (!plan && countryCode !== DEFAULT_COUNTRY);
   const blocked = addBlocked(rows);
 
   // The first thing standing in the way of saving, for the footer.
@@ -306,6 +328,17 @@ export function PlanForm({
   function handleConfirm() {
     if (saving) return;
     setSaving(true);
+    if (editingDefault) {
+      // Default's one row: new Default Rate rates, copied into every plan's linked hours too.
+      const res = changeDefaultRate({ slab1: windows[0].slab1, slab2: windows[0].slab2 }, actor, note);
+      if (!res.ok) return fail(res.error);
+      const n = res.plans ?? 0;
+      toast.success(
+        "Default Rate updated",
+        `${fmtSlabs(windows[0])} applies to swaps from now${n > 0 ? `, on Default and ${n} plan${n === 1 ? "" : "s"} that use it` : ""}.`
+      );
+      return onDone();
+    }
     if (!plan) {
       const res = createPlan({ name, version, stationIds: moves.moves.map((m) => m.id), note, country: countryCode }, actor);
       if (!res.ok) return fail(res.error);
@@ -352,6 +385,16 @@ export function PlanForm({
   const warnings = confirming ? rateWarnings(windows, editingDefault || !sameAsDefault ? null : defaultWindows) : null;
   const stationCount = (n: number) => `${n} station${n === 1 ? "" : "s"}`;
 
+  // Default's editor says what its rate reaches beyond Default: the plans whose hours link to it.
+  const following = editingDefault ? plansFollowingDefault(book, now) : [];
+  const followingNames = following.map((f) => f.plan.name);
+  const defaultReach =
+    following.length === 0
+      ? "This rate is used across the network. No other plans use it right now."
+      : `This rate is used across the network. Changing it also changes the Default Rate in every plan that uses it: ${
+          followingNames.length === 1 ? followingNames[0] : `${followingNames.slice(0, -1).join(", ")} and ${followingNames.at(-1)}`
+        }.`;
+
   // ── The rates step ─────────────────────────────────────────────────────────
   const ratesStep = (
     <div className="space-y-5">
@@ -371,13 +414,11 @@ export function PlanForm({
         {nameError && touched.has("name") && <p className="mt-1 text-[11px] text-red-600">{nameError}</p>}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label htmlFor="plan-country" className={labelCls}>Country</label>
-          {plan ? (
-            // Fixed once the plan exists: its rates and stations are in this country.
-            <p id="plan-country" className={cn(inputCls, "bg-slate-50 text-slate-600")}>{country.name}</p>
-          ) : (
+      {/* A plan's country, and so its currency, is fixed once it exists: the Edit modal names it under its title. */}
+      {!plan && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label htmlFor="plan-country" className={labelCls}>Country</label>
             <select
               id="plan-country"
               value={countryCode}
@@ -392,28 +433,39 @@ export function PlanForm({
                 <option key={c.code} value={c.code}>{c.name}</option>
               ))}
             </select>
-          )}
+          </div>
+          <div>
+            <span className={labelCls}>Currency</span>
+            <p className={cn(inputCls, "bg-slate-50 text-slate-600")} aria-live="polite">
+              {country.currency}
+            </p>
+          </div>
         </div>
-        <div>
-          <span className={labelCls}>Currency</span>
-          <p className={cn(inputCls, "bg-slate-50 text-slate-600")} aria-live="polite">
-            {country.currency}
-          </p>
-        </div>
-      </div>
+      )}
 
       <section className="space-y-3">
         <div>
-          <h3 className="text-xs font-semibold text-slate-700">Your time slots (EAT, {country.currency} per kWh)</h3>
-          <p className="mt-0.5 text-[11px] text-slate-400">
-            Add the hours you want to price differently, up to {MAX_WINDOWS}.{" "}
-            {sameAsDefault ? `Fill the rest with the ${BASE_LABEL}.` : "Then fill the rest of the day and set its rates."}
-          </p>
+          {editingDefault ? (
+            <>
+              <h3 className="text-xs font-semibold text-slate-700">{BASE_LABEL} (EAT, {country.currency} per kWh)</h3>
+              <p className="mt-0.5 text-[11px] text-slate-400">
+                {defaultReach}
+              </p>
+            </>
+          ) : (
+            <>
+              <h3 className="text-xs font-semibold text-slate-700">Your time slots (EAT, {country.currency} per kWh)</h3>
+              <p className="mt-0.5 text-[11px] text-slate-400">
+                Add the hours you want to price differently, up to {MAX_WINDOWS}.{" "}
+                {sameAsDefault ? `Fill the rest with the ${BASE_LABEL}.` : "Then fill the rest of the day and set its rates."}
+              </p>
+            </>
+          )}
         </div>
 
         {/* The day stays in view while the rows scroll under it. */}
         <div className="sticky top-0 z-10 -mx-1 bg-white px-1 pt-1 pb-2">
-          <DayBandBar items={rowBands(rows, colors)} currency={country.currency} highlighted={highlight} onHighlight={setHighlight} />
+          <DayBandBar items={bandItems} currency={country.currency} highlighted={highlight} onHighlight={setHighlight} />
         </div>
 
         <div className="space-y-2">
@@ -426,50 +478,117 @@ export function PlanForm({
             <span />
           </div>
 
-          {rows.map((r, i) => {
-            const color = colors.get(r.key) ?? 0;
-            // Only the actual Default Rate is called that; a changed rate is the plan's own.
-            const isDefault = color === "base";
-            const label = `${isDefault ? BASE_LABEL : "slot"} ${rowLabel(r)}`;
-            return (
-              <div
-                key={r.key}
-                {...hovered(r.key)}
-                className={cn("rounded-lg -mx-1 px-1 py-1 transition-colors", highlight === r.key && "bg-slate-50")}
-              >
+          {editingDefault ? (
+            // Default is one row, all day: its times are fixed, only its rates change.
+            rows.map((r) => (
+              <div key={r.key} className="rounded-lg -mx-1 px-1 py-1">
                 <div className={cn(ROW_GRID, "items-start")}>
-                  <WindowSwatch color={color} className="mt-3" />
-                  <HourSelect
-                    aria-label={`${label} from`}
-                    value={r.from}
-                    options={fromChoices(rows, i)}
-                    onChange={(h) => setRows(setFrom(rows, i, h, rowKey))}
-                    autoFocus={added === r.key}
-                  />
-                  <HourSelect
-                    aria-label={`${label} until`}
-                    value={r.until}
-                    options={untilChoices(rows, i)}
-                    onChange={(v) => setRows(setUntil(rows, i, v, rowKey))}
-                  />
-                  {rateInputs(r, label)}
+                  <WindowSwatch color="base" className="mt-3" />
+                  <p className="py-2 text-sm text-slate-700 tabular-nums">00:00:00</p>
+                  <p className="py-2 text-sm text-slate-700 tabular-nums">23:59:59</p>
+                  {rateInputs(r, BASE_LABEL)}
+                  <span />
+                </div>
+                <p className="mt-0.5 pl-5 text-[11px] text-slate-400">
+                  <span className="font-medium text-slate-500">{BASE_LABEL}</span> · All day
+                </p>
+              </div>
+            ))
+          ) : (
+            rows.map((r, i) => {
+              const color = colors.get(r.key) ?? "none";
+              const label = `slot ${rowLabel(r)}`;
+              return (
+                <div
+                  key={r.key}
+                  {...hovered(r.key)}
+                  className={cn("rounded-lg -mx-1 px-1 py-1 transition-colors", highlight === r.key && "bg-slate-50")}
+                >
+                  <div className={cn(ROW_GRID, "items-start")}>
+                    <WindowSwatch color={color} className="mt-3" />
+                    <HourSelect
+                      aria-label={`${label} from`}
+                      value={r.from}
+                      options={fromChoices(rows, i)}
+                      onChange={(h) => setRows(setFrom(rows, i, h, rowKey))}
+                      autoFocus={added === r.key}
+                    />
+                    <HourSelect
+                      aria-label={`${label} until`}
+                      value={r.until}
+                      options={untilChoices(rows, i)}
+                      onChange={(v) => setRows(setUntil(rows, i, v, rowKey))}
+                    />
+                    {rateInputs(r, label)}
+                    <button
+                      type="button"
+                      onClick={() => setRows((rs) => removeRow(rs, r.key))}
+                      aria-label={`Remove ${label}`}
+                      title={linkedRate ? `Remove: these hours go back to the ${BASE_LABEL}` : "Remove: these hours need a rate again"}
+                      className="flex h-9 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+
+          {/* The hours the plan's own rows leave free, following the Default Rate. */}
+          {linkedRate && (
+            <div
+              {...hovered(LINKED_ID)}
+              className={cn("rounded-lg -mx-1 px-1 py-1 transition-colors", highlight === LINKED_ID && "bg-slate-50")}
+            >
+              <div className={cn(ROW_GRID, "items-start")}>
+                <WindowSwatch color="base" className="mt-3" />
+                <div className="col-span-2 py-2 min-w-0">
+                  <p className="text-sm font-medium text-slate-700">{BASE_LABEL}</p>
+                  <p className="text-[11px] text-slate-400 tabular-nums">
+                    {linkedHours.length > 0 ? linkedHours.map(fmtRateWindow).join(", ") : "No hours left: your slots fill the day"}
+                  </p>
+                </div>
+                <div className="col-span-2 py-2">
+                  <p className="text-sm text-slate-700 tabular-nums">{fmtSlabs(linkedRate)}</p>
+                  <p className="text-[11px] text-slate-400">Follows the Default plan</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLinked(false);
+                    setLinkedError(null);
+                  }}
+                  aria-label={`Remove the ${BASE_LABEL}`}
+                  title="Remove: these hours need a rate again"
+                  className="flex h-9 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              {linkedHours.length > 0 && (
+                <div className="pl-5">
                   <button
                     type="button"
-                    onClick={() => setRows((rs) => removeRow(rs, r.key))}
-                    aria-label={`Remove ${label}`}
-                    title="Remove: these hours need a rate again"
-                    className="flex h-9 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
+                    onClick={() => {
+                      const res = ownRateRows(rows, linkedRate, rowKey);
+                      if ("error" in res) return setLinkedError(res.error);
+                      setRows(res.rows);
+                      setLinked(false);
+                      setLinkedError(null);
+                    }}
+                    className="text-xs font-medium text-zeno-teal hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
                   >
-                    <X className="w-4 h-4" />
+                    Set own rate
                   </button>
+                  {linkedError && <p role="alert" className="mt-1 text-[11px] text-red-600">{linkedError}</p>}
                 </div>
-                {isDefault && <p className="mt-0.5 pl-5 text-[11px] text-slate-400">{BASE_LABEL}</p>}
-              </div>
-            );
-          })}
+              )}
+            </div>
+          )}
 
-          {/* A new slot goes in a gap, so once every hour has a rate there's nothing to add. */}
-          {gaps.length > 0 && (
+          {/* A new slot goes in a free hour (a gap, or linked hours), so once the slots fill the day there's nothing to add. */}
+          {!editingDefault && uncoveredHours(rows).length > 0 && (
             <button
               type="button"
               onClick={addSlot}
@@ -492,8 +611,8 @@ export function PlanForm({
           )}
         </div>
 
-        {/* Coverage: every hour needs a rate before the plan can be saved. */}
-        {gaps.length === 0 ? (
+        {/* Coverage: every hour needs a rate before the plan can be saved. Default always has one. */}
+        {editingDefault ? null : gaps.length === 0 ? (
           <p role="status" className="flex items-center gap-1.5 px-1 text-xs font-medium text-emerald-700">
             <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> All 24 hours have a rate
           </p>
@@ -513,13 +632,21 @@ export function PlanForm({
                 ))}
               </div>
             </div>
-            {!editingDefault && (
+            {/* A KES plan links its free hours to the Default Rate; another currency fills them with blank rows. */}
+            {sameAsDefault && defaultRate ? (
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setRows((rs) => fillFromDefault(rs, sameAsDefault ? defaultWindows : null, rowKey))}
+                onClick={() => {
+                  setLinked(true);
+                  setLinkedError(null);
+                }}
               >
-                {sameAsDefault ? `Fill with ${BASE_LABEL}` : "Fill remaining hours"}
+                Fill with {BASE_LABEL}
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" onClick={() => setRows((rs) => fillFromDefault(rs, null, rowKey))}>
+                Fill remaining hours
               </Button>
             )}
           </div>
@@ -554,12 +681,6 @@ export function PlanForm({
           <span className="font-semibold">Slab 2</span> is the rate for every kWh after that, the same day. It&apos;s usually the
           same as slab 1 or cheaper.
         </p>
-        {sameAsDefault && (
-          <p className="tabular-nums">
-            <span className="font-semibold">Default plan:</span>{" "}
-            {sortWindows(defaultWindows).map((w) => `${fmtRateWindow(w)} at ${fmtSlabs(w)}`).join(", ")} (slab 1 / slab 2).
-          </p>
-        )}
       </Callout>
 
       {error && <Callout variant="danger" role="alert">{error}</Callout>}
@@ -597,7 +718,57 @@ export function PlanForm({
   const review = () => setConfirming({ stations: moves.moves.length });
 
   // ── The confirmation ───────────────────────────────────────────────────────
-  const confirmation = confirming && (
+  // Changing the Default Rate: what it was and will be, and every station it reaches, plan by plan.
+  const defaultChange = (() => {
+    if (!confirming || !editingDefault || !plan || !latest) return null;
+    const before = splitVersion(latest).base ?? latest.windows[0];
+    const groups = [
+      { id: plan.id, name: plan.name, hours: "all day", stationIds: stationsOnPlan(book, plan.id, ALL_STATION_IDS, now) },
+      ...following.map((f) => ({
+        id: f.plan.id, name: f.plan.name, hours: f.linked.map(fmtRateWindowHHmm).join(", "), stationIds: f.stationIds,
+      })),
+    ];
+    const total = groups.reduce((n, g) => n + g.stationIds.length, 0);
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-slate-700">
+          <span className="font-semibold">{BASE_LABEL}</span>{" "}
+          <span className="tabular-nums">{fmtSlabs(before)} → {fmtSlabs(windows[0])}</span>. Applies to swaps from now. Past swaps keep
+          their prices.
+        </p>
+        <div>
+          <p className="text-[11px] font-medium text-slate-500">Stations affected</p>
+          <ul className="mt-1 space-y-1 text-sm text-slate-700 tabular-nums">
+            {groups.map((g) => (
+              <li key={g.id}>
+                <span className="font-medium">{g.name}</span>
+                <span className="text-slate-500"> · {stationCount(g.stationIds.length)} · {g.hours}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-slate-600 tabular-nums">
+            {stationCount(total)} across {groups.length} plan{groups.length === 1 ? "" : "s"}.
+          </p>
+        </div>
+        {note.trim() && (
+          <div>
+            <p className="text-[11px] font-medium text-slate-500">Note</p>
+            <p className="mt-0.5 border-l-2 border-slate-200 pl-3 text-sm text-slate-600 whitespace-pre-line">{note.trim()}</p>
+          </div>
+        )}
+        <div className="flex justify-end gap-2 pt-1">
+          <Button variant="secondary" onClick={() => setConfirming(null)} disabled={saving}>Cancel</Button>
+          <Button variant="teal" onClick={handleConfirm} loading={saving}>Confirm</Button>
+        </div>
+      </div>
+    );
+  })();
+
+  const confirmation = defaultChange ? (
+    <Modal open onClose={saving ? () => {} : () => setConfirming(null)} title={`Change the ${BASE_LABEL}`} className="max-w-2xl">
+      {defaultChange}
+    </Modal>
+  ) : confirming && (
     <Modal
       open
       onClose={saving ? () => {} : () => setConfirming(null)}
@@ -612,8 +783,8 @@ export function PlanForm({
 
         {latest ? (
           <div className="space-y-3">
-            <ConfirmBar label="Current" items={versionBands(latest.windows, defaultRate)} currency={country.currency} />
-            <ConfirmBar label="New" items={rowBands(rows, colors)} currency={country.currency} />
+            <ConfirmBar label="Current" items={versionBands(latest.windows, editingDefault)} currency={country.currency} />
+            <ConfirmBar label="New" items={bandItems} currency={country.currency} />
             {/* A rate change alone doesn't show on the bars, so spell out what changes. */}
             <div>
               <p className="text-[11px] font-medium text-slate-500">Changes (slab 1 / slab 2)</p>
@@ -630,7 +801,7 @@ export function PlanForm({
             </div>
           </div>
         ) : (
-          <ConfirmBar items={rowBands(rows, colors)} currency={country.currency} />
+          <ConfirmBar items={bandItems} currency={country.currency} />
         )}
 
         {warnings && warnings.items.length > 0 && (
@@ -709,7 +880,18 @@ export function PlanForm({
   if (!isPage) {
     return (
       <>
-        <Modal open onClose={discarding || confirming ? () => {} : requestClose} title={`Edit ${plan.name}`} className="max-w-2xl">
+        <Modal
+          open
+          onClose={discarding || confirming ? () => {} : requestClose}
+          title={
+            <>
+              Edit {plan.name}
+              {/* As the plans table names it. */}
+              <p className="text-xs font-normal text-slate-400">{country.name} · {country.currency}</p>
+            </>
+          }
+          className="max-w-2xl"
+        >
           <div className="space-y-5">
             {ratesStep}
             <div className="flex items-center justify-end gap-3 pt-1">

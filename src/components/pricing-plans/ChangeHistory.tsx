@@ -5,7 +5,6 @@ import { usePricingStore } from "@/store/pricing-plans";
 import { CHANGE_LABELS, fmtEat } from "@/lib/pricing/format";
 import { sortedVersions, versionNumber } from "@/lib/pricing/engine";
 import { countryOf } from "@/lib/pricing/country";
-import type { BaseRates } from "@/lib/pricing/windows";
 import type { PlanChangeKind, PlanVersion, PricingPlan } from "@/lib/pricing/types";
 import { cn } from "@/lib/utils";
 import { DayBandBar, versionBands } from "./DayBandBar";
@@ -35,12 +34,9 @@ interface Entry {
 export function ChangeHistory({
   plan,
   currentId,
-  defaultRate,
 }: {
   plan: PricingPlan;
   currentId: string;
-  /** The rates drawn grey; null for a plan in another currency. */
-  defaultRate: BaseRates | null;
 }) {
   const changes = usePricingStore((s) => s.changes);
   const currency = countryOf(plan).currency;
@@ -99,7 +95,7 @@ export function ChangeHistory({
             </div>
             {summary && <p className="text-xs text-slate-600 mt-0.5">{summary}</p>}
             {e.version && (
-              <DayBandBar className="mt-2 max-w-xl" items={versionBands(e.version.windows, defaultRate)} currency={currency} compact />
+              <DayBandBar className="mt-2 max-w-xl" items={versionBands(e.version.windows, plan.isDefault)} currency={currency} compact />
             )}
             {e.note && <p className="mt-1.5 border-l-2 border-slate-200 pl-3 text-xs text-slate-600 whitespace-pre-line">{e.note}</p>}
             <p className="text-[11px] text-slate-400 mt-1">
