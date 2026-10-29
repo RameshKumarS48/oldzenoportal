@@ -87,11 +87,6 @@ export function versionBands(windows: RateWindow[], isDefaultPlan: boolean): Ban
 
 /** Half the white gap between neighbouring bands, in px: each side gives 1px, so the gap is 2px. */
 const HALF_GAP = 1;
-/**
- * The plans table's half gap: 4px between bands rather than 2px, so short
- * windows' rate labels sit further apart and collide less.
- */
-const TABLE_HALF_GAP = 2;
 
 /** Rough width of a boundary label ("16:00") at 10px, with breathing room. */
 const LABEL_PX = 32;
@@ -136,7 +131,7 @@ export function DayBandBar({
   compact?: boolean;
   /**
    * The plans table: label each rate above the bar ("100/80"), at the start of its widest
-   * segment; 4px gaps between bands; and a tooltip with the times and each slab spelt out.
+   * segment, and a tooltip with the times and each slab spelt out.
    */
   rateLabels?: boolean;
   /** The plan's currency, for the rates in the tooltip. */
@@ -171,8 +166,8 @@ export function DayBandBar({
   const empty = uncovered(bands);
 
   // With rate labels (the plans table), times start LABEL_INSET into their segment, under the rate labels.
-  const half = rateLabels ? TABLE_HALF_GAP : HALF_GAP;
-  const inset = rateLabels ? half + LABEL_INSET : null;
+  // Labels and times start LABEL_INSET into the visible segment, past its half of the gap.
+  const inset = rateLabels ? HALF_GAP + LABEL_INSET : null;
   const labels = boundaryLabels(items.map((i) => parseHHmmss(i.window.start)), width, inset);
 
   // One rate label per colour (each colour is one rate), at the start of that rate's widest segment.
@@ -192,7 +187,7 @@ export function DayBandBar({
   }, [ratesKey]);
   const placed =
     width > 0 && rates.every((l) => labelWidths[String(l.color)] !== undefined)
-      ? placeLabels(rates.map((l) => ({ key: String(l.color), anchor: l.start * width + half + LABEL_INSET, width: labelWidths[String(l.color)] })), width)
+      ? placeLabels(rates.map((l) => ({ key: String(l.color), anchor: l.start * width + HALF_GAP + LABEL_INSET, width: labelWidths[String(l.color)] })), width)
       : [];
 
   function show(item: BandItem, el: HTMLElement) {
@@ -264,7 +259,7 @@ export function DayBandBar({
       {/* White behind the bands, so the 2px gaps between them read as white. */}
       <div ref={barRef} className={cn("relative rounded-md bg-white overflow-hidden", compact ? "h-4" : "h-6")}>
         {empty.map((p) => (
-          <div key={`empty-${p.a}`} aria-hidden="true" className="absolute inset-y-0" style={{ ...place(p.a, p.b, half), backgroundColor: colorOf("none") }} />
+          <div key={`empty-${p.a}`} aria-hidden="true" className="absolute inset-y-0" style={{ ...place(p.a, p.b), backgroundColor: colorOf("none") }} />
         ))}
         {bands.map((band) => {
           const on = highlighted === band.id;
@@ -287,15 +282,15 @@ export function DayBandBar({
                 dimmed && "opacity-40",
                 on && "ring-2 ring-inset ring-white"
               )}
-              style={{ ...place(band.a, band.b, half), backgroundColor: colorOf(band.color) }}
+              style={{ ...place(band.a, band.b), backgroundColor: colorOf(band.color) }}
             />
           );
         })}
       </div>
 
-      {/* The plans table's times are 11px slate-500, for 4.5:1 on white; elsewhere they stay 10px slate-400. */}
+      {/* The plans table's times are 11px; elsewhere 10px. Both slate-400, quieter than the rate labels above. */}
       <div
-        className={cn("relative h-4 tabular-nums", rateLabels ? "text-[11px] text-slate-500" : "text-[10px] text-slate-400")}
+        className={cn("relative h-4 text-slate-400 tabular-nums", rateLabels ? "text-[11px]" : "text-[10px]")}
         aria-hidden="true"
       >
         {labels.map((l) => (
@@ -322,7 +317,8 @@ export function DayBandBar({
           className="fixed z-[70] pointer-events-none -translate-x-1/2 -translate-y-full -mt-2 flex items-center gap-2 rounded-lg bg-slate-800 px-3 py-2 text-xs text-white shadow-xl whitespace-nowrap tabular-nums"
           style={{ left: tip.x, top: tip.y }}
         >
-          <WindowSwatch color={tip.color} className={tip.detail && "self-start mt-0.5"} />
+          {/* A 1px light ring keeps every rate's colour, dark teals included, visible on the dark tooltip. */}
+          <WindowSwatch color={tip.color} className={cn("ring-1 ring-white/70", tip.detail && "self-start mt-0.5")} />
           {tip.detail ? (
             <span className="grid grid-cols-[auto_auto] gap-x-4 gap-y-1">
               <span className="col-span-2 font-semibold">{tip.text}</span>
@@ -397,9 +393,9 @@ function rateSpots(bands: (BandItem & { a: number; b: number })[]): { color: Ban
  * A band's left and width: pulled in by HALF_GAP wherever it meets a
  * neighbour, so neighbours sit 2px apart, and flush with the bar's ends.
  */
-function place(a: number, b: number, half = HALF_GAP): React.CSSProperties {
-  const left = a > 0 ? half : 0;
-  const right = b < 1 ? half : 0;
+function place(a: number, b: number): React.CSSProperties {
+  const left = a > 0 ? HALF_GAP : 0;
+  const right = b < 1 ? HALF_GAP : 0;
   return {
     left: `calc(${a * 100}% + ${left}px)`,
     width: `max(0px, calc(${(b - a) * 100}% - ${left + right}px))`,
