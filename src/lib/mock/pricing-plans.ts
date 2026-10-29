@@ -104,7 +104,7 @@ const NOV_REVISION_WINDOWS = [
   w("22:00:00", "05:59:59", 65, 50),
 ];
 /** Five slots at five different rates, around hours linked to the Default Rate: the day bar's full teal scale. */
-const PEAK_PILOT_WINDOWS = [
+const COMMUTER_PILOT_WINDOWS = [
   w("00:00:00", "04:59:59", 60, 48),
   w("05:00:00", "06:59:59", 80, 62),
   w("07:00:00", "09:59:59", 115, 95),
@@ -236,14 +236,14 @@ export const SEED_PLANS: PricingPlan[] = [
   },
   {
     id: "pp-peak-pilot",
-    name: "Peak Hours Pilot",
+    name: "Commuter Hours Pilot",
     isDefault: false,
     createdAt: "2026-10-26T09:00:00+03:00",
     versions: [
       {
         id: "pv-peak-pilot-1",
         effectiveFrom: "2026-10-26T09:00:00+03:00",
-        windows: PEAK_PILOT_WINDOWS,
+        windows: COMMUTER_PILOT_WINDOWS,
         baseSlab1: 90,
         baseSlab2: 70,
         // Legacy single-rate fields; billing reads `windows`.
@@ -307,5 +307,5 @@ export const SEED_CHANGES: PlanChange[] = [
     summary: `Created plan: ${versionSummary({ windows: NOV_REVISION_WINDOWS })}`, effectiveFrom: "2026-10-21T15:30:00+03:00" },
 
   { id: "pc-10", planId: "pp-peak-pilot", at: "2026-10-26T09:00:00+03:00", by: RAMESH, kind: "created",
-    summary: `Created plan: ${versionSummary({ windows: PEAK_PILOT_WINDOWS })}`, effectiveFrom: "2026-10-26T09:00:00+03:00" },
+    summary: `Created plan: ${versionSummary({ windows: COMMUTER_PILOT_WINDOWS })}`, effectiveFrom: "2026-10-26T09:00:00+03:00" },
 ];

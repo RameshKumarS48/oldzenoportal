@@ -360,7 +360,7 @@ export const usePricingStore = create<PricingState>()(
       // 9: station moves record why they happened, for station history.
       // Anything saved before is reset to the seed.
       // 10: history entries name how many stations moved, not which.
-      // 11: the Peak Hours Pilot plan, five rates on the day bar's full scale.
+      // 11: the Commuter Hours Pilot plan, five rates on the day bar's full scale.
       // 12: Default is one rate all day; other plans' hours can link to it.
       // 13: the same, for browsers that saved 12 with the old seed. From here the
       // version is SEED_REVISION in the mock file, bumped together with the seed.
