@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { ALL_STATION_IDS, PRICING_STATIONS, SEED_ASSIGNMENTS, SEED_CHANGES, SEED_PLANS } from "@/lib/mock/pricing-plans";
+import { ALL_STATION_IDS, PRICING_STATIONS, SEED_ASSIGNMENTS, SEED_CHANGES, SEED_PLANS, SEED_REVISION } from "@/lib/mock/pricing-plans";
 import { COUNTRIES, countryOf, type CountryCode } from "@/lib/pricing/country";
 import { sortedVersions, stationsOnPlan, versionAt } from "@/lib/pricing/engine";
 import { summarizeMoves } from "@/lib/pricing/moves";
@@ -10,6 +10,7 @@ import {
   rateRows,
   validateWindows,
   versionSummary,
+  type BaseRates,
 } from "@/lib/pricing/windows";
 import type {
   MoveReason,
@@ -17,6 +18,7 @@ import type {
   PlanVersion,
   PricingBook,
   PricingPlan,
+  RateWindow,
   StationAssignment,
 } from "@/lib/pricing/types";
 
@@ -127,6 +129,34 @@ function planMoves(
   return { rows, logs };
 }
 
+/** The Default plan's window: one rate for the whole day. */
+export const defaultWindows = (rates: BaseRates): RateWindow[] => [
+  { start: "00:00:00", end: "23:59:59", slab1: rates.slab1, slab2: rates.slab2, isBase: true },
+];
+
+/** A plan that follows the Default Rate: its linked hours and the stations on it, at `at`. */
+export interface FollowingPlan {
+  plan: PricingPlan;
+  version: PlanVersion;
+  linked: RateWindow[];
+  stationIds: string[];
+}
+
+/** Every plan (not Default, not deleted) whose rates in force at `at` have hours linked to the Default Rate. */
+export function plansFollowingDefault(book: PricingBook, at: string): FollowingPlan[] {
+  return book.plans
+    .filter((p) => !p.isDefault && !p.archived)
+    .map((plan) => {
+      const version = versionAt(plan, at) ?? sortedVersions(plan)[0];
+      return { plan, version, linked: version.windows.filter((w) => w.linkedToDefault), stationIds: stationsOnPlan(book, plan.id, ALL_STATION_IDS, at) };
+    })
+    .filter((f) => f.linked.length > 0)
+    .sort((a, b) => a.plan.name.localeCompare(b.plan.name));
+}
+
+/** "90/70", as the change log writes rates. */
+const slabs = (r: BaseRates) => `${r.slab1}/${r.slab2}`;
+
 /** The most a create or edit note can hold. */
 export const NOTE_MAX = 500;
 
@@ -143,6 +173,12 @@ interface PricingState extends PricingBook {
   /** `note` goes on the change entry this logs, like every note below. */
   addVersion: (planId: string, version: VersionInput, by: string, note?: string) => Result;
   renamePlan: (planId: string, name: string, by: string, note?: string) => Result;
+  /**
+   * New Default Rate rates, from now: a new Default version, and a new
+   * version of every plan with linked hours, their copies updated, each
+   * logged "Default Rate changed … (from the Default plan)". All or nothing.
+   */
+  changeDefaultRate: (rates: BaseRates, by: string, note?: string) => Result & { plans?: number };
   /** Move stations onto a plan, or back to Default with `planId: null`, from now. */
   assignStations: (planId: string | null, stationIds: string[], by: string) => Result;
   /** Archive a plan and move its stations to Default, from now. */
@@ -212,6 +248,45 @@ export const usePricingStore = create<PricingState>()(
           const { kind, summary } = diffSummary(prev, version);
           log({ planId, by, kind, summary, note: cleanNote(note) }, now);
           return { ok: true };
+        },
+
+        changeDefaultRate: (rates, by, note) => {
+          const book = get();
+          const fallback = book.plans.find((p) => p.isDefault);
+          if (!fallback) return { ok: false, error: PLAN_GONE };
+          const version = { windows: defaultWindows(rates) };
+          const error = validateVersion(version, countryOf(fallback).maxRate);
+          if (error) return { ok: false, error };
+
+          const now = new Date().toISOString();
+          const prev = versionAt(fallback, now) ?? sortedVersions(fallback)[0];
+          const following = plansFollowingDefault(book, now);
+          // Each plan's linked hours hold a copy of the rate, so they get new copies in a version of their own.
+          const updated = new Map(
+            following.map((f) => [
+              f.plan.id,
+              toVersion({ windows: f.version.windows.map((w) => (w.linkedToDefault ? { ...w, ...rates } : w)) }, by, now),
+            ])
+          );
+          const { kind, summary } = diffSummary(prev, version);
+          const logs: PlanChange[] = [
+            { id: uid("pc"), planId: fallback.id, by, at: now, effectiveFrom: now, kind, summary, note: cleanNote(note) },
+            ...following.map((f) => ({
+              id: uid("pc"), planId: f.plan.id, by, at: now, effectiveFrom: now, kind: "rates_changed" as const,
+              summary: `Default Rate changed ${slabs(f.linked[0])} → ${slabs(rates)} (from the Default plan)`,
+            })),
+          ];
+          set((s) => ({
+            plans: s.plans.map((p) =>
+              p.id === fallback.id
+                ? { ...p, versions: [...p.versions, toVersion(version, by, now)] }
+                : updated.has(p.id)
+                  ? { ...p, versions: [...p.versions, updated.get(p.id)!] }
+                  : p
+            ),
+            changes: [...logs, ...s.changes],
+          }));
+          return { ok: true, plans: following.length };
         },
 
         renamePlan: (planId, name, by, note) => {
@@ -285,7 +360,11 @@ export const usePricingStore = create<PricingState>()(
       // 9: station moves record why they happened, for station history.
       // Anything saved before is reset to the seed.
       // 10: history entries name how many stations moved, not which.
-      version: 10,
+      // 11: the Commuter Hours Pilot plan, five rates on the day bar's full scale.
+      // 12: Default is one rate all day; other plans' hours can link to it.
+      // 13: the same, for browsers that saved 12 with the old seed. From here the
+      // version is SEED_REVISION in the mock file, bumped together with the seed.
+      version: SEED_REVISION,
       partialize: (s) => ({ plans: s.plans, assignments: s.assignments, changes: s.changes }),
       migrate: () => ({ plans: SEED_PLANS, assignments: SEED_ASSIGNMENTS, changes: SEED_CHANGES }),
     }
