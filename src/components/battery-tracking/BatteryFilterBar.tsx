@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Download, Search } from "lucide-react";
 import { DateRangeFilter } from "@/components/swap-transactions/DateRangeFilter";
 import {
   anyFilter,
@@ -34,7 +34,8 @@ const CONTROL =
 /**
  * Battery Tracking's filter bar, in Swap Audit's pattern: search, Swap
  * Transactions' time filter for Last Seen, Asset type, Region, Status, Flag, Warehouse, Clear filters while
- * the search or any filter narrows the rows, and the count on the right. The presets apply at once; a custom range on Apply.
+ * the search or any filter narrows the rows, the count on the right, then
+ * Vehicle Tracking's Export XLSX button, which exports the rows the count describes. The presets apply at once; a custom range on Apply.
  */
 export function BatteryFilterBar({
   search,
@@ -42,6 +43,7 @@ export function BatteryFilterBar({
   filters,
   onFilters,
   onClear,
+  onExport,
   shown,
   total,
   year,
@@ -52,6 +54,8 @@ export function BatteryFilterBar({
   onFilters: (f: BatteryFilters) => void;
   /** Clears the search and every filter. */
   onClear: () => void;
+  /** Downloads the matching rows as XLSX. */
+  onExport: () => void;
   /** Batteries matching search and filters, and in all; null until the rows have loaded. */
   shown: number | null;
   total: number | null;
@@ -139,6 +143,16 @@ export function BatteryFilterBar({
             ? `${shown.toLocaleString()} of ${total.toLocaleString()} ${noun(total)}${filterWords ? ` · ${filterWords}` : ""}`
             : `${total.toLocaleString()} ${noun(total)}`}
       </span>
+
+      {/* Vehicle Tracking's Export XLSX button (asset-tracking/FilterBar.tsx), repeated so that file stays untouched. */}
+      <button
+        type="button"
+        onClick={onExport}
+        disabled={shown === null}
+        className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#003B49] text-white hover:bg-[#00505f] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003B49]/40 focus-visible:ring-offset-1 disabled:opacity-50"
+      >
+        <Download className="w-3.5 h-3.5" /> Export XLSX
+      </button>
     </div>
   );
 }

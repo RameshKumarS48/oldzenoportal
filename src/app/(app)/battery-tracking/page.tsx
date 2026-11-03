@@ -16,6 +16,8 @@ import { searchChip } from "@/components/battery-tracking/FilterChip";
 import { FilterChip, FilterChips } from "@/components/ui/FilterChip";
 import { rangeLabel } from "@/components/swap-transactions/DateRangeFilter";
 import { useAuthStore } from "@/store/auth";
+import { toast } from "@/store/toast";
+import { exportBatteriesXLSX } from "@/components/battery-tracking/export";
 
 // The current minute, so "Updated 5 min ago" moves on while the page is open.
 // Null in the server render, which has no "now" that matches the viewer's.
@@ -121,6 +123,16 @@ function BatteryTracking() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlQuery]);
 
+  // As Vehicle Tracking's: the rows the search and filters leave, in the table's sort.
+  function handleExport() {
+    if (rows.length === 0) {
+      toast.error("Nothing to export", "No battery matches the current search and filters. Clear a filter and try again.");
+      return;
+    }
+    exportBatteriesXLSX(rows);
+    toast.success("Export downloaded", `${rows.length.toLocaleString()} ${rows.length === 1 ? "battery" : "batteries"} written to XLSX.`);
+  }
+
   return (
     <>
       {/* Page controls */}
@@ -165,6 +177,7 @@ function BatteryTracking() {
             setFilters(NO_FILTERS);
             setPage(1);
           }}
+          onExport={handleExport}
           shown={data ? rows.length : null}
           total={data ? data.rows.length : null}
           year={new Date(data?.loadedAt ?? 0).getUTCFullYear()}
