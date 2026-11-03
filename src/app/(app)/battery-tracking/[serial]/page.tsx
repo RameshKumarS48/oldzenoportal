@@ -1,10 +1,10 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useParams, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, BatteryCharging, Bike, ExternalLink, Zap } from "lucide-react";
+import { usePathname, useParams, useSearchParams } from "next/navigation";
+import { ArrowLeft, ArrowRight, Archive, BatteryCharging, Bike, ClipboardList, ExternalLink, ShieldAlert, Wrench, Zap } from "lucide-react";
 import { AccessGuard } from "@/components/ui/AccessGuard";
 import { Topbar } from "@/components/layout/Topbar";
 import { CopyButton } from "@/components/ui/CopyButton";
@@ -13,7 +13,11 @@ import { useBatteries } from "@/components/battery-tracking/use-batteries";
 import { stationByCode, vehicleByVin, type BatteryAsset } from "@/lib/mock/battery-tracking";
 import { useAssetTrackingStore } from "@/store/asset-tracking";
 import { slotLabel } from "@/lib/slot-label";
-import { Dash, LastSeenLine, mapsUrl, showCoord, Soc, splitLocation } from "@/components/battery-tracking/cells";
+import { Dash, FlagPill, LastSeenLine, mapsUrl, showCoord, Soc, splitLocation, StatusBadge, StatusCell } from "@/components/battery-tracking/cells";
+import { BatteryLogs } from "@/components/battery-tracking/BatteryLogs";
+import { CHARGE_DUE_DAYS, fmtDay, fmtUtc, returnsTo, STATUS_LABELS, type Stamp } from "@/lib/mock/battery-provisioning";
+import type { BatteryRecord } from "@/lib/mock/battery-tracking";
+import { cn } from "@/lib/utils";
 
 // MapLibre needs the browser; loaded as Vehicle Tracking's Map View loads FleetMap.
 const BatteryMap = dynamic(() => import("@/components/battery-tracking/BatteryMap").then((m) => m.BatteryMap), {
@@ -109,8 +113,23 @@ export default function BatteryDetailPage() {
 function BatteryDetail() {
   const { serial } = useParams<{ serial: string }>();
   const serialNo = decodeURIComponent(serial ?? "");
-  const query = useSearchParams().toString();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  // The query is the table's state, for Back, plus this page's own `tab`, which Back leaves out.
+  const listParams = new URLSearchParams(params.toString());
+  listParams.delete("tab");
+  const query = listParams.toString();
   const backHref = `/battery-tracking${query ? `?${query}` : ""}`;
+  // The tab starts from the URL (so a reload keeps it); switching writes it back, replacing
+  // the entry so Back still leaves the page in one step.
+  const [tab, setTabState] = useState<PanelTab>(params.get("tab") === "logs" ? "logs" : "location");
+  const setTab = (t: PanelTab) => {
+    setTabState(t);
+    const next = new URLSearchParams(listParams);
+    if (t === "logs") next.set("tab", "logs");
+    const q = next.toString();
+    window.history.replaceState(window.history.state, "", `${pathname}${q ? `?${q}` : ""}`);
+  };
   const data = useBatteries();
 
   // Nothing until the mock rows exist (the server render), so "not found" never flashes.
@@ -123,7 +142,7 @@ function BatteryDetail() {
         <EmptyState
           icon={BatteryCharging}
           title="Battery not found"
-          description={`No battery has serial number ${serialNo || "(none)"}.`}
+          description={`No battery has serial number ${serialNo || "(none)"}. Check the serial number: a battery is created at its first Bring-up 1/2.`}
           action={
             <Link href={backHref} className={LINK}>
               <ArrowLeft className="w-3.5 h-3.5" />
@@ -160,6 +179,11 @@ function BatteryDetail() {
           <div className="bg-white border border-slate-200 rounded-xl">
             <CardHeader icon={BatteryCharging} name="Battery" id={{ value: battery.serialNo, label: "battery serial number" }} />
             <div className="px-4 py-1">
+              <InfoRow label="Status">
+                <span className="inline-flex justify-end">
+                  <StatusCell battery={battery} />
+                </span>
+              </InfoRow>
               <InfoRow label="IMEI">
                 {battery.imei ? (
                   <span className="font-mono text-xs tabular-nums">
@@ -193,26 +217,187 @@ function BatteryDetail() {
             )}
           </div>
 
+          <ProvisioningCard battery={battery} />
+          <StatusDetailCard battery={battery} />
           <AssetCard asset={battery.asset} count={assetCount} />
         </div>
 
-        {/* The map, framed like the card, under a heading that says what holds the battery. */}
-        <div className="h-96 lg:h-auto lg:flex-1 shrink-0 lg:shrink flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <h2 className="px-5 py-3 border-b border-slate-100 text-sm font-semibold text-slate-800 shrink-0">
-            Last known location
-            {locationSuffix(battery.asset) && (
-              <span className="font-normal text-slate-500"> · {locationSuffix(battery.asset)}</span>
+        {/* The map or the battery's log, framed like the cards, under tabs. */}
+        <div className="h-[32rem] lg:h-auto lg:flex-1 shrink-0 lg:shrink flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden">
+          <div role="tablist" aria-label="Battery panel" className="flex items-center gap-1 px-3 border-b border-slate-100 shrink-0">
+            {(["location", "logs"] as const).map((t) => (
+              <button
+                key={t}
+                id={`tab-${t}`}
+                role="tab"
+                type="button"
+                aria-selected={tab === t}
+                aria-controls={`panel-${t}`}
+                onClick={() => setTab(t)}
+                className={cn(
+                  "px-2.5 py-3 -mb-px border-b-2 text-sm font-semibold transition-colors rounded-t focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40",
+                  tab === t ? "border-zeno-red text-slate-800" : "border-transparent text-slate-500 hover:text-slate-700"
+                )}
+              >
+                {t === "location" ? "Last known location" : `Battery logs (${battery.events.length})`}
+              </button>
+            ))}
+            {tab === "location" && locationSuffix(battery.asset) && (
+              <span className="ml-1 text-sm text-slate-500 truncate">· {locationSuffix(battery.asset)}</span>
             )}
-          </h2>
-          <div className="flex-1 min-h-0">
-            {pair ? (
+          </div>
+          <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`} className="flex-1 min-h-0">
+            {tab === "logs" ? (
+              <BatteryLogs events={battery.events} now={data.loadedAt} />
+            ) : pair ? (
               <BatteryMap lat={Number(pair[0])} lng={Number(pair[1])} label={`Map of battery ${battery.serialNo} at ${battery.location}`} />
             ) : (
-              <EmptyState icon={BatteryCharging} title="No location reported" className="h-full" />
+              <EmptyState
+                icon={BatteryCharging}
+                title="No location reported"
+                description="This battery hasn't reported a location yet."
+                className="h-full"
+              />
             )}
           </div>
         </div>
       </div>
+    </>
+  );
+}
+
+type PanelTab = "location" | "logs";
+
+/** "15 Oct 2026 · Ben Otieno": when a step was done, and who did it. */
+function StampValue({ stamp }: { stamp: Stamp | null }) {
+  if (!stamp) return <Dash />;
+  return (
+    <span className="block">
+      <span title={`${fmtUtc(stamp.at)} UTC`} className="block tabular-nums whitespace-nowrap">{fmtDay(stamp.at)}</span>
+      <span className="block text-xs text-slate-400">{stamp.by}</span>
+    </span>
+  );
+}
+
+/**
+ * The battery's onboarding, as the ops app recorded it: shipment, both
+ * bring-ups, storage and its charge clocks, and first deployment. Every
+ * battery shows every row, with a dash for a step it hasn't reached, so the
+ * card reads the same from battery to battery. The day counts show only while
+ * the battery is in storage.
+ */
+function ProvisioningCard({ battery }: { battery: BatteryRecord }) {
+  const { shipment, storage } = battery;
+  const stored = storage?.daysInStorage != null;
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl">
+      <CardHeader icon={ClipboardList} name="Provisioning" />
+      <div className="px-4 py-1">
+        <InfoRow label="Shipment">
+          {shipment ? (
+            <span className="font-mono text-xs tabular-nums">
+              <CopyButton value={shipment.number} label="shipment number" onWhite />
+            </span>
+          ) : (
+            <Dash />
+          )}
+        </InfoRow>
+        <InfoRow label="Warehouse">{shipment?.warehouse ?? <Dash />}</InfoRow>
+        <InfoRow label="Date received">
+          {shipment ? <span className="tabular-nums whitespace-nowrap">{fmtDay(shipment.receivedOn)}</span> : <Dash />}
+        </InfoRow>
+        <InfoRow label="Bring-up 1/2"><StampValue stamp={battery.bringUp1} /></InfoRow>
+        <InfoRow label="Registered for storage">
+          {storage ? <span className="tabular-nums whitespace-nowrap">{fmtDay(storage.registeredAt)}</span> : <Dash />}
+        </InfoRow>
+        {stored && (
+          <>
+            <InfoRow label="Days in storage"><span className="tabular-nums">{storage!.daysInStorage}</span></InfoRow>
+            <InfoRow label="Days since last charge">
+              <span className="block">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className={cn("tabular-nums", battery.chargeDue && "text-amber-700 dark:text-amber-300 font-medium")}>
+                    {storage!.daysSinceCharge}
+                  </span>
+                  {battery.chargeDue && <FlagPill flag="charge" />}
+                </span>
+                <span className="block text-xs text-slate-400">Charge due after {CHARGE_DUE_DAYS} days</span>
+              </span>
+            </InfoRow>
+          </>
+        )}
+        <InfoRow label="Storage charges">
+          {storage ? (
+            <span className="block">
+              <span className="block tabular-nums">{storage.charges}</span>
+              {storage.lastChargeAt && <span className="block text-xs text-slate-400 whitespace-nowrap">Last {fmtDay(storage.lastChargeAt)}</span>}
+            </span>
+          ) : (
+            <Dash />
+          )}
+        </InfoRow>
+        <InfoRow label="Bring-up 2/2"><StampValue stamp={battery.bringUp2} /></InfoRow>
+        <InfoRow label="First deployed">
+          {battery.firstDeployedAt ? (
+            <span title={`${fmtUtc(battery.firstDeployedAt)} UTC`} className="tabular-nums whitespace-nowrap">{fmtDay(battery.firstDeployedAt)}</span>
+          ) : (
+            <Dash />
+          )}
+        </InfoRow>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Only when it applies: the open repair (Repair in progress), the quarantine
+ * with where a successful repair returns the battery, or the retirement.
+ */
+function StatusDetailCard({ battery }: { battery: BatteryRecord }) {
+  const { openRepair, quarantine, retired } = battery;
+  if (!openRepair && !quarantine && !retired) return null;
+  const since = (at: number) => <span title={`${fmtUtc(at)} UTC`} className="tabular-nums whitespace-nowrap">{fmtDay(at)}</span>;
+  return (
+    <>
+      {openRepair && (
+        <div className="bg-white border border-slate-200 rounded-xl">
+          <CardHeader icon={Wrench} name="Repair in progress" />
+          <div className="px-4 py-1">
+            <InfoRow label="Maintenance">{openRepair.types.join(", ")}</InfoRow>
+            <InfoRow label="Notes">{openRepair.notes}</InfoRow>
+            <InfoRow label="Sent for repair">{since(openRepair.at)}</InfoRow>
+            <InfoRow label="Technician">{openRepair.by}</InfoRow>
+          </div>
+        </div>
+      )}
+      {quarantine && (
+        <div className="bg-white border border-slate-200 rounded-xl">
+          <CardHeader icon={ShieldAlert} name="Quarantine" />
+          <div className="px-4 py-1">
+            <InfoRow label="Reasons">{quarantine.reasons.join(", ")}</InfoRow>
+            <InfoRow label="Notes">{quarantine.notes}</InfoRow>
+            <InfoRow label="Since">{since(quarantine.at)}</InfoRow>
+            <InfoRow label="By">{quarantine.by}</InfoRow>
+            <InfoRow label="Before quarantine"><StatusBadge status={quarantine.statusBefore} /></InfoRow>
+            <InfoRow label="After repair">
+              <span title={`A successful Repair & Retest returns it to ${STATUS_LABELS[returnsTo(quarantine.statusBefore)]}`}>
+                <StatusBadge status={returnsTo(quarantine.statusBefore)} />
+              </span>
+            </InfoRow>
+          </div>
+        </div>
+      )}
+      {retired && (
+        <div className="bg-white border border-slate-200 rounded-xl">
+          <CardHeader icon={Archive} name="Retired" />
+          <div className="px-4 py-1">
+            <InfoRow label="Type">{retired.type}</InfoRow>
+            <InfoRow label="Notes">{retired.notes}</InfoRow>
+            <InfoRow label="Retired on">{since(retired.at)}</InfoRow>
+            <InfoRow label="By">{retired.by}</InfoRow>
+          </div>
+        </div>
+      )}
     </>
   );
 }

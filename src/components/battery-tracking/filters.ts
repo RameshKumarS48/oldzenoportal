@@ -1,8 +1,9 @@
 import { OTHER_AREA, type BatteryRecord, type Region } from "@/lib/mock/battery-tracking";
+import { STATUS_LABELS, STATUS_ORDER, WAREHOUSES, type BatteryStatus, type Warehouse } from "@/lib/mock/battery-provisioning";
 import type { DayRange } from "@/components/swap-transactions/DateRangeFilter";
 
 /**
- * Battery Tracking's Last seen, Asset type and Region filters and its sort, and the
+ * Battery Tracking's Last seen, Asset type, Region, Status, Flag and Warehouse filters and its sort, and the
  * rules that apply them to the mock data. Nothing here changes a record: Last Seen is read only to
  * compare it.
  *
@@ -39,20 +40,50 @@ export const REGIONS: { value: RegionFilter; label: string }[] = [
 ];
 export const regionLabel = (r: RegionFilter) => REGIONS.find((o) => o.value === r)!.label;
 
+/** The provisioning state: "" is All statuses. */
+export type StatusFilter = "" | BatteryStatus;
+export const STATUSES: { value: StatusFilter; label: string }[] = [
+  { value: "", label: "All statuses" },
+  ...STATUS_ORDER.map((s) => ({ value: s, label: STATUS_LABELS[s] })),
+];
+export const statusLabel = (s: StatusFilter) => STATUSES.find((o) => o.value === s)!.label;
+
+/** A flag beside the state: "" is any. */
+export type FlagFilter = "" | "repair" | "charge";
+export const FLAGS: { value: FlagFilter; label: string }[] = [
+  { value: "", label: "All flags" },
+  { value: "repair", label: "Repair in progress" },
+  { value: "charge", label: "Charge due" },
+];
+export const flagLabel = (f: FlagFilter) => FLAGS.find((o) => o.value === f)!.label;
+
+/** The shipment's warehouse: "" is All warehouses, "none" is not yet registered for storage (no shipment). */
+export type WarehouseFilter = "" | Warehouse | "none";
+export const WAREHOUSE_OPTIONS: { value: WarehouseFilter; label: string }[] = [
+  { value: "", label: "All warehouses" },
+  ...WAREHOUSES.map((w) => ({ value: w, label: w })),
+  { value: "none", label: "No shipment yet" },
+];
+export const warehouseLabel = (w: WarehouseFilter) => WAREHOUSE_OPTIONS.find((o) => o.value === w)!.label;
+
 export interface BatteryFilters {
   lastSeen: LastSeenPreset;
   /** The custom range, as YYYY-MM-DD UTC days, both ends included. */
   range: DayRange | null;
   asset: AssetType;
   region: RegionFilter;
+  status: StatusFilter;
+  flag: FlagFilter;
+  warehouse: WarehouseFilter;
 }
 
-export const NO_FILTERS: BatteryFilters = { lastSeen: "", range: null, asset: "", region: "" };
+export const NO_FILTERS: BatteryFilters = { lastSeen: "", range: null, asset: "", region: "", status: "", flag: "", warehouse: "" };
 
 /** Is Last seen narrowing the rows? (It names the Last Seen header and the count's words.) */
 export const lastSeenActive = (f: BatteryFilters) => f.lastSeen !== "" && (f.lastSeen !== "custom" || f.range !== null);
 
-export const anyFilter = (f: BatteryFilters) => lastSeenActive(f) || f.asset !== "" || f.region !== "";
+export const anyFilter = (f: BatteryFilters) =>
+  lastSeenActive(f) || f.asset !== "" || f.region !== "" || f.status !== "" || f.flag !== "" || f.warehouse !== "";
 
 function regionMatches(b: BatteryRecord, r: RegionFilter): boolean {
   if (r === "") return true;
@@ -74,6 +105,10 @@ function seenAt(text: string): number | null {
 /** Does the battery pass every filter, Last seen measured from `now` (ms)? */
 export function matches(b: BatteryRecord, f: BatteryFilters, now: number): boolean {
   if (!regionMatches(b, f.region)) return false;
+  if (f.status !== "" && b.status !== f.status) return false;
+  if (f.flag === "repair" && !b.repairInProgress) return false;
+  if (f.flag === "charge" && !b.chargeDue) return false;
+  if (f.warehouse === "none" ? b.shipment !== null : f.warehouse !== "" && b.shipment?.warehouse !== f.warehouse) return false;
   if (f.asset === "none" ? b.asset !== null : f.asset !== "" && b.asset?.type !== f.asset) return false;
   if (!lastSeenActive(f)) return true;
   const at = seenAt(b.lastSeen);
@@ -98,7 +133,7 @@ function dayLabel(iso: string, year: number): string {
  * days", or a custom range, "seen 1–10 Oct", "seen 28 Sep – 3 Oct", "seen on
  * 5 Oct". The year shows only when it isn't `year` (the current one), and on
  * both ends of a range that crosses years. Null
- * when Last seen isn't filtering; Asset type and Region show as chips instead.
+ * when Last seen isn't filtering; the other filters show as chips instead.
  */
 export function describeFilter(f: BatteryFilters, year: number): string | null {
   if (!lastSeenActive(f)) return null;
@@ -117,7 +152,8 @@ export function describeFilter(f: BatteryFilters, year: number): string | null {
   return `seen ${dayLabel(from, show)} – ${dayLabel(to, show)}`;
 }
 
-export type SortKey = "lastSeen" | "soc";
+export type SortKey = "lastSeen" | "soc" | "firstDeployed";
+export const SORT_KEYS: SortKey[] = ["lastSeen", "soc", "firstDeployed"];
 export type Sort = { column: SortKey; direction: "asc" | "desc" } | null;
 
 /** As Vehicle Tracking's setSort: a new column sorts ascending, the same one flips. */
@@ -127,13 +163,16 @@ export function nextSort(sort: Sort, column: SortKey): Sort {
     : { column, direction: "asc" };
 }
 
-/** Sorted copy. Last Seen by time; SOC by value, with no-SOC rows last either way. */
+/** Sorted copy. Last Seen and First Deployed by time, SOC by value; rows without the value last either way. */
 export function sortRows(rows: BatteryRecord[], sort: Sort): BatteryRecord[] {
   if (!sort) return rows;
   const dir = sort.direction === "asc" ? 1 : -1;
   return [...rows].sort((a, b) => {
-    if (sort.column === "lastSeen") return dir * ((seenAt(a.lastSeen) ?? 0) - (seenAt(b.lastSeen) ?? 0));
-    if (a.soc === null || b.soc === null) return (a.soc === null ? 1 : 0) - (b.soc === null ? 1 : 0);
-    return dir * (a.soc - b.soc);
+    const [x, y] =
+      sort.column === "lastSeen" ? [seenAt(a.lastSeen), seenAt(b.lastSeen)]
+      : sort.column === "firstDeployed" ? [a.firstDeployedAt, b.firstDeployedAt]
+      : [a.soc, b.soc];
+    if (x === null || y === null) return (x === null ? 1 : 0) - (y === null ? 1 : 0);
+    return dir * (x - y);
   });
 }

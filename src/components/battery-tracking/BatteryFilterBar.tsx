@@ -6,11 +6,17 @@ import {
   anyFilter,
   ASSET_TYPES,
   describeFilter,
+  FLAGS,
   REGIONS,
+  STATUSES,
+  WAREHOUSE_OPTIONS,
   type AssetType,
   type BatteryFilters,
+  type FlagFilter,
   type LastSeenPreset,
   type RegionFilter,
+  type StatusFilter,
+  type WarehouseFilter,
 } from "./filters";
 import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
 
@@ -27,7 +33,7 @@ const CONTROL =
 
 /**
  * Battery Tracking's filter bar, in Swap Audit's pattern: search, Swap
- * Transactions' time filter for Last Seen, Asset type, Region, Clear filters while
+ * Transactions' time filter for Last Seen, Asset type, Region, Status, Flag, Warehouse, Clear filters while
  * the search or any filter narrows the rows, and the count on the right. The presets apply at once; a custom range on Apply.
  */
 export function BatteryFilterBar({
@@ -64,8 +70,8 @@ export function BatteryFilterBar({
         <input
           value={search}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder="Search serial no., IMEI, VIN, station or region"
-          aria-label="Search by battery serial number, IMEI, VIN, station code or region"
+          placeholder="Search serial, IMEI, VIN, station or shipment"
+          aria-label="Search by battery serial number, IMEI, VIN, station code, region or shipment number"
           className={SEARCH}
         />
       </div>
@@ -95,6 +101,33 @@ export function BatteryFilterBar({
         className={CONTROL}
       >
         {REGIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+      </select>
+
+      <select
+        aria-label="Status"
+        value={filters.status}
+        onChange={(e) => onFilters({ ...filters, status: e.target.value as StatusFilter })}
+        className={CONTROL}
+      >
+        {STATUSES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+      </select>
+
+      <select
+        aria-label="Flag"
+        value={filters.flag}
+        onChange={(e) => onFilters({ ...filters, flag: e.target.value as FlagFilter })}
+        className={CONTROL}
+      >
+        {FLAGS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+      </select>
+
+      <select
+        aria-label="Warehouse"
+        value={filters.warehouse}
+        onChange={(e) => onFilters({ ...filters, warehouse: e.target.value as WarehouseFilter })}
+        className={CONTROL}
+      >
+        {WAREHOUSE_OPTIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
       </select>
 
       {narrowed && <ClearFiltersButton onClick={onClear} />}

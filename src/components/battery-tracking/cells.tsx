@@ -4,6 +4,7 @@ import { Bike, ExternalLink, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CopyButton } from "@/components/ui/CopyButton";
 import type { BatteryAsset } from "@/lib/mock/battery-tracking";
+import { CHARGE_DUE_DAYS, STATUS_LABELS, type BatteryStatus, type Provisioning } from "@/lib/mock/battery-provisioning";
 import { slotLabel } from "@/lib/slot-label";
 
 /**
@@ -138,6 +139,76 @@ export function Asset({ asset }: { asset: BatteryAsset | null }) {
       <Icon className="w-3.5 h-3.5 shrink-0 text-slate-400" role="img" aria-label={station ? "Station" : "Vehicle"} />
       <CopyButton value={value} label={station ? "station code" : "VIN"} />
       {station && <span className="text-slate-400">· {slotLabel(asset.slot)}</span>}
+    </span>
+  );
+}
+
+/**
+ * Each provisioning state's pill colour, along the lifecycle: slate before
+ * bring-up, sky and violet through storage, teal when ready to deploy, green
+ * Active, red Quarantine, and muted stone once Retired.
+ */
+const STATUS_TONE: Record<BatteryStatus, string> = {
+  pre_bringup: "bg-slate-100 text-slate-700 dark:bg-slate-500/20 dark:text-slate-200",
+  ready_1: "bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300",
+  storage: "bg-violet-100 text-violet-800 dark:bg-violet-500/15 dark:text-violet-300",
+  ready_2: "bg-teal-100 text-teal-800 dark:bg-teal-500/15 dark:text-teal-300",
+  active: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
+  quarantine: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300",
+  retired: "bg-stone-200 text-stone-600 dark:bg-stone-500/20 dark:text-stone-300",
+};
+
+/** "Register for Storage/charging" is long for a pill; the pill says "In storage", the title the PRD name. */
+const SHORT_LABEL: Partial<Record<BatteryStatus, string>> = { storage: "In storage" };
+
+const PILL = "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap";
+
+/** The battery's state as a coloured pill, with the PRD's full name on hover. */
+export function StatusBadge({ status }: { status: BatteryStatus }) {
+  return (
+    <span title={STATUS_LABELS[status]} className={cn(PILL, STATUS_TONE[status])}>
+      {SHORT_LABEL[status] ?? STATUS_LABELS[status]}
+    </span>
+  );
+}
+
+/** A flag beside the state: amber Repair in progress, orange Charge due. */
+export function FlagPill({ flag }: { flag: "repair" | "charge" }) {
+  return flag === "repair" ? (
+    <span className={cn(PILL, "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300")}>Repair in progress</span>
+  ) : (
+    <span
+      title={`More than ${CHARGE_DUE_DAYS} days since the last storage charge`}
+      className={cn(PILL, "bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300")}
+    >
+      Charge due
+    </span>
+  );
+}
+
+/** The state pill and any flags, wrapping onto a second line when narrow. */
+export function StatusCell({ battery }: { battery: Pick<Provisioning, "status" | "repairInProgress" | "chargeDue"> }) {
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1">
+      <StatusBadge status={battery.status} />
+      {battery.repairInProgress && <FlagPill flag="repair" />}
+      {battery.chargeDue && <FlagPill flag="charge" />}
+    </span>
+  );
+}
+
+/**
+ * A stored battery's two clocks, on Last Seen's two lines: "42 d in storage",
+ * then "12 d since charge", amber when Charge due. Not in storage: the dash.
+ */
+export function StorageDays({ storage, chargeDue }: { storage: Provisioning["storage"]; chargeDue: boolean }) {
+  if (storage?.daysInStorage == null || storage.daysSinceCharge == null) return <Dash />;
+  return (
+    <span className="block tabular-nums whitespace-nowrap">
+      <span className="block text-slate-700">{storage.daysInStorage} d in storage</span>
+      <span className={cn("block text-xs", chargeDue ? "text-amber-700 dark:text-amber-300 font-medium" : "text-slate-400")}>
+        {storage.daysSinceCharge} d since charge
+      </span>
     </span>
   );
 }

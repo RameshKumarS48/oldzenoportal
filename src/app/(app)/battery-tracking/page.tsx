@@ -7,7 +7,8 @@ import { Topbar } from "@/components/layout/Topbar";
 import { BatteryTable } from "@/components/battery-tracking/BatteryTable";
 import { BatteryFilterBar } from "@/components/battery-tracking/BatteryFilterBar";
 import { useBatteries } from "@/components/battery-tracking/use-batteries";
-import { assetTypeLabel, lastSeenActive, regionLabel, matches, nextSort, sortRows, NO_FILTERS, type BatteryFilters, type Sort } from "@/components/battery-tracking/filters";
+import { StatusSummary } from "@/components/battery-tracking/StatusSummary";
+import { assetTypeLabel, flagLabel, lastSeenActive, regionLabel, statusLabel, warehouseLabel, matches, nextSort, sortRows, NO_FILTERS, type BatteryFilters, type Sort } from "@/components/battery-tracking/filters";
 import { listQuery, readListState, type ListState } from "@/components/battery-tracking/list-query";
 import { usePerPage } from "@/components/battery-tracking/per-page";
 import { exactAsset, matchesSearch } from "@/components/battery-tracking/search";
@@ -64,6 +65,9 @@ function BatteryTracking() {
     range: initial.range,
     asset: initial.asset,
     region: initial.region,
+    status: initial.status,
+    flag: initial.flag,
+    warehouse: initial.warehouse,
   });
   const [sort, setSort] = useState<Sort>(initial.sort);
   const [page, setPage] = useState(initial.page);
@@ -81,12 +85,12 @@ function BatteryTracking() {
   // A page past the end (an old link, or fewer rows after a filter) shows the last page.
   const shownPage = data ? Math.min(page, Math.max(1, Math.ceil(rows.length / perPage))) : page;
 
-  const state = { search, lastSeen: filters.lastSeen, range: filters.range, asset: filters.asset, region: filters.region, sort, page: shownPage, perPage: perPageInUrl };
+  const state: ListState = { search, ...filters, sort, page: shownPage, perPage: perPageInUrl };
   const query = listQuery(state);
 
   function applyState(s: ListState) {
     setSearch(s.search);
-    setFilters({ lastSeen: s.lastSeen, range: s.range, asset: s.asset, region: s.region });
+    setFilters({ lastSeen: s.lastSeen, range: s.range, asset: s.asset, region: s.region, status: s.status, flag: s.flag, warehouse: s.warehouse });
     setSort(s.sort);
     setPage(s.page);
     setPerPageInUrl(s.perPage);
@@ -122,7 +126,7 @@ function BatteryTracking() {
       {/* Page controls */}
       <div className="flex items-center justify-between gap-3 px-6 py-3.5 border-b border-slate-200 bg-white shrink-0">
         <p className="text-xs text-slate-400 max-w-md">
-          When and where each battery last reported, and its state of charge
+          Provisioning status from the ops app, when and where each battery last reported, and its state of charge
         </p>
 
         {/* The rows are as of page load; the Topbar's Sync is the page's only sync. */}
@@ -133,6 +137,18 @@ function BatteryTracking() {
 
       {/* Content. bg-zeno-bg, as on Swap Transactions, so dark mode darkens the page canvas too. */}
       <div className="flex flex-col flex-1 overflow-hidden bg-zeno-bg p-5 gap-4">
+        {/* Counts across the whole fleet; a count filters the table to it. */}
+        {data && (
+          <StatusSummary
+            rows={data.rows}
+            filters={filters}
+            onFilters={(f) => {
+              setFilters(f);
+              setPage(1);
+            }}
+          />
+        )}
+
         <BatteryFilterBar
           search={search}
           onSearch={(v) => {
@@ -155,8 +171,8 @@ function BatteryTracking() {
         />
 
         {/* The active chips: a search naming one vehicle or station exactly (× clears the search),
-            Last seen, Asset type, and Region with how many batteries are in it. */}
-        {data && (named || lastSeenActive(filters) || filters.asset || filters.region) && (
+            Last seen, Asset type, Region with how many batteries are in it, Status, Flag and Warehouse. */}
+        {data && (named || lastSeenActive(filters) || filters.asset || filters.region || filters.status || filters.flag || filters.warehouse) && (
           <FilterChips>
             {named && (
               <FilterChip
@@ -196,6 +212,39 @@ function BatteryTracking() {
                 removeLabel="Remove Region filter"
                 onRemove={() => {
                   setFilters({ ...filters, region: "" });
+                  setPage(1);
+                }}
+              />
+            )}
+            {filters.status && (
+              <FilterChip
+                label="Status"
+                value={statusLabel(filters.status)}
+                removeLabel="Remove Status filter"
+                onRemove={() => {
+                  setFilters({ ...filters, status: "" });
+                  setPage(1);
+                }}
+              />
+            )}
+            {filters.flag && (
+              <FilterChip
+                label="Flag"
+                value={flagLabel(filters.flag)}
+                removeLabel="Remove Flag filter"
+                onRemove={() => {
+                  setFilters({ ...filters, flag: "" });
+                  setPage(1);
+                }}
+              />
+            )}
+            {filters.warehouse && (
+              <FilterChip
+                label="Warehouse"
+                value={warehouseLabel(filters.warehouse)}
+                removeLabel="Remove Warehouse filter"
+                onRemove={() => {
+                  setFilters({ ...filters, warehouse: "" });
                   setPage(1);
                 }}
               />

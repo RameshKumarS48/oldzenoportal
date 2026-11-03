@@ -13,7 +13,17 @@
  * Assets: 15 swap stations holding 5–8 batteries each, one per slot, 15 vehicles holding
  * exactly 2, and 12 batteries (10%) in neither. The vehicles are the first 15
  * of Vehicle Tracking's mock fleet, so a VIN here finds the same bike there.
+ *
+ * Provisioning (battery-provisioning.ts): each battery's state in the Battery
+ * Onboarding flow the ops app records, with its flags, shipment, storage and log.
+ * These 120 are deployed, so Active, except 4 of the 12 in neither a station nor
+ * a vehicle, which are in Quarantine; 6 have a repair in progress. NEW_ROWS adds
+ * 40 batteries that haven't reached the network yet, so have never reported
+ * (no Last Seen, SOC or location): Pre-bring-up through Deployment-ready 2/2,
+ * Quarantine after a failed bring-up, and Retired.
  */
+
+import { buildProvisioning, type Plan, type Provisioning } from "./battery-provisioning";
 
 /** A station or vehicle, as a search or link names it. */
 export type AssetRef = { type: "station"; code: string } | { type: "vehicle"; vin: string };
@@ -21,10 +31,10 @@ export type AssetRef = { type: "station"; code: string } | { type: "vehicle"; vi
 /** What holds a battery: a vehicle, or a station and the slot (1–8, unique per station) it's in. */
 export type BatteryAsset = { type: "station"; code: string; slot: number } | { type: "vehicle"; vin: string };
 
-export interface BatteryRecord {
+export interface BatteryRecord extends Provisioning {
   serialNo: string;
   imei: string;
-  /** UTC, "15 Oct 2026 09:56". */
+  /** UTC, "15 Oct 2026 09:56", or "" when the battery has never reported. */
   lastSeen: string;
   /** "lat, long", or "" when the battery has never reported a location. */
   location: string;
@@ -129,7 +139,7 @@ export const vehicleByVin = (vin: string) => VEHICLES.find((v) => v.vin === vin)
 const S = (code: string, slot: number): BatteryAsset => ({ type: "station", code, slot });
 const V = (vin: string): BatteryAsset => ({ type: "vehicle", vin });
 
-type MockRow = Omit<BatteryRecord, "lastSeen" | "region"> & { seenMinutesAgo: number };
+type MockRow = Pick<BatteryRecord, "serialNo" | "imei" | "location" | "soc" | "asset"> & { seenMinutesAgo: number | null };
 
 const ROWS: MockRow[] = [
   { serialNo: "2ME9YBSP1C002378", imei: "864312084644982", seenMinutesAgo: 48, location: "-1.33069, 36.85595", soc: null, asset: S("BS0019", 6) },
@@ -254,16 +264,85 @@ const ROWS: MockRow[] = [
   { serialNo: "2ME9YBSP1C007942", imei: "860300082238430", seenMinutesAgo: 17632, location: "-1.07233, 37.04922", soc: 51, asset: S("BS0007", 3) },
 ];
 
+/** Deployed batteries with a repair in progress. */
+const REPAIRING = new Set(["2ME9YBSP1C008434", "2ME9YBRP1B000849", "2ME9YBSP1C009341", "2ME9YBSP1C010315", "2ME9YBSP1C006171", "2ME9YBSP1C002604"]);
+
+/** Batteries in neither a station nor a vehicle that were pulled from the network into quarantine. */
+const QUARANTINED: Record<string, Plan> = {
+  "2ME9YBSP1C005823": { status: "quarantine", via: "active" },
+  "2ME9YBRP1B000413": { status: "quarantine", via: "active" },
+  "2ME9YBSP1C008681": { status: "quarantine", via: "active" },
+  "2ME9YBSP1C005727": { status: "quarantine", via: "active", closedRepair: true },
+};
+
+const planFor = (serialNo: string): Plan =>
+  QUARANTINED[serialNo] ?? { status: "active", repair: REPAIRING.has(serialNo) };
+
+/** Batteries not yet in the network: [serial, IMEI, plan]. They have never reported. */
+const NEW_ROWS: [string, string, Plan][] = [
+  ["2ME9YBSP1C011204", "860300085711204", { status: "pre_bringup" }],
+  ["2ME9YBSP1C011217", "860300085711217", { status: "pre_bringup" }],
+  ["2ME9YBSP1C011230", "860300085711230", { status: "pre_bringup" }],
+  ["2ME9YBSP1C011246", "860300085711246", { status: "pre_bringup" }],
+  ["2ME9YBSP1C011259", "860300085711259", { status: "pre_bringup" }],
+  ["2ME9YBSP1C011263", "860300085711263", { status: "pre_bringup" }],
+  ["2ME9YBSP1C011108", "860300085711108", { status: "ready_1" }],
+  ["2ME9YBSP1C011115", "860300085711115", { status: "ready_1" }],
+  ["2ME9YBSP1C011122", "860300085711122", { status: "ready_1" }],
+  ["2ME9YBSP1C011139", "860300085711139", { status: "ready_1" }],
+  ["2ME9YBSP1C011141", "860300085711141", { status: "ready_1" }],
+  ["2ME9YBSP1C011156", "860300085711156", { status: "ready_1" }],
+  ["2ME9YBSP1C011003", "864312085011003", { status: "storage" }],
+  ["2ME9YBSP1C011018", "864312085011018", { status: "storage" }],
+  ["2ME9YBSP1C011024", "864312085011024", { status: "storage", chargeDue: true }],
+  ["2ME9YBSP1C011037", "864312085011037", { status: "storage" }],
+  ["2ME9YBSP1C011042", "864312085011042", { status: "storage" }],
+  ["2ME9YBSP1C011055", "864312085011055", { status: "storage", chargeDue: true }],
+  ["2ME9YBSP1C011061", "864312085011061", { status: "storage" }],
+  ["2ME9YBSP1C011079", "864312085011079", { status: "storage" }],
+  ["2ME9YBSP1C011083", "864312085011083", { status: "storage", chargeDue: true }],
+  ["2ME9YBSP1C011094", "864312085011094", { status: "storage" }],
+  ["2ME9YBRP1B001012", "867963075001012", { status: "storage" }],
+  ["2ME9YBRP1B001027", "867963075001027", { status: "storage" }],
+  ["2ME9YBRP1B001033", "867963075001033", { status: "storage", chargeDue: true }],
+  ["2ME9YBRP1B001048", "867963075001048", { status: "storage" }],
+  ["2ME9YBSP1C010981", "860851089010981", { status: "ready_2" }],
+  ["2ME9YBSP1C010974", "860851089010974", { status: "ready_2" }],
+  ["2ME9YBSP1C010968", "860851089010968", { status: "ready_2" }],
+  ["2ME9YBSP1C010953", "860851089010953", { status: "ready_2" }],
+  ["2ME9YBSP1C010947", "860851089010947", { status: "ready_2" }],
+  ["2ME9YBSP1C010932", "860851089010932", { status: "ready_2" }],
+  ["2ME9YBSP1C010929", "860851089010929", { status: "ready_2" }],
+  ["2ME9YBSP1C010915", "860851089010915", { status: "ready_2" }],
+  ["2ME9YBSP1C011271", "860300085711271", { status: "quarantine", via: "bringup_1" }],
+  ["2ME9YBSP1C011288", "860300085711288", { status: "quarantine", via: "bringup_1" }],
+  ["2ME9YBRP1B001051", "867963075001051", { status: "quarantine", via: "bringup_2" }],
+  ["2ME9YBRP1B000097", "867963074000097", { status: "retired", via: "bringup_2" }],
+  ["2ME9YBSP1C000412", "864312083000412", { status: "retired", via: "bringup_2" }],
+  ["2ME9YBSP1C011295", "860300085711295", { status: "retired", via: "bringup_1" }],
+];
+
+const ALL_ROWS: (MockRow & { plan: Plan })[] = [
+  ...ROWS.map((row) => ({ ...row, plan: planFor(row.serialNo) })),
+  ...NEW_ROWS.map(([serialNo, imei, plan]) => ({ serialNo, imei, plan, seenMinutesAgo: null, location: "", soc: null, asset: null })),
+];
+
+const POOL = { stations: STATIONS.map((s) => s.code), vins: VEHICLES.map((v) => v.vin) };
+
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** The sample as seen at `now` (ms), with Last Seen as UTC text. */
+/** The sample as seen at `now` (ms), with Last Seen as UTC text and each battery's provisioning record. */
 export function batteriesAt(now: number): BatteryRecord[] {
-  return ROWS.map(({ seenMinutesAgo, ...b }) => {
-    const d = new Date(now - seenMinutesAgo * 60_000);
-    const lastSeen =
-      `${pad(d.getUTCDate())} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()} ` +
-      `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
-    return { ...b, lastSeen, region: regionAt(b.location) };
+  return ALL_ROWS.map(({ seenMinutesAgo, plan, ...b }) => {
+    let lastSeen = "";
+    if (seenMinutesAgo !== null) {
+      const d = new Date(now - seenMinutesAgo * 60_000);
+      lastSeen =
+        `${pad(d.getUTCDate())} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()} ` +
+        `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+    }
+    const provisioning = buildProvisioning({ ...b, seenMinutesAgo, plan }, now, POOL);
+    return { ...b, lastSeen, region: regionAt(b.location), ...provisioning };
   });
 }
