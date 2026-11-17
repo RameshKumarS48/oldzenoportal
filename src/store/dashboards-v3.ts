@@ -3,7 +3,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { buildSeed, SEED_REVISION } from "@/lib/mock/dashboards-v3";
 import type { CategoryId } from "@/lib/dashboards-v3/catalogue";
 import { DEFAULT_RANGE } from "@/lib/dashboards-v3/dates";
-import type { Dashboard, Visibility, Widget } from "@/lib/dashboards-v3/types";
+import type { Dashboard, DashboardFilters, Visibility, Widget } from "@/lib/dashboards-v3/types";
 
 export type OverviewView = "favorites" | "mine" | "shared" | "templates" | "all";
 export type OverviewSort = "lastViewed" | "name" | "created";
@@ -21,6 +21,9 @@ export interface NewDashboard {
   visibility: Visibility;
   /** Copy the widgets and filters of this dashboard or template. */
   fromId?: string;
+  /** Or start with these, e.g. from a drafted dashboard. */
+  widgets?: Widget[];
+  filters?: DashboardFilters;
 }
 
 interface DashboardsV3State {
@@ -82,7 +85,7 @@ export const useDashboardsV3 = create<DashboardsV3State>()(
       markViewed: (id) =>
         set((s) => ({ dashboards: s.dashboards.map((d) => (d.id === id ? { ...d, lastViewedAt: new Date().toISOString() } : d)) })),
 
-      create: ({ name, category, description, visibility, fromId }) => {
+      create: ({ name, category, description, visibility, fromId, widgets, filters }) => {
         const source = fromId ? get().dashboards.find((d) => d.id === fromId) : undefined;
         const now = new Date().toISOString();
         const dashboard: Dashboard = {
@@ -93,8 +96,8 @@ export const useDashboardsV3 = create<DashboardsV3State>()(
           visibility,
           owner: null,
           isTemplate: false,
-          filters: source ? { ...source.filters, regions: [...source.filters.regions] } : { range: DEFAULT_RANGE, regions: [] },
-          widgets: source ? copyWidgets(source.widgets) : [],
+          filters: filters ?? (source ? { ...source.filters, regions: [...source.filters.regions] } : { range: DEFAULT_RANGE, regions: [] }),
+          widgets: widgets ? copyWidgets(widgets) : source ? copyWidgets(source.widgets) : [],
           createdAt: now,
           lastViewedAt: now,
         };

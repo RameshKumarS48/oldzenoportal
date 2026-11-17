@@ -13,7 +13,8 @@ import { isOwn, useDashboardsV3 } from "@/store/dashboards-v3";
 import { toast } from "@/store/toast";
 import { NAME_MAX, VisibilityChoice } from "./DashboardDialogs";
 import { CategoryChip } from "./ui/CategoryChip";
-import { ConfirmDialog, Dialog } from "./ui/Dialog";
+import { Dialog } from "./ui/Dialog";
+import { InlineConfirm } from "./ui/InlineConfirm";
 
 export type StartKind = "template" | "blank" | "duplicate";
 
@@ -64,7 +65,13 @@ export function NewDashboardModal({ start, onClose }: { start: NewDashboardStart
   const touch = (field: keyof typeof edited) => setEdited((e) => (e[field] ? e : { ...e, [field]: true }));
   const typedAnything = Object.values(edited).some(Boolean);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
-  const requestClose = () => (typedAnything ? setConfirmDiscard(true) : onClose());
+  const cancelButton = useRef<HTMLButtonElement>(null);
+  /** Closing after typing asks in the footer; asked again (Escape, the backdrop, ✕), it means keep editing. */
+  const requestClose = () => (confirmDiscard ? keepEditing() : typedAnything ? setConfirmDiscard(true) : onClose());
+  function keepEditing() {
+    setConfirmDiscard(false);
+    requestAnimationFrame(() => cancelButton.current?.focus());
+  }
 
   // Each step starts with focus on its first field, so the keyboard never lands on the old step's buttons.
   const body = useRef<HTMLDivElement>(null);
@@ -111,7 +118,14 @@ export function NewDashboardModal({ start, onClose }: { start: NewDashboardStart
       subtitle={step === 1 ? "Choose a starting point" : "Name it and choose who can see it"}
       className="max-w-3xl"
       footer={
-        step === 1 ? (
+        confirmDiscard ? (
+          <InlineConfirm
+            question="Discard this dashboard?"
+            detail="What you’ve entered won’t be saved, and no dashboard will be created."
+            onDiscard={() => { setConfirmDiscard(false); onClose(); }}
+            onKeep={keepEditing}
+          />
+        ) : step === 1 ? (
           <>
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
             <Button variant="teal" onClick={next} disabled={!sourceReady}>Next</Button>
@@ -121,7 +135,7 @@ export function NewDashboardModal({ start, onClose }: { start: NewDashboardStart
             <Button variant="ghost" onClick={() => setStep(1)} className="mr-auto">
               <ArrowLeft className="h-4 w-4" /> Back
             </Button>
-            <Button variant="ghost" onClick={requestClose}>Cancel</Button>
+            <Button ref={cancelButton} variant="ghost" onClick={requestClose}>Cancel</Button>
             <Button variant="teal" type="submit" form="new-dashboard-form">Create dashboard</Button>
           </>
         )
@@ -247,17 +261,6 @@ export function NewDashboardModal({ start, onClose }: { start: NewDashboardStart
         </form>
       )}
       </div>
-
-      <ConfirmDialog
-        open={confirmDiscard}
-        title="Discard this dashboard?"
-        confirmLabel="Discard"
-        cancelLabel="Keep editing"
-        onClose={() => setConfirmDiscard(false)}
-        onConfirm={() => { setConfirmDiscard(false); onClose(); }}
-      >
-        What you’ve entered won’t be saved, and no dashboard will be created.
-      </ConfirmDialog>
     </Dialog>
   );
 }

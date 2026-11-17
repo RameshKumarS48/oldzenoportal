@@ -171,7 +171,7 @@ export function WidgetCard(props: WidgetCardProps) {
           />
         ) : widget.type === "bar" ? (
           <div className={cn(props.variant === "preview" && "max-h-[200px] overflow-y-auto")}>
-            <BarWidget metric={metric} series={result.series} sort={widget.sort} goal={widget.goal} />
+            <BarWidget metric={metric} series={result.series} sort={widget.sort} goal={widget.goal} splitBy={query.splitBy} />
           </div>
         ) : widget.type === "stacked" ? (
           <StackedBarWidget metric={metric} result={result} splitBy={query.splitBy} goal={widget.goal} showValues={widget.showValues} height={CHART_PX + 24} />

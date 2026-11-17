@@ -2,18 +2,19 @@
 
 import { CartesianGrid, LabelList, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Metric, PropertyId } from "@/lib/dashboards-v3/catalogue";
-import { ACCENT, GRID, REFERENCE, seriesColors } from "@/lib/dashboards-v3/colors";
+import { GOAL, GRID, PREVIOUS, SERIES, seriesColors } from "@/lib/dashboards-v3/palette";
 import { fmtCompact } from "@/lib/dashboards-v3/format";
 import type { QueryResult } from "@/lib/dashboards-v3/series";
-import { AXIS_TICK, axisFormatter, EndLabel, labelRoom, TOOLTIP_PROPS, tooltipFormatter } from "./chart-parts";
+import { AXIS_TICK, axisFormatter, EndLabel, labelRoom, LEGEND_PROPS, TOOLTIP_PROPS, tooltipFormatter } from "./chart-parts";
 
 /** Up to this many lines are named at their ends; more get a legend. */
 const DIRECT_LABELS_UP_TO = 4;
 
 /**
- * A trend over time. One line is the accent colour, with the previous
- * period dashed and neutral when compared; split lines use the series
- * colours. Lines are named at their ends where they fit.
+ * A trend over time. One line is the first palette colour, with the previous
+ * period dashed grey when compared; split lines take the palette in order
+ * (services keep their own colours, Other is grey). With more than one line,
+ * each is named at its end, or in a legend above when there are more than four.
  */
 export function LineWidget({
   metric, result, previous, splitBy, goal, showValues, height,
@@ -21,8 +22,8 @@ export function LineWidget({
   metric: Metric; result: QueryResult; previous: number[] | null; splitBy?: PropertyId; goal?: number; showValues: boolean; height: number;
 }) {
   const split = result.series.length > 1 || !!splitBy;
-  const names = split ? result.series.map((s) => s.name) : previous ? ["This period", "Previous"] : [];
-  const colors = split ? seriesColors(splitBy, names) : [ACCENT];
+  const names = split ? result.series.map((s) => s.name) : previous ? ["This period", "Previous period"] : [];
+  const colors = split ? seriesColors(splitBy, names) : [SERIES[0]];
   const direct = names.length > 0 && names.length <= DIRECT_LABELS_UP_TO;
   const last = result.buckets.length - 1;
 
@@ -46,13 +47,13 @@ export function LineWidget({
           domain={metric.unit === "%" ? ["auto", "auto"] : [0, "auto"]}
         />
         <Tooltip {...TOOLTIP_PROPS} formatter={tooltipFormatter(metric)} />
-        {!direct && names.length > 0 && <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />}
+        {!direct && names.length > 0 && <Legend {...LEGEND_PROPS} iconType="plainline" />}
         {goal !== undefined && (
-          <ReferenceLine y={goal} stroke={REFERENCE} strokeDasharray="4 4" label={{ value: `Goal ${fmtCompact(goal, metric)}`, position: "insideTopLeft", fontSize: 11, fill: "#475569" }} />
+          <ReferenceLine y={goal} stroke={GOAL} strokeDasharray="4 4" label={{ value: `Goal ${fmtCompact(goal, metric)}`, position: "insideTopLeft", fontSize: 11, fill: "#475569" }} />
         )}
         {previous && !split && (
-          <Line dataKey="prev" name="Previous period" stroke={REFERENCE} strokeDasharray="4 4" strokeWidth={1.5} dot={false} isAnimationActive={false}>
-            {direct && <LabelList dataKey="prev" content={(p) => <EndLabel {...p} index={p.index} last={last} name="Previous" color="#475569" />} />}
+          <Line dataKey="prev" name="Previous period" stroke={PREVIOUS} strokeDasharray="4 4" strokeWidth={1.5} dot={false} isAnimationActive={false}>
+            {direct && <LabelList dataKey="prev" content={(p) => <EndLabel {...p} index={p.index} last={last} name="Previous period" color={PREVIOUS} dashed />} />}
           </Line>
         )}
         {result.series.map((s, j) => (

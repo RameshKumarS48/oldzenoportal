@@ -17,7 +17,7 @@ import {
 import type { DashboardFilters, Grouping, Widget, WidgetSize, WidgetSort } from "@/lib/dashboards-v3/types";
 import { cn } from "@/lib/utils";
 import { WidgetCard } from "../page/WidgetCard";
-import { ConfirmDialog } from "../ui/Dialog";
+import { InlineConfirm } from "../ui/InlineConfirm";
 import { Disclosure, FIELD, FIELD_LABEL, OptionChips, Toggle } from "./controls";
 import { MetricPicker } from "./MetricPicker";
 
@@ -36,7 +36,7 @@ const noop = () => {};
  * fit the data stay visible, greyed, with the reason.
  */
 export function WidgetPanel({
-  mode, widget, initial, category, filters, today, onChange, onSubmit, onClose,
+  mode, widget, initial, category, filters, today, onChange, onSubmit, onClose, switchRequest,
 }: {
   mode: "add" | "edit";
   widget: Widget;
@@ -48,6 +48,8 @@ export function WidgetPanel({
   onChange: (w: Widget) => void;
   onSubmit: (w: Widget) => void;
   onClose: () => void;
+  /** The page asked to open another widget while this one has changes: confirmed here, in the footer. */
+  switchRequest?: { onDiscard: () => void; onKeep: () => void } | null;
 }) {
   const headingId = useId();
   const heading = useRef<HTMLHeadingElement>(null);
@@ -65,7 +67,15 @@ export function WidgetPanel({
   const intent = intentOf(widget.type);
   const dirty = !sameWidget(widget, initial);
   const valid = isText ? !!(widget.title.trim() || widget.text?.trim()) : !!metric;
-  const requestClose = () => (dirty ? setConfirmDiscard(true) : onClose());
+  const cancelButton = useRef<HTMLButtonElement>(null);
+  const confirming = confirmDiscard || !!switchRequest;
+  /** Closing with changes asks in the footer; asked again (Escape, ✕), it means keep editing. */
+  const requestClose = () => (confirming ? keepEditing() : dirty ? setConfirmDiscard(true) : onClose());
+  function keepEditing() {
+    setConfirmDiscard(false);
+    switchRequest?.onKeep();
+    requestAnimationFrame(() => cancelButton.current?.focus());
+  }
 
   /** Every change goes through here, so the widget stays valid and its title stays automatic until someone types one. */
   function set(patch: Partial<Widget>, opts: { size?: boolean } = {}) {
@@ -95,7 +105,7 @@ export function WidgetPanel({
     <aside
       aria-labelledby={headingId}
       onKeyDown={(e) => {
-        if (e.key === "Escape" && !e.defaultPrevented && !confirmDiscard) { e.preventDefault(); requestClose(); }
+        if (e.key === "Escape" && !e.defaultPrevented) { e.preventDefault(); requestClose(); }
       }}
       className="flex w-[520px] shrink-0 flex-col border-l border-slate-200 bg-white"
     >
@@ -282,7 +292,7 @@ export function WidgetPanel({
                     { value: "none", label: "None", blocked: widget.type === "bar" || widget.type === "stacked" ? `A ${CHART_LABEL[widget.type].toLowerCase()} chart needs a split` : null },
                     ...PROPERTY_ORDER.map((p) => ({ value: p, label: PROPERTIES[p].name, blocked: splitBlocked(widget.type, metric, p) })),
                   ]}
-                  hint={widget.type === "kpi" ? undefined : `One split per widget. Shows the ${splitTop} biggest, then Other${widget.type === "line" || widget.type === "stacked" ? " (6 colours at most)" : ""}.`}
+                  hint={widget.type === "kpi" ? undefined : `One split per widget. Shows the ${splitTop} biggest, then Other${widget.type === "line" || widget.type === "stacked" ? " in grey (5 colours at most)" : ""}.`}
                 />
 
                 <Toggle label="Compare to previous period" checked={widget.compare} onChange={(compare) => set({ compare })} blocked={compareBlocked(widget)} />
@@ -361,8 +371,21 @@ export function WidgetPanel({
       </div>
 
       <div className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-200 px-5 py-3">
+        {confirming ? (
+          <InlineConfirm
+            question="Discard changes?"
+            detail={
+              switchRequest
+                ? "To open the other widget, the changes to this one won’t be kept."
+                : mode === "add" ? "This widget won’t be added." : "Your changes to this widget won’t be saved."
+            }
+            onDiscard={() => { setConfirmDiscard(false); if (switchRequest) switchRequest.onDiscard(); else onClose(); }}
+            onKeep={keepEditing}
+          />
+        ) : (
+        <>
         {!valid && <p id={`${headingId}-why`} className="mr-auto text-xs text-slate-500">{isText ? "Add a heading or some text first" : "Choose a metric first"}</p>}
-        <Button variant="ghost" onClick={requestClose}>Cancel</Button>
+        <Button ref={cancelButton} variant="ghost" onClick={requestClose}>Cancel</Button>
         <Button
           variant="teal"
           onClick={() => onSubmit(widget)}
@@ -372,18 +395,9 @@ export function WidgetPanel({
         >
           {mode === "add" ? "Add widget" : "Save widget"}
         </Button>
+        </>
+        )}
       </div>
-
-      <ConfirmDialog
-        open={confirmDiscard}
-        title="Discard changes?"
-        confirmLabel="Discard"
-        cancelLabel="Keep editing"
-        onClose={() => setConfirmDiscard(false)}
-        onConfirm={() => { setConfirmDiscard(false); onClose(); }}
-      >
-        {mode === "add" ? "This widget won’t be added." : "Your changes to this widget won’t be saved."}
-      </ConfirmDialog>
     </aside>
   );
 }

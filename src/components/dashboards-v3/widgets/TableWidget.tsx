@@ -1,5 +1,5 @@
 import { PROPERTIES, type Metric, type PropertyId } from "@/lib/dashboards-v3/catalogue";
-import { CHANGE_CLASS } from "@/lib/dashboards-v3/colors";
+import { CHANGE_CLASS } from "@/lib/dashboards-v3/palette";
 import { change, fmtNumber, fmtValue, UNIT_LABEL } from "@/lib/dashboards-v3/format";
 import type { QueryResult } from "@/lib/dashboards-v3/series";
 import type { WidgetSort } from "@/lib/dashboards-v3/types";

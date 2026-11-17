@@ -24,6 +24,10 @@ export function seeded(key: string): number {
 /** Values with no data at all: there are no stations in Mombasa yet, so filtering on it shows the empty state. */
 const NO_DATA: Partial<Record<PropertyId, string[]>> = { region: ["Mombasa"] };
 
+export function hasNoData(property: PropertyId, value: string): boolean {
+  return NO_DATA[property]?.includes(value) ?? false;
+}
+
 const EPOCH = new Date(2025, 0, 1).getTime();
 const DAY_MS = 86_400_000;
 

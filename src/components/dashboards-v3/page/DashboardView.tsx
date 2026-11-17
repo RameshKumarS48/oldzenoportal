@@ -89,6 +89,8 @@ export function DashboardView({ id }: { id: string }) {
   const [undo, setUndo] = useState<UndoAction | null>(null);
   const [confirmLeave, setConfirmLeave] = useState<null | { then: () => void; message: string }>(null);
   const [panel, setPanel] = useState<PanelState | null>(null);
+  /** Another widget asked for while the panel has changes; the panel's footer asks before switching. */
+  const [pendingPanel, setPendingPanel] = useState<PanelState | null>(null);
   const [pendingEdit, setPendingEdit] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<string | null>(null);
   const panelSeq = useRef(0);
@@ -204,7 +206,7 @@ export function DashboardView({ id }: { id: string }) {
   function openPanel(mode: "add" | "edit", widget: Widget) {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const next: PanelState = { mode, widget, initial: widget, opener, key: ++panelSeq.current };
-    if (panelDirty) setConfirmLeave({ then: () => setPanel(next), message: "The widget you were working on won’t be kept." });
+    if (panelDirty) setPendingPanel(next);
     else setPanel(next);
   }
 
@@ -458,6 +460,7 @@ export function DashboardView({ id }: { id: string }) {
           onChange={(w) => setPanel((p) => (p ? { ...p, widget: w } : p))}
           onSubmit={submitPanel}
           onClose={closePanel}
+          switchRequest={pendingPanel ? { onDiscard: () => { setPanel(pendingPanel); setPendingPanel(null); }, onKeep: () => setPendingPanel(null) } : null}
         />
       )}
       </div>

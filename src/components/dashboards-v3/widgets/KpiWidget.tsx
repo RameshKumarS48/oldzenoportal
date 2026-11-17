@@ -2,7 +2,7 @@
 
 import { Line, LineChart, ResponsiveContainer, Tooltip, YAxis } from "recharts";
 import type { Metric } from "@/lib/dashboards-v3/catalogue";
-import { ACCENT, CHANGE_CLASS } from "@/lib/dashboards-v3/colors";
+import { CHANGE_CLASS, SERIES } from "@/lib/dashboards-v3/palette";
 import { previousLabel, type ResolvedRange } from "@/lib/dashboards-v3/dates";
 import { change, fmtValue } from "@/lib/dashboards-v3/format";
 import type { QueryResult } from "@/lib/dashboards-v3/series";
@@ -48,7 +48,7 @@ export function KpiWidget({ metric, result, previous, range, compare }: { metric
                 labelFormatter={(_, payload) => payload?.[0]?.payload?.label ?? ""}
                 cursor={{ stroke: "#cbd5e1" }}
               />
-              <Line dataKey="value" name={metric.name} stroke={ACCENT} strokeWidth={1.5} dot={false} activeDot={{ r: 3 }} isAnimationActive={false} />
+              <Line dataKey="value" name={metric.name} stroke={SERIES[0]} strokeWidth={1.5} dot={false} activeDot={{ r: 3 }} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>

@@ -2,12 +2,12 @@
 
 import { Bar, BarChart, CartesianGrid, LabelList, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Metric, PropertyId } from "@/lib/dashboards-v3/catalogue";
-import { GRID, REFERENCE, seriesColors } from "@/lib/dashboards-v3/colors";
+import { GOAL, GRID, seriesColors } from "@/lib/dashboards-v3/palette";
 import { fmtCompact } from "@/lib/dashboards-v3/format";
 import type { QueryResult } from "@/lib/dashboards-v3/series";
-import { AXIS_TICK, axisFormatter, TOOLTIP_PROPS, tooltipFormatter } from "./chart-parts";
+import { AXIS_TICK, axisFormatter, LEGEND_PROPS, TOOLTIP_PROPS, tooltipFormatter } from "./chart-parts";
 
-/** The parts of a total over time: one stack per period, from zero, in the series colours with a legend above. */
+/** The parts of a total over time: one stack per period, from zero, in palette order (services in their own colours, Other grey), with a legend above. */
 export function StackedBarWidget({
   metric, result, splitBy, goal, showValues, height,
 }: {
@@ -28,8 +28,8 @@ export function StackedBarWidget({
         <XAxis dataKey="label" tick={AXIS_TICK} tickLine={false} axisLine={false} minTickGap={16} />
         <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} width={48} domain={[0, "auto"]} tickFormatter={axisFormatter(metric)} />
         <Tooltip {...TOOLTIP_PROPS} cursor={{ fill: "#f8fafc" }} formatter={tooltipFormatter(metric)} />
-        <Legend verticalAlign="top" align="left" iconType="square" iconSize={10} wrapperStyle={{ fontSize: 11, paddingBottom: 8, color: "#334155" }} />
-        {goal !== undefined && <ReferenceLine y={goal} stroke={REFERENCE} strokeDasharray="4 4" label={{ value: `Goal ${fmtCompact(goal, metric)}`, position: "insideTopLeft", fontSize: 11, fill: "#475569" }} />}
+        <Legend {...LEGEND_PROPS} iconType="square" />
+        {goal !== undefined && <ReferenceLine y={goal} stroke={GOAL} strokeDasharray="4 4" label={{ value: `Goal ${fmtCompact(goal, metric)}`, position: "insideTopLeft", fontSize: 11, fill: "#475569" }} />}
         {result.series.map((s, j) => (
           <Bar key={s.name} dataKey={`s${j}`} name={s.name} stackId="stack" fill={colors[j]} isAnimationActive={false} radius={j === top ? [2, 2, 0, 0] : 0}>
             {showValues && j === top && <LabelList dataKey="total" position="top" fontSize={10} fill="#475569" formatter={(v: unknown) => (typeof v === "number" ? fmtCompact(v, metric) : "")} />}

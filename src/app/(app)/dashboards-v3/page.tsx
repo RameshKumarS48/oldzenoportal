@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { DeleteDialog, RenameDialog, ShareDialog } from "@/components/dashboards-v3/DashboardDialogs";
 import { NewDashboardModal, type NewDashboardStart } from "@/components/dashboards-v3/NewDashboardModal";
 import { DashboardsTable, dashboardHref, type RowActions } from "@/components/dashboards-v3/overview/DashboardsTable";
+import { PromptBar } from "@/components/dashboards-v3/overview/PromptBar";
 import { ViewList, VIEWS } from "@/components/dashboards-v3/overview/ViewList";
 import { ConfirmDialog } from "@/components/dashboards-v3/ui/Dialog";
 import { ClearFilters, FilterChip } from "@/components/dashboards-v3/ui/FilterChip";
@@ -147,9 +148,11 @@ function Overview() {
         </Button>
       </div>
 
-      <div className="flex flex-1 gap-5 overflow-hidden bg-zeno-bg p-5">
+      <div className="flex flex-1 flex-col gap-4 overflow-auto bg-zeno-bg p-5">
         {!hydrated || landing ? null : (
           <>
+            <PromptBar />
+            <div className="flex min-h-[460px] flex-1 gap-5">
             <aside className="flex w-56 shrink-0 flex-col justify-between">
               <ViewList active={prefs.view} counts={counts} onChange={(view) => setPrefs({ view })} />
               <button
@@ -238,6 +241,7 @@ function Overview() {
                 )}
               </div>
             </section>
+            </div>
           </>
         )}
       </div>

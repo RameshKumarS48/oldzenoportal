@@ -4,16 +4,22 @@
  * a number loses its split, a bar chart gets one, options a chart doesn't
  * use are cleared.
  */
-import { metricById, PROPERTIES, type ChartType, type Metric } from "./catalogue";
+import { metricById, PROPERTIES, type ChartType, type Metric, type PropertyId } from "./catalogue";
 import { allowedSizes, chartBlocked, defaultSize, INTENTS, splitBlocked, type Intent } from "./rules";
 import type { Widget } from "./types";
+
+/** A metric's name with its split, unless the name already says it ("Battery inventory by state"). */
+export function splitName(metric: Metric, splitBy: PropertyId | undefined): string {
+  if (!splitBy || metric.defaultSplit === splitBy) return metric.name;
+  return `${metric.name} by ${PROPERTIES[splitBy].name.toLowerCase()}`;
+}
 
 /** The title a widget would have if nobody typed one: the metric, and what it's split by. */
 export function autoTitle(w: Widget): string {
   if (w.type === "text") return "Heading";
   const metric = metricById(w.metricId);
   if (!metric) return "";
-  return w.splitBy && w.type !== "kpi" ? `${metric.name} by ${PROPERTIES[w.splitBy].name.toLowerCase()}` : metric.name;
+  return splitName(metric, w.type === "kpi" ? undefined : w.splitBy);
 }
 
 function firstSplit(metric: Metric): Widget["splitBy"] {

@@ -6,7 +6,7 @@ import { propertyBlocked, type ChartType, type Metric, type PropertyId } from ".
 import type { Widget, WidgetSize } from "./types";
 
 export const MAX_WIDGETS = 12;
-/** Most series (and so colours) one chart draws, Other included. */
+/** Most series one chart draws: the five palette colours, then Other in grey. */
 export const MAX_SERIES = 6;
 /** Most values a bar chart or table names before the rest go into Other. */
 export const TOP_VALUES = 8;
