@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  ChevronLeft, ChevronRight, Grid3X3, BatteryCharging, ScanLine, ArrowLeftRight, ScanSearch, Wallet, Tags, Users, LogOut,
+  ChevronLeft, ChevronRight, Grid3X3, BatteryCharging, ScanLine, ArrowLeftRight, ScanSearch, Wallet, Tags, Users, LogOut, LayoutDashboard,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,7 +17,7 @@ import { useAuthStore } from "@/store/auth";
  * is the session-level view behind Swap Transactions, so it shares `swap_info`
  * rather than introducing a sixth module.
  */
-const NAV: { href: string; label: string; icon: LucideIcon; module: AccessModule }[] = [
+const NAV: { href: string; label: string; icon: LucideIcon; module?: AccessModule }[] = [
   { href: "/vehicle-tracking",       label: "Vehicle Tracking",            icon: Grid3X3,        module: "vehicle" },
   { href: "/battery-tracking",     label: "Battery Tracking",          icon: BatteryCharging, module: "vehicle" },
   { href: "/scanner-provisioning", label: "Scanner Provisioning Flow", icon: ScanLine,       module: "scanner" },
@@ -26,6 +26,8 @@ const NAV: { href: string; label: string; icon: LucideIcon; module: AccessModule
   { href: "/wallet-transactions",  label: "Wallet Transactions",       icon: Wallet,         module: "wallet_info" },
   { href: "/swap-station-pricing", label: "Swap Station Pricing",      icon: Tags,           module: "pricing" },
   { href: "/users",                label: "User Management",           icon: Users,          module: "user_management" },
+  // Sandbox, open to every role.
+  { href: "/dashboards-v3",        label: "Dashboards (v3)",           icon: LayoutDashboard },
 ];
 
 export function Sidebar() {
@@ -35,7 +37,7 @@ export function Sidebar() {
   const { canView } = useAccess();
   const logout = useAuthStore((s) => s.logout);
 
-  const visible = NAV.filter((item) => canView(item.module));
+  const visible = NAV.filter((item) => !item.module || canView(item.module));
 
   const handleLogout = () => {
     logout();
