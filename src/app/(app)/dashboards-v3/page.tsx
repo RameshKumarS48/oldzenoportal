@@ -17,14 +17,10 @@ import { useHydrated, useNowMinute } from "@/components/dashboards-v3/hooks";
 import { CATEGORIES, categoryName } from "@/lib/dashboards-v3/catalogue";
 import type { Dashboard } from "@/lib/dashboards-v3/types";
 import { cn } from "@/lib/utils";
-import { inView, useDashboardsV3, type OverviewSort, type OverviewView } from "@/store/dashboards-v3";
+import { inView, useDashboardsV3, type OverviewView } from "@/store/dashboards-v3";
+import { FIRST_DIR, readSort, sortRows } from "@/components/dashboards-v3/overview/sort";
 import { toast } from "@/store/toast";
 
-const SORTS: { value: OverviewSort; label: string }[] = [
-  { value: "lastViewed", label: "Last viewed" },
-  { value: "name", label: "Name" },
-  { value: "created", label: "Recently created" },
-];
 
 const SELECT =
   "rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm text-slate-800 focus:border-zeno-teal focus:outline-none focus:ring-2 focus:ring-zeno-teal/20";
@@ -43,13 +39,6 @@ export default function DashboardsV3Page() {
   );
 }
 
-function sortRows(rows: Dashboard[], sort: OverviewSort): Dashboard[] {
-  const out = [...rows];
-  if (sort === "name") return out.sort((a, b) => a.name.localeCompare(b.name));
-  if (sort === "created") return out.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  // Never-viewed dashboards go last, by name.
-  return out.sort((a, b) => (b.lastViewedAt ?? "").localeCompare(a.lastViewedAt ?? "") || a.name.localeCompare(b.name));
-}
 
 function Overview() {
   const router = useRouter();
@@ -94,6 +83,7 @@ function Overview() {
     [dashboards, favorites]
   );
 
+  const sort = readSort(prefs.sort);
   const query = search.trim().toLowerCase();
   const rows = useMemo(
     () =>
@@ -104,9 +94,9 @@ function Overview() {
             (prefs.category === "all" || d.category === prefs.category) &&
             (!query || d.name.toLowerCase().includes(query) || (d.description ?? "").toLowerCase().includes(query))
         ),
-        prefs.sort
+        sort
       ),
-    [dashboards, favorites, prefs, query]
+    [dashboards, favorites, prefs, sort, query]
   );
   const filtered = prefs.category !== "all" || query !== "";
   const clearFilters = () => { setSearch(""); setPrefs({ category: "all" }); };
@@ -148,11 +138,9 @@ function Overview() {
         </Button>
       </div>
 
-      <div className="flex flex-1 flex-col gap-4 overflow-auto bg-zeno-bg p-5">
+      <div className="flex flex-1 gap-5 overflow-auto bg-zeno-bg p-5">
         {!hydrated || landing ? null : (
           <>
-            <PromptBar />
-            <div className="flex min-h-[460px] flex-1 gap-5">
             <aside className="flex w-56 shrink-0 flex-col justify-between">
               <ViewList active={prefs.view} counts={counts} onChange={(view) => setPrefs({ view })} />
               <button
@@ -164,7 +152,10 @@ function Overview() {
               </button>
             </aside>
 
-            <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
+            {/* The composer sits above the table card, on exactly its edges. */}
+            <div className="flex min-w-0 flex-1 flex-col gap-4">
+            <PromptBar />
+            <section className="flex min-h-[460px] min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
               <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 px-4 py-3">
                 <div className="relative w-64">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -186,12 +177,6 @@ function Overview() {
                   <option value="all">All categories</option>
                   {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
-                <label className="ml-auto flex items-center gap-2 text-sm text-slate-600">
-                  Sort by
-                  <select value={prefs.sort} onChange={(e) => setPrefs({ sort: e.target.value as OverviewSort })} className={SELECT}>
-                    {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                  </select>
-                </label>
                 {filtered && (
                   <div className="flex w-full flex-wrap items-center gap-2">
                     {prefs.category !== "all" && <FilterChip label="Category" value={categoryName(prefs.category)} onRemove={() => setPrefs({ category: "all" })} />}
@@ -236,6 +221,8 @@ function Overview() {
                     defaultId={defaultId}
                     now={now}
                     onToggleFavorite={toggleFavorite}
+                    sort={sort}
+                    onSort={(key) => setPrefs({ sort: sort.key === key ? { key, dir: sort.dir === "asc" ? "desc" : "asc" } : { key, dir: FIRST_DIR[key] } })}
                     actions={actions}
                   />
                 )}

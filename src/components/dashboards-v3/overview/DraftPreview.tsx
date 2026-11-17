@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { DashboardDraft } from "@/lib/dashboards-v3/ai-draft";
 import { readingLine } from "@/lib/dashboards-v3/ai-draft";
 import { CATEGORIES, metricById, PROPERTIES, type CategoryId } from "@/lib/dashboards-v3/catalogue";
-import { RANGE_PRESETS } from "@/lib/dashboards-v3/dates";
+import { RANGE_PRESETS, rangeLabel } from "@/lib/dashboards-v3/dates";
 import { CHART_LABEL } from "@/lib/dashboards-v3/rules";
 import type { RangePreset, Visibility } from "@/lib/dashboards-v3/types";
 import { cn } from "@/lib/utils";
@@ -99,10 +99,11 @@ export function DraftPreview({
           <select
             aria-label="Date range"
             value={draft.range.preset}
-            onChange={(e) => set({ range: { preset: e.target.value as RangePreset } })}
+            onChange={(e) => { if (e.target.value !== draft.range.preset) set({ range: { preset: e.target.value as RangePreset } }); }}
             className={CHIP_SELECT}
           >
             {RANGE_PRESETS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+            {!RANGE_PRESETS.some((p) => p.value === draft.range.preset) && <option value={draft.range.preset}>{rangeLabel(draft.range)}</option>}
           </select>
           {draft.regions.map((r) => (
             <span key={r} className={CHIP}>

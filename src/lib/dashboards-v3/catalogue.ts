@@ -57,6 +57,22 @@ export const PROPERTIES: Record<PropertyId, { name: string; values: string[] }> 
   },
 };
 
+/** Every station's region. Regions not listed here (Thika, Eldoret, Machakos, Mombasa) have no stations yet. */
+export const STATION_REGION: Record<string, string> = {
+  Westlands: "Nairobi",
+  "CBD Moi Avenue": "Nairobi",
+  Kilimani: "Nairobi",
+  "Upper Hill": "Nairobi",
+  Embakasi: "Nairobi",
+  Karen: "Nairobi",
+  "Thika Road Mall": "Nairobi",
+  "Nanyuki Town": "Nanyuki",
+  "Nyeri Central": "Nyeri",
+  "Meru Makutano": "Meru",
+  "Nakuru East": "Nakuru",
+  "Kisumu Kondele": "Kisumu",
+};
+
 export const PROPERTY_ORDER: PropertyId[] = ["region", "station", "service", "customerType", "country", "batteryState"];
 
 export type Unit = "points" | "kWh" | "count" | "%";
@@ -67,7 +83,12 @@ export interface Metric {
   id: string;
   name: string;
   category: CategoryId;
+  /** What it is, in one sentence. */
   definition: string;
+  /** How it's counted over a period. */
+  counted: string;
+  /** What a good trend looks like. */
+  goodTrend: string;
   unit: Unit;
   aggregation: Aggregation;
   defaultChart: Exclude<ChartType, "text">;
@@ -80,6 +101,8 @@ export interface Metric {
   higherIsBetter: boolean;
   /** Why a property isn't offered for this metric, where the reason isn't obvious. */
   notAllowed?: Partial<Record<PropertyId, string>>;
+  /** What a count is of, written after the number: "200.8K swaps". Points, kWh and percentages say their unit instead. */
+  noun?: string;
   /** Shape of the mock numbers: a typical day, growth over a year, and how much weekends dip. */
   mock: { base: number; trend: number; weekend: number };
 }
@@ -93,12 +116,16 @@ export const METRICS: Metric[] = [
   {
     id: "points-debited", name: "Points debited", category: "revenue",
     definition: "Wallet points taken from riders' balances for swaps and charging.",
+    counted: "Added up across every swap and charge session in the period.",
+    goodTrend: "Rising with swaps and sessions; a rise with flat swaps can mean higher prices.",
     unit: "points", aggregation: "sum", defaultChart: "line", splitBy: ALL, filters: ALL, higherIsBetter: true,
     mock: { base: 412_000, trend: 0.22, weekend: 0.78 },
   },
   {
     id: "top-ups", name: "Top-ups", category: "revenue",
     definition: "Points riders added to their wallets, by M-Pesa or at a partner.",
+    counted: "Added up across every top-up made in the period.",
+    goodTrend: "Rising, ideally in step with points debited so balances stay positive.",
     unit: "points", aggregation: "sum", defaultChart: "line", splitBy: ["region", "customerType", "country"], filters: ["region", "customerType", "country"],
     higherIsBetter: true,
     notAllowed: { station: "Top-ups are made from a rider's wallet, not at a station", service: "A top-up isn't tied to a service" },
@@ -107,12 +134,16 @@ export const METRICS: Metric[] = [
   {
     id: "kwh-billed", name: "kWh billed", category: "revenue",
     definition: "Energy charged to riders across every service.",
+    counted: "Added up across every session billed in the period.",
+    goodTrend: "Rising as more riders swap and charge.",
     unit: "kWh", aggregation: "sum", defaultChart: "line", splitBy: ALL, filters: ALL, higherIsBetter: true,
     mock: { base: 9_400, trend: 0.25, weekend: 0.8 },
   },
   {
     id: "points-per-swap", name: "Average points per swap", category: "revenue",
     definition: "Points debited for swaps divided by the number of swaps.",
+    counted: "Points debited for swaps divided by the number of swaps, averaged over the period.",
+    goodTrend: "Steady; sudden moves usually mean a price change.",
     unit: "points", aggregation: "average", defaultChart: "kpi", splitBy: ["region", "station", "customerType"], filters: ["region", "station", "customerType", "country"],
     higherIsBetter: true,
     notAllowed: { service: "This metric already covers swaps only" },
@@ -121,8 +152,10 @@ export const METRICS: Metric[] = [
 
   // Swaps and stations
   {
-    id: "swaps", name: "Swaps", category: "swaps",
+    id: "swaps", noun: "swaps", name: "Swaps", category: "swaps",
     definition: "Completed battery swaps at stations.",
+    counted: "Each completed swap counts once, added up over the period.",
+    goodTrend: "Rising, with fewer dips on weekdays.",
     unit: "count", aggregation: "sum", defaultChart: "line", splitBy: ["region", "station", "customerType", "country"], filters: ["region", "station", "customerType", "country"],
     higherIsBetter: true,
     notAllowed: { service: "Every swap is the Swap service" },
@@ -131,14 +164,18 @@ export const METRICS: Metric[] = [
   {
     id: "station-uptime", name: "Station uptime", category: "swaps",
     definition: "Share of the time stations were online and able to swap.",
+    counted: "Online time divided by total time, averaged across stations over the period.",
+    goodTrend: "High and steady, close to 100%.",
     unit: "%", aggregation: "average", defaultChart: "line", splitBy: ["region", "station", "country"], filters: ["region", "station", "country"],
     higherIsBetter: true,
     notAllowed: { customerType: "Uptime is the station's, not a rider's", service: "Uptime is for swap stations only" },
     mock: { base: 97.2, trend: 0.002, weekend: 1 },
   },
   {
-    id: "failed-swaps", name: "Failed swaps", category: "swaps",
+    id: "failed-swaps", noun: "failed swaps", name: "Failed swaps", category: "swaps",
     definition: "Swaps a rider started that didn't complete.",
+    counted: "Each swap that didn’t complete counts once, added up over the period.",
+    goodTrend: "Falling; a jump usually points to a station fault.",
     unit: "count", aggregation: "sum", defaultChart: "bar", splitBy: ["region", "station", "country"], filters: ["region", "station", "country"],
     higherIsBetter: false,
     mock: { base: 46, trend: -0.15, weekend: 0.8 },
@@ -146,16 +183,20 @@ export const METRICS: Metric[] = [
 
   // Charging
   {
-    id: "fast-charge-sessions", name: "Fast charge sessions", category: "charging",
+    id: "fast-charge-sessions", noun: "sessions", name: "Fast charge sessions", category: "charging",
     definition: "Completed charge sessions at fast chargers.",
+    counted: "Each completed fast charge session counts once, added up over the period.",
+    goodTrend: "Rising as fast chargers get used more.",
     unit: "count", aggregation: "sum", defaultChart: "line", splitBy: ["region", "station", "customerType", "country"], filters: ["region", "station", "customerType", "country"],
     higherIsBetter: true,
     notAllowed: { service: "Every session here is Fast charge" },
     mock: { base: 640, trend: 0.35, weekend: 0.85 },
   },
   {
-    id: "home-charge-sessions", name: "Home charge sessions", category: "charging",
+    id: "home-charge-sessions", noun: "sessions", name: "Home charge sessions", category: "charging",
     definition: "Completed charge sessions on riders' home chargers.",
+    counted: "Each completed home charge session counts once, added up over the period.",
+    goodTrend: "Rising as more riders charge at home.",
     unit: "count", aggregation: "sum", defaultChart: "line", splitBy: ["region", "customerType", "country"], filters: ["region", "customerType", "country"],
     higherIsBetter: true,
     notAllowed: { station: NO_STATION, service: "Every session here is Home charge" },
@@ -164,6 +205,8 @@ export const METRICS: Metric[] = [
   {
     id: "energy-per-session", name: "Energy per charge session", category: "charging",
     definition: "Average kWh delivered in one fast or home charge session.",
+    counted: "kWh delivered divided by the number of sessions, averaged over the period.",
+    goodTrend: "Steady; a fall can mean sessions are being cut short.",
     unit: "kWh", aggregation: "average", defaultChart: "kpi", splitBy: ["service", "region"], filters: ["service", "region", "country"],
     higherIsBetter: true,
     mock: { base: 2.8, trend: 0.03, weekend: 1 },
@@ -171,16 +214,20 @@ export const METRICS: Metric[] = [
 
   // Batteries
   {
-    id: "battery-inventory", name: "Battery inventory by state", category: "batteries",
+    id: "battery-inventory", noun: "batteries", name: "Battery inventory by state", category: "batteries",
     definition: "Batteries on record at the end of each day, by their onboarding or lifecycle state.",
+    counted: "Batteries counted in each state at the end of the period’s last day.",
+    goodTrend: "Most batteries Active, few in Quarantine.",
     unit: "count", aggregation: "latest", defaultChart: "stacked", defaultSplit: "batteryState",
     splitBy: ["batteryState", "region", "station"], filters: ["batteryState", "region", "station", "country"],
     higherIsBetter: true,
     mock: { base: 6_800, trend: 0.12, weekend: 1 },
   },
   {
-    id: "batteries-needing-service", name: "Batteries needing service", category: "batteries",
+    id: "batteries-needing-service", noun: "batteries", name: "Batteries needing service", category: "batteries",
     definition: "Batteries flagged for repair or inspection at the end of each day.",
+    counted: "Batteries flagged for service, counted at the end of the period’s last day.",
+    goodTrend: "Low and falling as repairs keep up.",
     unit: "count", aggregation: "latest", defaultChart: "line", splitBy: ["region", "station"], filters: ["region", "station", "country"],
     higherIsBetter: false,
     mock: { base: 128, trend: -0.1, weekend: 1 },
@@ -188,6 +235,8 @@ export const METRICS: Metric[] = [
   {
     id: "battery-health", name: "Average battery health", category: "batteries",
     definition: "Average remaining capacity of batteries in service, against new.",
+    counted: "Remaining capacity against new, averaged across batteries in service.",
+    goodTrend: "High and slow to fall.",
     unit: "%", aggregation: "average", defaultChart: "kpi", splitBy: ["region", "station"], filters: ["region", "station", "country"],
     higherIsBetter: true,
     mock: { base: 91.5, trend: -0.02, weekend: 1 },
@@ -195,22 +244,28 @@ export const METRICS: Metric[] = [
 
   // Fleet
   {
-    id: "active-vehicles", name: "Active vehicles", category: "fleet",
+    id: "active-vehicles", noun: "vehicles", name: "Active vehicles", category: "fleet",
     definition: "Vehicles that made at least one trip.",
+    counted: "Each vehicle counts once, however many trips it made in the period.",
+    goodTrend: "Rising as the fleet grows and gets used.",
     unit: "count", aggregation: "unique", defaultChart: "line", splitBy: ["region", "customerType", "country"], filters: ["region", "customerType", "country"],
     higherIsBetter: true,
     mock: { base: 3_150, trend: 0.24, weekend: 0.82 },
   },
   {
-    id: "vehicles-offline", name: "Vehicles offline", category: "fleet",
+    id: "vehicles-offline", noun: "vehicles", name: "Vehicles offline", category: "fleet",
     definition: "Vehicles whose tracker hasn't reported for over 24 hours, at the end of each day.",
+    counted: "Vehicles not reporting for over 24 hours, counted at the end of the period’s last day.",
+    goodTrend: "Low and falling.",
     unit: "count", aggregation: "latest", defaultChart: "bar", splitBy: ["region", "country"], filters: ["region", "customerType", "country"],
     higherIsBetter: false,
     mock: { base: 84, trend: -0.05, weekend: 1.1 },
   },
   {
-    id: "immobilised-vehicles", name: "Immobilised vehicles", category: "fleet",
+    id: "immobilised-vehicles", noun: "vehicles", name: "Immobilised vehicles", category: "fleet",
     definition: "Vehicles switched off remotely, at the end of each day.",
+    counted: "Vehicles switched off remotely, counted at the end of the period’s last day.",
+    goodTrend: "Low; a rise often follows missed payments.",
     unit: "count", aggregation: "latest", defaultChart: "bar", splitBy: ["region", "customerType"], filters: ["region", "customerType", "country"],
     higherIsBetter: false,
     mock: { base: 37, trend: 0.08, weekend: 1 },
@@ -218,22 +273,28 @@ export const METRICS: Metric[] = [
 
   // Customers
   {
-    id: "active-riders", name: "Active riders", category: "customers",
+    id: "active-riders", noun: "riders", name: "Active riders", category: "customers",
     definition: "Riders who swapped or charged at least once.",
+    counted: "Each rider counts once, however many times they swapped or charged.",
+    goodTrend: "Rising as riders keep coming back.",
     unit: "count", aggregation: "unique", defaultChart: "line", splitBy: ALL, filters: ALL,
     higherIsBetter: true,
     mock: { base: 2_940, trend: 0.21, weekend: 0.8 },
   },
   {
-    id: "negative-balance", name: "Riders with negative balance", category: "customers",
+    id: "negative-balance", noun: "riders", name: "Riders with negative balance", category: "customers",
     definition: "Riders whose wallet was below zero at the end of each day.",
+    counted: "Riders with a wallet below zero, counted at the end of the period’s last day.",
+    goodTrend: "Low and falling.",
     unit: "count", aggregation: "latest", defaultChart: "line", splitBy: ["region", "customerType", "country"], filters: ["region", "customerType", "country"],
     higherIsBetter: false,
     mock: { base: 212, trend: 0.06, weekend: 1.05 },
   },
   {
-    id: "riders-topped-up", name: "Riders who topped up", category: "customers",
+    id: "riders-topped-up", noun: "riders", name: "Riders who topped up", category: "customers",
     definition: "Riders who added points to their wallet at least once.",
+    counted: "Each rider counts once, however many times they topped up.",
+    goodTrend: "Rising, close to the number of active riders.",
     unit: "count", aggregation: "unique", defaultChart: "bar", splitBy: ["region", "customerType", "country"], filters: ["region", "customerType", "country"],
     higherIsBetter: true,
     mock: { base: 1_380, trend: 0.16, weekend: 0.7 },
@@ -241,8 +302,10 @@ export const METRICS: Metric[] = [
 
   // Partners
   {
-    id: "partner-swaps", name: "Swaps at partner stations", category: "partners",
+    id: "partner-swaps", noun: "swaps", name: "Swaps at partner stations", category: "partners",
     definition: "Completed swaps at stations run by partners.",
+    counted: "Each completed swap at a partner station counts once, added up over the period.",
+    goodTrend: "Rising as partner stations get used more.",
     unit: "count", aggregation: "sum", defaultChart: "bar", splitBy: ["region", "station", "country"], filters: ["region", "station", "country"],
     higherIsBetter: true,
     mock: { base: 720, trend: 0.3, weekend: 0.8 },
@@ -250,6 +313,8 @@ export const METRICS: Metric[] = [
   {
     id: "partner-points", name: "Points earned by partners", category: "partners",
     definition: "Points partners earned from swaps and top-ups at their stations.",
+    counted: "Added up across every swap and top-up at partner stations in the period.",
+    goodTrend: "Rising with partner swaps.",
     unit: "points", aggregation: "sum", defaultChart: "line", splitBy: ["region", "station", "country"], filters: ["region", "station", "country"],
     higherIsBetter: true,
     mock: { base: 64_000, trend: 0.28, weekend: 0.78 },
@@ -257,6 +322,8 @@ export const METRICS: Metric[] = [
   {
     id: "partner-share", name: "Partner share of swaps", category: "partners",
     definition: "Swaps at partner stations as a share of all swaps.",
+    counted: "Partner station swaps divided by all swaps, averaged over the period.",
+    goodTrend: "Depends on the plan: rising if the network is meant to grow through partners.",
     unit: "%", aggregation: "average", defaultChart: "kpi", splitBy: ["region", "country"], filters: ["region", "country"],
     higherIsBetter: true,
     mock: { base: 31.5, trend: 0.06, weekend: 1 },
@@ -264,15 +331,19 @@ export const METRICS: Metric[] = [
 
   // Growth
   {
-    id: "new-riders", name: "New riders", category: "growth",
+    id: "new-riders", noun: "riders", name: "New riders", category: "growth",
     definition: "Riders who completed their first swap or charge.",
+    counted: "Each rider counts once, on the day of their first swap or charge.",
+    goodTrend: "Rising, or steady at the level you plan for.",
     unit: "count", aggregation: "sum", defaultChart: "line", splitBy: ["region", "customerType", "country"], filters: ["region", "customerType", "country"],
     higherIsBetter: true,
     mock: { base: 46, trend: 0.3, weekend: 0.9 },
   },
   {
-    id: "referral-signups", name: "Referral sign-ups", category: "growth",
+    id: "referral-signups", noun: "sign-ups", name: "Referral sign-ups", category: "growth",
     definition: "New riders who joined with another rider's referral code.",
+    counted: "Each new rider who used a referral code counts once, added up over the period.",
+    goodTrend: "Rising.",
     unit: "count", aggregation: "sum", defaultChart: "bar", splitBy: ["region", "customerType"], filters: ["region", "customerType", "country"],
     higherIsBetter: true,
     mock: { base: 14, trend: 0.45, weekend: 1.1 },
@@ -280,6 +351,8 @@ export const METRICS: Metric[] = [
   {
     id: "rider-return-rate", name: "Riders who came back", category: "growth",
     definition: "Share of the previous period's active riders who were active again.",
+    counted: "Riders active again this period divided by last period’s active riders.",
+    goodTrend: "High and steady.",
     unit: "%", aggregation: "average", defaultChart: "kpi", splitBy: ["region", "customerType"], filters: ["region", "customerType", "country"],
     higherIsBetter: true,
     mock: { base: 78.4, trend: 0.03, weekend: 1 },

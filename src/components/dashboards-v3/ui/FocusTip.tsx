@@ -4,19 +4,26 @@ import { useId, useRef, useState } from "react";
 import { Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const WIDTH = 280;
+/** Room the tip needs above its icon before it opens below instead. */
+const ROOM_ABOVE = 180;
+
 /**
  * InfoTip's look, reachable by keyboard too: the ⓘ is a button that shows
- * the tip on hover or focus, and Escape hides it. The text is also the
+ * the tip on hover or focus, and Escape hides it. The tip is also the
  * button's description, so screen readers read it without opening anything.
+ * It opens above the icon, off the chart below it, unless there's no room.
  */
-export function FocusTip({ content, label, className }: { content: string; label: string; className?: string }) {
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+export function FocusTip({ content, label, className }: { content: React.ReactNode; label: string; className?: string }) {
+  const [pos, setPos] = useState<{ x: number; top?: number; bottom?: number } | null>(null);
   const ref = useRef<HTMLButtonElement>(null);
   const id = useId();
 
   function show() {
     const r = ref.current?.getBoundingClientRect();
-    if (r) setPos({ x: r.left + r.width / 2, y: r.bottom });
+    if (!r) return;
+    const x = Math.min(Math.max(r.left + r.width / 2, WIDTH / 2 + 8), window.innerWidth - WIDTH / 2 - 8);
+    setPos(r.top > ROOM_ABOVE ? { x, bottom: window.innerHeight - r.top + 8 } : { x, top: r.bottom + 8 });
   }
 
   return (
@@ -38,7 +45,7 @@ export function FocusTip({ content, label, className }: { content: string; label
       <span
         id={id}
         role="tooltip"
-        style={pos ? { position: "fixed", left: pos.x, top: pos.y + 8, transform: "translateX(-50%)", width: 256 } : undefined}
+        style={pos ? { position: "fixed", left: pos.x, top: pos.top, bottom: pos.bottom, transform: "translateX(-50%)", width: WIDTH } : undefined}
         className={cn(
           "pointer-events-none z-[70] whitespace-normal rounded-lg bg-slate-800 px-3 py-2.5 text-xs leading-relaxed text-white shadow-xl",
           !pos && "sr-only"
@@ -47,5 +54,16 @@ export function FocusTip({ content, label, className }: { content: string; label
         {content}
       </span>
     </>
+  );
+}
+
+/** A metric's definition in its three parts, for the ⓘ tip. */
+export function DefinitionTip({ definition, counted, goodTrend }: { definition: string; counted: string; goodTrend: string }) {
+  return (
+    <span className="block space-y-1.5">
+      <span className="block">{definition}</span>
+      <span className="block"><span className="font-semibold">How it’s counted: </span>{counted}</span>
+      <span className="block"><span className="font-semibold">Good trend: </span>{goodTrend}</span>
+    </span>
   );
 }

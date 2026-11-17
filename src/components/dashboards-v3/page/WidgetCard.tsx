@@ -1,19 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { format } from "date-fns";
 import { AlertCircle, ArrowDown, ArrowUp, BookOpen, Copy, Download, FilterX, Maximize2, Pencil, RotateCw, Trash2 } from "lucide-react";
 import { metricById, PROPERTIES } from "@/lib/dashboards-v3/catalogue";
 import { GROUPING_LABEL, previousPeriod, rangeLabel } from "@/lib/dashboards-v3/dates";
-import { dataAsOf, UNIT_LABEL } from "@/lib/dashboards-v3/format";
+import { showsUnitTag, UNIT_LABEL } from "@/lib/dashboards-v3/format";
 import { allowedSizes, SIZE_LABEL } from "@/lib/dashboards-v3/rules";
 import { runQuery, type QueryResult } from "@/lib/dashboards-v3/series";
 import type { DashboardFilters, Widget, WidgetSize } from "@/lib/dashboards-v3/types";
 import { SPAN, SPAN_COMPACT, widgetQuery } from "@/lib/dashboards-v3/widgets";
 import { cn } from "@/lib/utils";
+import { toCsv, widgetTable } from "@/lib/dashboards-v3/export";
 import { toast } from "@/store/toast";
 import { DefinitionDialog } from "./DefinitionDialog";
-import { FocusTip } from "../ui/FocusTip";
+import { DefinitionTip, FocusTip } from "../ui/FocusTip";
 import { RowMenu, type MenuItem } from "../ui/RowMenu";
 import { BarWidget } from "../widgets/BarWidget";
 import { KpiWidget } from "../widgets/KpiWidget";
@@ -52,6 +52,8 @@ export interface WidgetCardProps {
   mark?: "placeholder" | "editing" | "added";
   /** The grid is two columns while the panel is open. */
   compact?: boolean;
+  /** Sizing from the parent instead of the grid spans: number widgets share their row in a flex layout. */
+  sizeClass?: string;
 }
 
 /**
@@ -83,13 +85,22 @@ export function WidgetCard(props: WidgetCardProps) {
   const CHART_PX = props.variant === "preview" ? PREVIEW_CHART_PX : GRID_CHART_PX;
   const titleId = `widget-${widget.id}-title`;
   const isText = widget.type === "text";
+  // The footer only says what's different from the dashboard: its own period, grouping or filter, or a filter that doesn't apply.
+  const footerParts = !isText && query
+    ? [
+        widget.range && rangeLabel(widget.range),
+        widget.grouping && widget.type !== "kpi" && widget.type !== "bar" && GROUPING_LABEL[widget.grouping],
+        widget.filter && widget.filter.values.length > 0 && `${PROPERTIES[widget.filter.property].name}: ${widget.filter.values.join(", ")}`,
+        result && result.ignored.length > 0 && `${result.ignored.map((p) => PROPERTIES[p].name).join(" and ")} filter doesn’t apply to this metric`,
+      ].filter((x): x is string => !!x)
+    : [];
+  const footer = footerParts.length > 0 ? footerParts : null;
   const [showDefinition, setShowDefinition] = useState(false);
 
   function exportCsv() {
     if (!result || !metric) return;
-    const head = widget.splitBy && widget.type !== "kpi" ? ["Period", ...result.series.map((s) => s.name)] : ["Period", metric.name];
-    const lines = result.buckets.map((b, i) => [b.label, ...result.series.map((s) => (Number.isFinite(s.values[i]) ? s.values[i].toFixed(2) : ""))]);
-    const csv = [head, ...lines].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    // The same columns as this widget's sheet in the dashboard's Excel export.
+    const csv = toCsv(widgetTable(widget, result, metric));
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const a = Object.assign(document.createElement("a"), { href: url, download: `${widget.title || "widget"}.csv` });
     a.click();
@@ -124,8 +135,9 @@ export function WidgetCard(props: WidgetCardProps) {
       aria-labelledby={titleId}
       aria-busy={loading && !isText}
       className={cn(
-        "flex min-w-0 scroll-m-6 flex-col rounded-xl border bg-white transition-shadow focus:outline-none",
-        props.variant === "preview" ? "border-slate-200" : (props.compact ? SPAN_COMPACT : SPAN)[widget.size],
+        // The shared Card's look (ui/card.tsx): light border, subtle shadow, roomier padding.
+        "flex min-w-0 scroll-m-6 flex-col rounded-xl border bg-white shadow-sm transition-shadow focus:outline-none",
+        props.variant === "preview" ? "border-slate-200" : props.sizeClass ?? (props.compact ? SPAN_COMPACT : SPAN)[widget.size],
         props.variant !== "preview" && (editing ? "border-dashed border-slate-300" : "border-slate-200"),
         props.mark === "placeholder" && "border-2 border-dashed border-zeno-teal",
         props.mark === "editing" && "border-zeno-teal ring-2 ring-zeno-teal/30",
@@ -133,20 +145,21 @@ export function WidgetCard(props: WidgetCardProps) {
       )}
     >
       {props.mark && props.mark !== "added" && (
-        <p className="px-4 pt-2 text-xs font-medium text-zeno-teal">{props.mark === "placeholder" ? "New widget · preview" : "Editing in the panel"}</p>
+        <p className="px-5 pt-3 text-xs font-medium text-zeno-teal">{props.mark === "placeholder" ? "New widget · preview" : "Editing in the panel"}</p>
       )}
-      <header className="flex items-start gap-2 px-4 pb-2 pt-3">
+      <header className="flex items-start gap-2 px-5 pb-3 pt-5">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1">
           <WidgetTitle id={titleId} title={widget.title} editing={editing && !props.mark && props.variant !== "preview"} onRename={props.onRename} />
-          {metric && <FocusTip label={`What ${metric.name} means`} content={metric.definition} />}
-          {metric && !isText && (
+          {metric && <FocusTip label={`What ${metric.name} means`} content={<DefinitionTip {...metric} />} />}
+          {metric && !isText && showsUnitTag(metric) && (
             <span className="rounded border border-slate-200 px-1.5 text-[11px] leading-4 text-slate-600">{UNIT_LABEL[metric.unit]}</span>
           )}
         </div>
         {menu.length > 0 && !props.mark && props.variant !== "preview" && <RowMenu label={`Actions for ${widget.title || "widget"}`} items={menu} className="-mr-1.5 -mt-1 shrink-0" />}
       </header>
 
-      <div className={cn("min-w-0 flex-1 px-4", isText ? "pb-4" : "pb-2")}>
+      {/* A flex column, so line and stacked charts can grow into a card stretched by a taller neighbour. */}
+      <div className={cn("flex min-w-0 flex-1 flex-col px-5", isText || !footer ? "pb-5" : "pb-3")}>
         {isText ? (
           <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{widget.text || <span className="italic text-slate-500">No text yet</span>}</p>
         ) : failed ? (
@@ -167,14 +180,15 @@ export function WidgetCard(props: WidgetCardProps) {
             splitBy={query.splitBy}
             goal={widget.goal}
             showValues={widget.showValues}
-            height={CHART_PX}
+            minHeight={CHART_PX}
+            fill={props.variant !== "preview"}
           />
         ) : widget.type === "bar" ? (
           <div className={cn(props.variant === "preview" && "max-h-[200px] overflow-y-auto")}>
             <BarWidget metric={metric} series={result.series} sort={widget.sort} goal={widget.goal} splitBy={query.splitBy} />
           </div>
         ) : widget.type === "stacked" ? (
-          <StackedBarWidget metric={metric} result={result} splitBy={query.splitBy} goal={widget.goal} showValues={widget.showValues} height={CHART_PX + 24} />
+          <StackedBarWidget metric={metric} result={result} splitBy={query.splitBy} goal={widget.goal} showValues={widget.showValues} minHeight={CHART_PX + 24} fill={props.variant !== "preview"} />
         ) : (
           <TableWidget
             metric={metric}
@@ -187,19 +201,14 @@ export function WidgetCard(props: WidgetCardProps) {
         )}
       </div>
 
-      {!isText && query && (
-        <footer className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 border-t border-slate-100 px-4 py-2 text-xs text-slate-500">
-          <span>{rangeLabel(widget.range ?? filters.range)}</span>
-          {widget.type !== "kpi" && widget.type !== "bar" && <><span aria-hidden>·</span><span>{GROUPING_LABEL[query.grouping]}</span></>}
-          {widget.filter && widget.filter.values.length > 0 && (
-            <><span aria-hidden>·</span><span>{PROPERTIES[widget.filter.property].name}: {widget.filter.values.join(", ")}</span></>
-          )}
-          <span className="ml-auto whitespace-nowrap">Data as of {format(dataAsOf(), "d MMM, HH:mm")}</span>
-          {result && result.ignored.length > 0 && (
-            <span className="w-full text-slate-500">
-              {result.ignored.map((p) => PROPERTIES[p].name).join(" and ")} filter doesn’t apply to this metric.
+      {footer && (
+        <footer className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 border-t border-slate-100 px-5 py-2.5 text-xs text-slate-500">
+          {footer.map((part, i) => (
+            <span key={part} className="contents">
+              {i > 0 && <span aria-hidden>·</span>}
+              <span>{part}</span>
             </span>
-          )}
+          ))}
         </footer>
       )}
       {metric && <DefinitionDialog metric={metric} open={showDefinition} onClose={() => setShowDefinition(false)} />}

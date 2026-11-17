@@ -5,7 +5,8 @@
  * checked without a browser.
  */
 import { metricById, PROPERTIES, type CategoryId, type Metric, type PropertyId } from "./catalogue";
-import { DEFAULT_RANGE, rangeLabel } from "./dates";
+import { addDays, subMonths } from "date-fns";
+import { DEFAULT_RANGE, isoDay, lastCompleteDay, rangeLabel } from "./dates";
 import { normalise, splitName } from "./editor";
 import { hasNoData } from "./series";
 import { orderWidgets } from "./rules";
@@ -52,14 +53,23 @@ const SPLIT_WORDS: { re: RegExp; property: PropertyId }[] = [
 ];
 
 /** Time phrases, longest first. "Last week" reads as the last 7 days: the presets count back from today. */
-const TIME_WORDS: { re: RegExp; range: DateRange }[] = [
-  { re: /\b(?:this month|month to date|mtd)\b/, range: { preset: "mtd" } },
-  { re: /\b(?:last|past|previous) (?:12 months|year)\b|\bthis year\b|\byear to date\b/, range: { preset: "12m" } },
-  { re: /\b(?:last|past|previous) (?:6 months|half year)\b/, range: { preset: "6m" } },
-  { re: /\b(?:last|past|previous) (?:90 days|3 months|three months|quarter)\b|\bthis quarter\b/, range: { preset: "90d" } },
-  { re: /\b(?:last|past|previous) (?:30 days|month|4 weeks|four weeks)\b/, range: { preset: "30d" } },
-  { re: /\b(?:last|past|previous) (?:7 days|week|seven days)\b|\bthis week\b|\btoday\b|\byesterday\b/, range: { preset: "7d" } },
+const TIME_WORDS: { re: RegExp; range: () => DateRange }[] = [
+  { re: /\b(?:this month|month to date|mtd)\b/, range: () => ({ preset: "mtd" }) },
+  { re: /\b(?:last|previous) month\b/, range: () => ({ preset: "lastMonth" }) },
+  { re: /\b(?:this quarter|quarter to date)\b/, range: () => ({ preset: "qtd" }) },
+  { re: /\b(?:last|past|previous) (?:12 months|year)\b|\bthis year\b|\byear to date\b/, range: () => ({ preset: "12m" }) },
+  // No preset for six months any more: the same span as custom dates.
+  { re: /\b(?:last|past|previous) (?:6 months|half year)\b/, range: () => sixMonths() },
+  { re: /\b(?:last|past|previous) (?:90 days|3 months|three months|quarter)\b/, range: () => ({ preset: "90d" }) },
+  { re: /\b(?:past|previous) month\b|\b(?:last|past|previous) (?:30 days|4 weeks|four weeks)\b/, range: () => ({ preset: "30d" }) },
+  { re: /\b(?:last|past|previous) (?:7 days|week|seven days)\b|\bthis week\b|\byesterday\b/, range: () => ({ preset: "7d" }) },
+  { re: /\btoday\b|\bso far today\b/, range: () => ({ preset: "today" }) },
 ];
+
+function sixMonths(): DateRange {
+  const to = lastCompleteDay();
+  return { preset: "custom", from: isoDay(addDays(subMonths(to, 6), 1)), to: isoDay(to) };
+}
 
 const GROUPING_WORDS: { re: RegExp; grouping: Grouping }[] = [
   { re: /\b(?:daily|per day|each day|day by day)\b/, grouping: "day" },
@@ -136,7 +146,7 @@ export function readPrompt(raw: string, chosenMetricId?: string): Reading & { me
   if (chosenMetricId) metrics = [metricById(chosenMetricId)!, ...metrics.filter((m) => m.id !== chosenMetricId)];
   const split = SPLIT_WORDS.find((s) => s.re.test(text))?.property;
   const regions = PROPERTIES.region.values.filter((r) => new RegExp(`\\b${escape(r.toLowerCase())}\\b`).test(text));
-  const range = TIME_WORDS.find((t) => t.re.test(text))?.range;
+  const range = TIME_WORDS.find((t) => t.re.test(text))?.range();
   const grouping = GROUPING_WORDS.find((g) => g.re.test(text))?.grouping;
   return { metrics, split, regions, range, grouping, mentionsRevenue: /\b(?:revenue|income|sales|takings)\b/.test(text) };
 }

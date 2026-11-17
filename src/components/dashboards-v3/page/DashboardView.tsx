@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { startOfDay } from "date-fns";
-import { ArrowLeft, Copy, CopyPlus, Globe, Home, Info, Lock, Pencil, Plus, Share2, Star, Trash2, Users } from "lucide-react";
+import { ArrowLeft, Copy, CopyPlus, FileSpreadsheet, Globe, Home, Info, Lock, Pencil, Plus, Share2, Star, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { suggestedMetrics, type ChartType, type Metric } from "@/lib/dashboards-v3/catalogue";
 import { autoTitle, normalise, sameWidget } from "@/lib/dashboards-v3/editor";
@@ -24,8 +24,9 @@ import { CategoryChip } from "../ui/CategoryChip";
 import { ConfirmDialog } from "../ui/Dialog";
 import { RowMenu } from "../ui/RowMenu";
 import { UndoToast, type UndoAction } from "../ui/UndoToast";
-import { DashboardFilters, DEFAULT_FILTERS, sameFilters } from "./DashboardFilters";
+import { DEFAULT_FILTERS, FilterBar, sameFilters } from "./DashboardFilters";
 import { SuggestedWidgets } from "./SuggestedWidgets";
+import { exportDashboardXlsx } from "./exportDashboard";
 import { WidgetCard } from "./WidgetCard";
 
 interface Draft {
@@ -161,10 +162,23 @@ export function DashboardView({ id }: { id: string }) {
   const shown = panel ? (panel.mode === "add" ? orderWidgets([...widgets, panel.widget]) : replaceWidget(widgets, panel.widget)) : widgets;
   const showSpots = editing && !panel && !full;
   type GridItem = { kind: "widget"; widget: Widget } | { kind: "spot"; rank: number; label: string; type: ChartType };
-  const gridItems: GridItem[] = SPOT.flatMap((spot) => [
-    ...shown.filter((w) => widgetRank(w.type) === spot.rank).map((widget): GridItem => ({ kind: "widget", widget })),
-    ...(showSpots ? [{ kind: "spot" as const, ...spot }] : []),
-  ]);
+  const groups: { rank: number; items: GridItem[] }[] = SPOT.map((spot) => ({
+    rank: spot.rank,
+    items: [
+      ...shown.filter((w) => widgetRank(w.type) === spot.rank).map((widget): GridItem => ({ kind: "widget", widget })),
+      ...(showSpots ? [{ kind: "spot" as const, ...spot }] : []),
+    ],
+  })).filter((g) => g.items.length > 0);
+
+  /**
+   * Number widgets share their row and grow to fill it: three in a row are a
+   * third each, four a quarter, and a fifth takes the next row whole. Charts
+   * and tables keep the four-column grid.
+   */
+  const numberSize = (size: Widget["size"]) =>
+    panel
+      ? size === "half" ? "basis-full grow" : "min-w-0 basis-[calc(50%-8px)] grow"
+      : size === "half" ? "min-w-0 basis-[calc(50%-8px)] grow" : "min-w-[200px] basis-[calc(25%-12px)] grow";
 
   /** Widgets only change in edit mode, on the draft. */
   function changeWidgets(fn: (w: Widget[]) => Widget[]) {
@@ -270,11 +284,22 @@ export function DashboardView({ id }: { id: string }) {
   const fav = favorites.includes(id);
   const isDefault = defaultId === id;
 
+  async function exportExcel() {
+    try {
+      const name = await exportDashboardXlsx(dashboard!, current.filters, current.widgets, today);
+      toast.success("Exported to Excel", `${name}, with mock data.`);
+    } catch {
+      toast.error("Couldn’t export to Excel", "Try again in a moment.");
+    }
+  }
+  const exportItem = { label: "Export to Excel", icon: FileSpreadsheet, onSelect: () => { void exportExcel(); } };
+
   const headerMenu = own
     ? [
         { label: "Rename", icon: Pencil, onSelect: () => setRenaming(true) },
         { label: "Duplicate", icon: Copy, onSelect: () => setNewStart({ step: 2, kind: "duplicate", sourceId: id }) },
         { label: isDefault ? "Remove as default" : "Set as default", icon: Home, onSelect: () => setDefault(isDefault ? null : id) },
+        exportItem,
         { label: "Delete", icon: Trash2, onSelect: () => setDeleting(true), danger: true },
       ]
     : [
@@ -287,6 +312,7 @@ export function DashboardView({ id }: { id: string }) {
             }]
           : []),
         { label: isDefault ? "Remove as default" : "Set as default", icon: Home, onSelect: () => setDefault(isDefault ? null : id) },
+        exportItem,
       ];
 
   return (
@@ -374,21 +400,13 @@ export function DashboardView({ id }: { id: string }) {
       <div className="flex flex-1 overflow-hidden">
       <div className="flex-1 overflow-auto bg-zeno-bg p-5">
         <div className="mb-4">
-          <DashboardFilters
+          <FilterBar
             value={current.filters}
+            saved={dashboard.filters}
             onChange={changeFilters}
-            note={!own ? "Filter changes here aren’t saved, because this dashboard isn’t yours." : undefined}
-            extra={
-              unsavedFilters ? (
-                <button
-                  type="button"
-                  onClick={saveFiltersAsDefault}
-                  className="rounded px-1 text-xs font-medium text-zeno-teal underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
-                >
-                  Save as dashboard default
-                </button>
-              ) : undefined
-            }
+            canSaveDefault={unsavedFilters}
+            onSaveDefault={saveFiltersAsDefault}
+            readOnlyNote={!own ? "Not saved: this dashboard isn’t yours" : undefined}
           />
         </div>
 
@@ -402,49 +420,57 @@ export function DashboardView({ id }: { id: string }) {
         {shown.length === 0 ? (
           <SuggestedWidgets category={dashboard.category} mode={editing ? "add" : own ? "edit" : "none"} onEdit={enterEdit} onAddWidget={() => addWidgetFlow()} onAddSuggestion={addSuggestion} />
         ) : (
-          <div className={cn("grid gap-4", panel ? "grid-cols-2" : "grid-cols-4")}>
-            {gridItems.map((item) => {
-              if (item.kind === "spot") {
-                return (
-                  <button
-                    key={`spot-${item.rank}`}
-                    type="button"
-                    data-spot={item.rank}
-                    onClick={() => addWidgetFlow(item.type)}
-                    className={cn(
-                      "flex items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-slate-300 text-sm font-medium text-slate-600 transition-colors hover:border-zeno-teal hover:text-zeno-teal focus:outline-none focus-visible:border-zeno-teal focus-visible:ring-2 focus-visible:ring-zeno-teal/40",
-                      item.rank === 0 ? cn(SPAN.quarter, "min-h-[120px]") : cn(SPAN.half, "min-h-[160px]")
-                    )}
-                  >
-                    <Plus className="h-4 w-4" aria-hidden /> {item.label}
-                  </button>
-                );
-              }
-              const w = item.widget;
-              return (
-                <WidgetCard
-                  key={w.id}
-                  widget={w}
-                  compact={panel !== null}
-                  mark={panel?.widget.id === w.id ? (panel.mode === "add" ? "placeholder" : "editing") : highlight === w.id ? "added" : undefined}
-                  filters={current.filters}
-                  today={today}
-                  editing={editing}
-                  canChange={own}
-                  failed={!!w.mockError && !retried.has(w.id)}
-                  moveUpBlocked={moveBlocked(widgets, w.id, -1)}
-                  moveDownBlocked={moveBlocked(widgets, w.id, 1)}
-                  onRetry={() => setRetried((r) => new Set(r).add(w.id))}
-                  onResetFilters={() => changeFilters(DEFAULT_FILTERS)}
-                  onRename={(title) => changeWidgets((ws) => patchWidget(ws, w.id, { title }))}
-                  onMove={(dir) => changeWidgets((ws) => moveWidget(ws, w.id, dir))}
-                  onResize={(size) => changeWidgets((ws) => patchWidget(ws, w.id, { size }))}
-                  onEdit={() => editWidget(w)}
-                  onDuplicate={() => duplicateOne(w)}
-                  onRemove={() => remove(w)}
-                />
-              );
-            })}
+          <div className="space-y-4">
+            {groups.map((group) => (
+              <div
+                key={group.rank}
+                className={group.rank === 0 ? "flex flex-wrap gap-4" : cn("grid gap-4", panel ? "grid-cols-2" : "grid-cols-4")}
+              >
+                {group.items.map((item) => {
+                  if (item.kind === "spot") {
+                    return (
+                      <button
+                        key={`spot-${item.rank}`}
+                        type="button"
+                        data-spot={item.rank}
+                        onClick={() => addWidgetFlow(item.type)}
+                        className={cn(
+                          "flex items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-slate-300 text-sm font-medium text-slate-600 transition-colors hover:border-zeno-teal hover:text-zeno-teal focus:outline-none focus-visible:border-zeno-teal focus-visible:ring-2 focus-visible:ring-zeno-teal/40",
+                          item.rank === 0 ? cn(numberSize("quarter"), "min-h-[120px]") : cn(SPAN.half, "min-h-[160px]")
+                        )}
+                      >
+                        <Plus className="h-4 w-4" aria-hidden /> {item.label}
+                      </button>
+                    );
+                  }
+                  const w = item.widget;
+                  return (
+                    <WidgetCard
+                      key={w.id}
+                      widget={w}
+                      compact={panel !== null}
+                      sizeClass={group.rank === 0 ? numberSize(w.size) : undefined}
+                      mark={panel?.widget.id === w.id ? (panel.mode === "add" ? "placeholder" : "editing") : highlight === w.id ? "added" : undefined}
+                      filters={current.filters}
+                      today={today}
+                      editing={editing}
+                      canChange={own}
+                      failed={!!w.mockError && !retried.has(w.id)}
+                      moveUpBlocked={moveBlocked(widgets, w.id, -1)}
+                      moveDownBlocked={moveBlocked(widgets, w.id, 1)}
+                      onRetry={() => setRetried((r) => new Set(r).add(w.id))}
+                      onResetFilters={() => changeFilters(sameFilters(current.filters, dashboard.filters) ? DEFAULT_FILTERS : dashboard.filters)}
+                      onRename={(title) => changeWidgets((ws) => patchWidget(ws, w.id, { title }))}
+                      onMove={(dir) => changeWidgets((ws) => moveWidget(ws, w.id, dir))}
+                      onResize={(size) => changeWidgets((ws) => patchWidget(ws, w.id, { size }))}
+                      onEdit={() => editWidget(w)}
+                      onDuplicate={() => duplicateOne(w)}
+                      onRemove={() => remove(w)}
+                    />
+                  );
+                })}
+              </div>
+            ))}
           </div>
         )}
       </div>

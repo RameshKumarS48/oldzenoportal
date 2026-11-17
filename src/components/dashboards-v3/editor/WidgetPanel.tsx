@@ -229,11 +229,15 @@ export function WidgetPanel({
               <select
                 id={`${headingId}-range`}
                 value={widget.range?.preset ?? ""}
-                onChange={(e) => set({ range: e.target.value ? { preset: e.target.value as (typeof RANGE_PRESETS)[number]["value"] } : undefined })}
+                onChange={(e) => {
+                  if (e.target.value === widget.range?.preset) return;
+                  set({ range: e.target.value ? { preset: e.target.value as (typeof RANGE_PRESETS)[number]["value"] } : undefined });
+                }}
                 className={FIELD}
               >
                 <option value="">Same as the dashboard ({rangeLabel(filters.range)})</option>
                 {RANGE_PRESETS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+                {widget.range && !RANGE_PRESETS.some((p) => p.value === widget.range!.preset) && <option value={widget.range.preset}>{rangeLabel(widget.range)}</option>}
               </select>
             </div>
 

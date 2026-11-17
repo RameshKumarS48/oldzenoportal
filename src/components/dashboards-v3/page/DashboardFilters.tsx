@@ -1,16 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { format } from "date-fns";
 import { ChevronDown, MapPin } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { PROPERTIES } from "@/lib/dashboards-v3/catalogue";
-import { DEFAULT_RANGE, isoDay, RANGE_PRESETS, rangeLabel, resolveRange } from "@/lib/dashboards-v3/dates";
+import { DATE_FORMAT, DEFAULT_RANGE } from "@/lib/dashboards-v3/dates";
+import { dataAsOf } from "@/lib/dashboards-v3/format";
 import type { DashboardFilters as Filters, DateRange } from "@/lib/dashboards-v3/types";
-import { cn } from "@/lib/utils";
-import { ClearFilters, FilterChip } from "../ui/FilterChip";
+import { DateRangePicker } from "./DateRangePicker";
 
+// Battery Tracking's filter bar (BatteryFilterBar.tsx): a white card of compact text-xs controls.
+const BAR = "flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5";
 const CONTROL =
-  "inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:border-slate-400 focus:border-zeno-teal focus:outline-none focus:ring-2 focus:ring-zeno-teal/20";
+  "inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-zeno-teal/20";
+const QUIET =
+  "rounded-md px-2 py-1.5 text-xs font-medium text-slate-700 underline-offset-2 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40";
+const SECONDARY =
+  "rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40";
 
 export const sameRange = (a: DateRange, b: DateRange) => a.preset === b.preset && a.from === b.from && a.to === b.to;
 export const filtersActive = (f: Filters) => !sameRange(f.range, DEFAULT_RANGE) || f.regions.length > 0;
@@ -18,86 +24,44 @@ export const sameFilters = (a: Filters, b: Filters) => sameRange(a.range, b.rang
 export const DEFAULT_FILTERS: Filters = { range: DEFAULT_RANGE, regions: [] };
 
 /**
- * The whole dashboard's filters: a date range (presets or custom dates) and
- * regions. Anything other than the default shows as a removable chip.
+ * The dashboard's filter bar, under the title row: date range and region on
+ * the left, each showing its value. When the filters differ from the saved
+ * ones, the right says so, with Reset and, on your own dashboard in view
+ * mode, Save as default; on someone else's, a note that changes aren't
+ * saved. "Data as of" sits at the far right: the page's one freshness label.
  */
-export function DashboardFilters({
-  value, onChange, note, extra,
+export function FilterBar({
+  value, saved, onChange, canSaveDefault, onSaveDefault, readOnlyNote,
 }: {
-  value: Filters; onChange: (f: Filters) => void; note?: string;
-  /** Beside Clear filters, e.g. "Save as dashboard default"; the row shows whenever this is given. */
-  extra?: React.ReactNode;
+  value: Filters;
+  /** The dashboard's saved filters: what Reset goes back to. */
+  saved: Filters;
+  onChange: (f: Filters) => void;
+  canSaveDefault: boolean;
+  onSaveDefault: () => void;
+  /** For dashboards that aren't yours: why changes aren't kept. */
+  readOnlyNote?: string;
 }) {
-  const set = (patch: Partial<Filters>) => onChange({ ...value, ...patch });
+  const changed = !sameFilters(value, saved);
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <RangeControl value={value.range} onChange={(range) => set({ range })} />
-        <RegionControl value={value.regions} onChange={(regions) => set({ regions })} />
-        {note && <span className="text-xs text-slate-500">{note}</span>}
+    <div role="toolbar" aria-label="Dashboard filters" className={BAR}>
+      <DateRangePicker value={value.range} onChange={(range) => onChange({ ...value, range })} />
+      <RegionControl value={value.regions} onChange={(regions) => onChange({ ...value, regions })} />
+      <div className="ml-auto flex flex-wrap items-center gap-2">
+        {changed && (
+          <>
+            <span className="text-xs text-slate-500">Filters changed</span>
+            <button type="button" onClick={() => onChange(saved)} className={QUIET}>Reset</button>
+            {canSaveDefault ? (
+              <button type="button" onClick={onSaveDefault} className={SECONDARY}>Save as default</button>
+            ) : (
+              readOnlyNote && <span className="text-xs text-slate-500">{readOnlyNote}</span>
+            )}
+            <span aria-hidden className="mx-1 h-4 w-px bg-slate-200" />
+          </>
+        )}
+        <span className="whitespace-nowrap text-xs text-slate-500">Data as of {format(dataAsOf(), `${DATE_FORMAT}, HH:mm`)}</span>
       </div>
-      {(filtersActive(value) || extra) && (
-        <div className="flex flex-wrap items-center gap-2">
-          {!sameRange(value.range, DEFAULT_RANGE) && <FilterChip label="Date" value={rangeLabel(value.range)} onRemove={() => set({ range: DEFAULT_RANGE })} />}
-          {value.regions.map((r) => (
-            <FilterChip key={r} label="Region" value={r} onRemove={() => set({ regions: value.regions.filter((x) => x !== r) })} />
-          ))}
-          {filtersActive(value) && <ClearFilters onClick={() => onChange(DEFAULT_FILTERS)} />}
-          {extra}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RangeControl({ value, onChange }: { value: DateRange; onChange: (r: DateRange) => void }) {
-  const [custom, setCustom] = useState<{ from: string; to: string } | null>(null);
-  const today = isoDay(new Date());
-  const error = custom && (!custom.from || !custom.to ? "Choose both dates" : custom.from > custom.to ? "The start date is after the end date" : null);
-
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <label className="sr-only" htmlFor="dashboard-range">Date range</label>
-      <select
-        id="dashboard-range"
-        value={custom ? "custom" : value.preset}
-        onChange={(e) => {
-          if (e.target.value === "custom") {
-            const r = resolveRange(value);
-            setCustom({ from: isoDay(r.from), to: isoDay(r.to) });
-          } else {
-            setCustom(null);
-            onChange({ preset: e.target.value as DateRange["preset"] });
-          }
-        }}
-        className={cn(CONTROL, "pr-8")}
-      >
-        {RANGE_PRESETS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-        <option value="custom">{value.preset === "custom" && !custom ? rangeLabel(value) : "Custom range…"}</option>
-      </select>
-      {custom && (
-        <form
-          className="flex flex-wrap items-center gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (error) return;
-            onChange({ preset: "custom", from: custom.from, to: custom.to });
-            setCustom(null);
-          }}
-        >
-          <label className="flex items-center gap-1.5 text-sm text-slate-600">
-            From
-            <input type="date" value={custom.from} max={today} onChange={(e) => setCustom({ ...custom, from: e.target.value })} className={CONTROL} />
-          </label>
-          <label className="flex items-center gap-1.5 text-sm text-slate-600">
-            To
-            <input type="date" value={custom.to} max={today} onChange={(e) => setCustom({ ...custom, to: e.target.value })} className={CONTROL} />
-          </label>
-          <Button type="submit" size="sm" variant="teal" disabled={!!error}>Apply</Button>
-          <Button type="button" size="sm" variant="ghost" onClick={() => setCustom(null)}>Cancel</Button>
-          {error && <span className="text-xs text-red-600">{error}</span>}
-        </form>
-      )}
     </div>
   );
 }
@@ -118,7 +82,7 @@ function RegionControl({ value, onChange }: { value: string[]; onChange: (r: str
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
-  const label = value.length === 0 ? "All regions" : value.length === 1 ? value[0] : `${value.length} regions`;
+  const label = value.length === 0 ? "All" : value.length === 1 ? value[0] : `${value.length} selected`;
 
   return (
     <div className="relative">
@@ -130,10 +94,9 @@ function RegionControl({ value, onChange }: { value: string[]; onChange: (r: str
         onClick={() => setOpen((o) => !o)}
         className={CONTROL}
       >
-        <MapPin className="h-4 w-4 text-slate-500" aria-hidden />
-        <span className="sr-only">Region: </span>
-        {label}
-        <ChevronDown className="h-4 w-4 text-slate-500" aria-hidden />
+        <MapPin className="h-3.5 w-3.5 text-slate-500" aria-hidden />
+        <span>Region: <span className="font-medium text-slate-800">{label}</span></span>
+        <ChevronDown className="h-3.5 w-3.5 text-slate-500" aria-hidden />
       </button>
       {open && (
         <div

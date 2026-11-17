@@ -1,12 +1,12 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, Cell, LabelList, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, Cell, LabelList, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Metric, PropertyId } from "@/lib/dashboards-v3/catalogue";
-import { GOAL, GRID, OTHER, SERIES, SERVICE_COLOR } from "@/lib/dashboards-v3/palette";
+import { GOAL, OTHER, SERIES, SERVICE_COLOR } from "@/lib/dashboards-v3/palette";
 import { fmtCompact } from "@/lib/dashboards-v3/format";
 import type { Series } from "@/lib/dashboards-v3/series";
 import type { WidgetSort } from "@/lib/dashboards-v3/types";
-import { AXIS_TICK, axisFormatter, TOOLTIP_PROPS, tooltipFormatter } from "./chart-parts";
+import { AXIS_TICK, TOOLTIP_PROPS, tooltipFormatter } from "./chart-parts";
 
 const ROW_PX = 30;
 
@@ -33,8 +33,8 @@ export function BarWidget({ metric, series, sort, goal, splitBy }: { metric: Met
   return (
     <ResponsiveContainer width="100%" height={rows.length * ROW_PX + 24}>
       <BarChart data={data} layout="vertical" margin={{ top: 0, right: 56, left: 0, bottom: 0 }} barCategoryGap={6}>
-        <CartesianGrid stroke={GRID} horizontal={false} />
-        <XAxis type="number" domain={[0, "auto"]} tick={AXIS_TICK} tickLine={false} axisLine={false} tickFormatter={axisFormatter(metric)} />
+        {/* Values sit at the bar ends, so there's no x-axis or gridlines to read them from. */}
+        <XAxis type="number" domain={[0, "auto"]} hide />
         <YAxis type="category" dataKey="name" width={labelWidth} tick={{ ...AXIS_TICK, fill: "#334155" }} tickLine={false} axisLine={false} interval={0} />
         <Tooltip {...TOOLTIP_PROPS} cursor={{ fill: "#f8fafc" }} formatter={tooltipFormatter(metric)} />
         {goal !== undefined && (

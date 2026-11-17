@@ -6,7 +6,11 @@ import { DEFAULT_RANGE } from "@/lib/dashboards-v3/dates";
 import type { Dashboard, DashboardFilters, Visibility, Widget } from "@/lib/dashboards-v3/types";
 
 export type OverviewView = "favorites" | "mine" | "shared" | "templates" | "all";
-export type OverviewSort = "lastViewed" | "name" | "created";
+export type SortKey = "name" | "category" | "visibility" | "widgets" | "lastViewed";
+export interface OverviewSort {
+  key: SortKey;
+  dir: "asc" | "desc";
+}
 
 export interface OverviewPrefs {
   view: OverviewView;
@@ -32,7 +36,10 @@ interface DashboardsV3State {
   /** The dashboard that opens instead of the overview, if any. */
   defaultId: string | null;
   prefs: OverviewPrefs;
+  /** Prompts sent to the draft composer, newest first, for its Recent list. */
+  recentPrompts: string[];
 
+  addRecentPrompt: (prompt: string) => void;
   setPrefs: (patch: Partial<OverviewPrefs>) => void;
   toggleFavorite: (id: string) => void;
   setDefault: (id: string | null) => void;
@@ -63,8 +70,11 @@ const initial = () => ({
   dashboards: buildSeed(Date.now()),
   favorites: ["t-revenue", "d-nairobi-ops"],
   defaultId: null as string | null,
-  prefs: { view: "mine", category: "all", sort: "lastViewed" } as OverviewPrefs,
+  prefs: { view: "mine", category: "all", sort: { key: "lastViewed", dir: "desc" } } as OverviewPrefs,
+  recentPrompts: [] as string[],
 });
+
+const RECENT_KEPT = 10;
 
 /**
  * Dashboards (v3) sandbox state, saved in this browser only. The persist
@@ -74,6 +84,13 @@ export const useDashboardsV3 = create<DashboardsV3State>()(
   persist(
     (set, get) => ({
       ...initial(),
+
+      addRecentPrompt: (prompt) =>
+        set((s) => {
+          const p = prompt.trim();
+          if (!p) return s;
+          return { recentPrompts: [p, ...s.recentPrompts.filter((x) => x.toLowerCase() !== p.toLowerCase())].slice(0, RECENT_KEPT) };
+        }),
 
       setPrefs: (patch) => set((s) => ({ prefs: { ...s.prefs, ...patch } })),
 
@@ -136,7 +153,7 @@ export const useDashboardsV3 = create<DashboardsV3State>()(
       name: "zeno-dashboards-v3",
       version: SEED_REVISION,
       storage: createJSONStorage(() => localStorage),
-      partialize: ({ dashboards, favorites, defaultId, prefs }) => ({ dashboards, favorites, defaultId, prefs }),
+      partialize: ({ dashboards, favorites, defaultId, prefs, recentPrompts }) => ({ dashboards, favorites, defaultId, prefs, recentPrompts }),
       // A new seed revision starts everyone again from the new seed.
       migrate: () => initial(),
     }

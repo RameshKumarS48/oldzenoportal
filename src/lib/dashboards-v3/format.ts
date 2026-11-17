@@ -11,19 +11,38 @@ export function fmtNumber(n: number, metric: Metric): string {
   return n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
-/** A figure short enough for an axis or a KPI: "1.2M", "48.6K". */
+/** Up to this, figures are written in full with separators; above it they're abbreviated. */
+const FULL_UP_TO = 99_999;
+
+/**
+ * The one rule for figures in every widget, axis and table: in full with
+ * thousand separators up to 99,999 ("4,414"), abbreviated above ("200.8K",
+ * "1.2M"). Percentages and small averages keep one decimal.
+ */
 export function fmtCompact(n: number, metric: Metric): string {
   if (!Number.isFinite(n)) return "–";
-  if (metric.unit === "%" || Math.abs(n) < 10_000) return fmtNumber(n, metric);
+  if (metric.unit === "%" || Math.abs(n) <= FULL_UP_TO) return fmtNumber(n, metric);
   return n.toLocaleString("en-US", { notation: "compact", maximumFractionDigits: 1 });
 }
 
-/** A figure with its unit: "412,180 points", "97.2%", "2,260". Counts need no unit. */
-export function fmtValue(n: number, metric: Metric, compact = false): string {
+/** What follows a figure in words: "swaps", "points", "kWh"; "%" sits on the number itself. */
+export function unitWords(metric: Metric): string {
+  if (metric.unit === "%") return "";
+  if (metric.unit === "count") return metric.noun ?? "";
+  return UNIT_LABEL[metric.unit];
+}
+
+/** A figure with its unit: "200.8K swaps", "97.2%", "412.2K points". */
+export function fmtValue(n: number, metric: Metric, compact = true): string {
   const num = compact ? fmtCompact(n, metric) : fmtNumber(n, metric);
   if (metric.unit === "%") return `${num}%`;
-  if (metric.unit === "count") return num;
-  return `${num} ${UNIT_LABEL[metric.unit]}`;
+  const words = unitWords(metric);
+  return words ? `${num} ${words}` : num;
+}
+
+/** Whether a widget's header needs a unit tag: only where the unit adds meaning (%, kWh, points), not for counts. */
+export function showsUnitTag(metric: Metric): boolean {
+  return metric.unit !== "count";
 }
 
 export interface Change {

@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, Copy, CopyPlus, Home, Lock, Pencil, Share2, Star, Trash2, Users, Globe } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ArrowUpRight, Copy, CopyPlus, Home, Lock, Pencil, Share2, Star, Trash2, Users, Globe } from "lucide-react";
 import { fmtLastViewed } from "@/lib/dashboards-v3/format";
 import type { Dashboard } from "@/lib/dashboards-v3/types";
 import { cn } from "@/lib/utils";
-import { isOwn } from "@/store/dashboards-v3";
+import { isOwn, type OverviewSort, type SortKey } from "@/store/dashboards-v3";
 import { CategoryChip } from "../ui/CategoryChip";
 import { RowMenu, type MenuItem } from "../ui/RowMenu";
 
@@ -62,6 +62,34 @@ function Visibility({ d }: { d: Dashboard }) {
   );
 }
 
+/**
+ * A sortable column header: the th carries aria-sort, the button inside does
+ * the sorting. Only the active column shows its arrow; the others show a
+ * faint one on hover or focus, so it's clear they can be sorted.
+ */
+function SortHeader({ column, label, sort, onSort, right }: { column: SortKey; label: string; sort: OverviewSort; onSort: (k: SortKey) => void; right: boolean }) {
+  const active = sort.key === column;
+  const Icon = !active ? ArrowUpDown : sort.dir === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <th className={cn(TH, right && "text-right")} aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        className={cn(
+          "group -mx-1 inline-flex items-center gap-1 rounded px-1 font-semibold transition-colors hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40",
+          active && "text-slate-700"
+        )}
+      >
+        {label}
+        <Icon
+          aria-hidden
+          className={cn("h-3.5 w-3.5", active ? "text-slate-600" : "text-slate-400 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100")}
+        />
+      </button>
+    </th>
+  );
+}
+
 /** The overview's table of dashboards. Rows open on click; every action is also in the ⋯ menu. */
 export function DashboardsTable({
   rows,
@@ -69,6 +97,8 @@ export function DashboardsTable({
   defaultId,
   now,
   onToggleFavorite,
+  sort,
+  onSort,
   actions,
 }: {
   rows: Dashboard[];
@@ -76,8 +106,13 @@ export function DashboardsTable({
   defaultId: string | null;
   now: number;
   onToggleFavorite: (id: string) => void;
+  sort: OverviewSort;
+  onSort: (key: SortKey) => void;
   actions: RowActions;
 }) {
+  const head = (key: SortKey, label: string, right = false) => (
+    <SortHeader key={key} column={key} label={label} sort={sort} onSort={onSort} right={right} />
+  );
   return (
     <table className="w-full table-fixed text-sm">
       <colgroup>
@@ -92,11 +127,11 @@ export function DashboardsTable({
       <thead>
         <tr>
           <th className={TH}><span className="sr-only">Favorite</span></th>
-          <th className={TH}>Name</th>
-          <th className={TH}>Category</th>
-          <th className={TH}>Visibility</th>
-          <th className={cn(TH, "text-right")}>Widgets</th>
-          <th className={TH}>Last viewed</th>
+          {head("name", "Name")}
+          {head("category", "Category")}
+          {head("visibility", "Visibility")}
+          {head("widgets", "Widgets", true)}
+          {head("lastViewed", "Last viewed")}
           <th className={TH}><span className="sr-only">Actions</span></th>
         </tr>
       </thead>

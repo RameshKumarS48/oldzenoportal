@@ -1,6 +1,7 @@
 import type { CategoryId, ChartType, PropertyId } from "./catalogue";
 
-export type RangePreset = "7d" | "30d" | "90d" | "6m" | "12m" | "mtd" | "custom";
+/** "6m" is no longer offered but still reads, for dashboards saved with it. */
+export type RangePreset = "today" | "7d" | "30d" | "90d" | "6m" | "12m" | "mtd" | "lastMonth" | "qtd" | "custom";
 
 /** A date range: a preset counted back from today, or custom dates (yyyy-MM-dd, both inclusive). */
 export interface DateRange {

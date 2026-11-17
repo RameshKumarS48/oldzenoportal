@@ -85,7 +85,7 @@ export function MetricPicker({ value, category, onChange }: { value: Metric | un
 function Group({ title, items, name, value, onPick, prefix }: { title: string; items: Metric[]; name: string; value: Metric | undefined; onPick: (m: Metric) => void; prefix: string }) {
   return (
     <div role="group" aria-label={title}>
-      <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{title}</p>
+      <p className="px-3 pb-1 pt-2 text-xs font-semibold text-slate-500">{title}</p>
       {items.map((m) => {
         const on = value?.id === m.id;
         return (
