@@ -91,6 +91,8 @@ export function moveWidget(widgets: Widget[], id: string, dir: -1 | 1): Widget[]
 
 /** The size a widget takes in the four-column grid. */
 export const SPAN: Record<WidgetSize, string> = { quarter: "col-span-4 sm:col-span-2 xl:col-span-1", half: "col-span-4 xl:col-span-2", full: "col-span-4" };
+/** The same sizes on the two-column grid shown beside the widget panel. */
+export const SPAN_COMPACT: Record<WidgetSize, string> = { quarter: "col-span-1", half: "col-span-2", full: "col-span-2" };
 
 const NO_MATCH = "(no match)";
 

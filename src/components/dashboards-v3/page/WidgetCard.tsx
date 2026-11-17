@@ -9,7 +9,7 @@ import { dataAsOf, UNIT_LABEL } from "@/lib/dashboards-v3/format";
 import { allowedSizes, SIZE_LABEL } from "@/lib/dashboards-v3/rules";
 import { runQuery, type QueryResult } from "@/lib/dashboards-v3/series";
 import type { DashboardFilters, Widget, WidgetSize } from "@/lib/dashboards-v3/types";
-import { SPAN, widgetQuery } from "@/lib/dashboards-v3/widgets";
+import { SPAN, SPAN_COMPACT, widgetQuery } from "@/lib/dashboards-v3/widgets";
 import { cn } from "@/lib/utils";
 import { toast } from "@/store/toast";
 import { DefinitionDialog } from "./DefinitionDialog";
@@ -21,7 +21,9 @@ import { LineWidget } from "../widgets/LineWidget";
 import { StackedBarWidget } from "../widgets/StackedBarWidget";
 import { TableWidget } from "../widgets/TableWidget";
 
-const CHART_PX = 220;
+const GRID_CHART_PX = 220;
+/** The panel's preview stays short so it can sit at the top while the options scroll. */
+const PREVIEW_CHART_PX = 140;
 /** How long the sandbox pretends a widget takes to load, so the loading state can be seen. */
 const LOAD_MS = 450;
 
@@ -44,6 +46,12 @@ export interface WidgetCardProps {
   onEdit: () => void;
   onDuplicate: () => void;
   onRemove: () => void;
+  /** "preview" is the panel's live preview: no menu, no loading pause, its container's width. */
+  variant?: "grid" | "preview";
+  /** placeholder: a new widget not added yet; editing: open in the panel; added: just added, briefly. */
+  mark?: "placeholder" | "editing" | "added";
+  /** The grid is two columns while the panel is open. */
+  compact?: boolean;
 }
 
 /**
@@ -63,7 +71,7 @@ export function WidgetCard(props: WidgetCardProps) {
     const id = setTimeout(() => setLoaded(signature), LOAD_MS);
     return () => clearTimeout(id);
   }, [signature]);
-  const loading = loaded !== signature;
+  const loading = props.variant !== "preview" && loaded !== signature;
 
   const result = useMemo(() => (query ? runQuery(query) : null), [query]);
   const previous = useMemo(() => {
@@ -72,6 +80,7 @@ export function WidgetCard(props: WidgetCardProps) {
     return runQuery({ ...query, range: previousPeriod(query.range), top: Infinity });
   }, [query, widget.compare]);
 
+  const CHART_PX = props.variant === "preview" ? PREVIEW_CHART_PX : GRID_CHART_PX;
   const titleId = `widget-${widget.id}-title`;
   const isText = widget.type === "text";
   const [showDefinition, setShowDefinition] = useState(false);
@@ -109,16 +118,32 @@ export function WidgetCard(props: WidgetCardProps) {
     : [...definition, ...exportItem, ...(canChange ? [{ label: "Edit", icon: Pencil, onSelect: props.onEdit }] : [])];
 
   return (
-    <article aria-labelledby={titleId} aria-busy={loading && !isText} className={cn("flex min-w-0 flex-col rounded-xl border bg-white", editing ? "border-dashed border-slate-300" : "border-slate-200", SPAN[widget.size])}>
+    <article
+      id={`widget-card-${widget.id}`}
+      tabIndex={-1}
+      aria-labelledby={titleId}
+      aria-busy={loading && !isText}
+      className={cn(
+        "flex min-w-0 scroll-m-6 flex-col rounded-xl border bg-white transition-shadow focus:outline-none",
+        props.variant === "preview" ? "border-slate-200" : (props.compact ? SPAN_COMPACT : SPAN)[widget.size],
+        props.variant !== "preview" && (editing ? "border-dashed border-slate-300" : "border-slate-200"),
+        props.mark === "placeholder" && "border-2 border-dashed border-zeno-teal",
+        props.mark === "editing" && "border-zeno-teal ring-2 ring-zeno-teal/30",
+        props.mark === "added" && "ring-2 ring-zeno-teal ring-offset-2"
+      )}
+    >
+      {props.mark && props.mark !== "added" && (
+        <p className="px-4 pt-2 text-xs font-medium text-zeno-teal">{props.mark === "placeholder" ? "New widget · preview" : "Editing in the panel"}</p>
+      )}
       <header className="flex items-start gap-2 px-4 pb-2 pt-3">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1">
-          <WidgetTitle id={titleId} title={widget.title} editing={editing} onRename={props.onRename} />
+          <WidgetTitle id={titleId} title={widget.title} editing={editing && !props.mark && props.variant !== "preview"} onRename={props.onRename} />
           {metric && <FocusTip label={`What ${metric.name} means`} content={metric.definition} />}
           {metric && !isText && (
             <span className="rounded border border-slate-200 px-1.5 text-[11px] leading-4 text-slate-600">{UNIT_LABEL[metric.unit]}</span>
           )}
         </div>
-        {menu.length > 0 && <RowMenu label={`Actions for ${widget.title || "widget"}`} items={menu} className="-mr-1.5 -mt-1 shrink-0" />}
+        {menu.length > 0 && !props.mark && props.variant !== "preview" && <RowMenu label={`Actions for ${widget.title || "widget"}`} items={menu} className="-mr-1.5 -mt-1 shrink-0" />}
       </header>
 
       <div className={cn("min-w-0 flex-1 px-4", isText ? "pb-4" : "pb-2")}>
@@ -126,8 +151,10 @@ export function WidgetCard(props: WidgetCardProps) {
           <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{widget.text || <span className="italic text-slate-500">No text yet</span>}</p>
         ) : failed ? (
           <State icon={AlertCircle} tone="error" title="Couldn’t load this widget" detail="The data didn’t arrive. Try again in a moment." action={{ label: "Retry", icon: RotateCw, onClick: props.onRetry }} />
-        ) : loading || !query || !result || !metric ? (
-          <Skeleton type={widget.type} />
+        ) : !metric ? (
+          <p className="flex min-h-[96px] items-center justify-center text-sm text-slate-500">Pick a metric to preview</p>
+        ) : loading || !query || !result ? (
+          <Skeleton type={widget.type} height={CHART_PX} />
         ) : result.empty ? (
           <State icon={FilterX} title="No data for this filter" detail="Nothing matches the dashboard’s filters for this metric." action={{ label: "Reset filters", icon: RotateCw, onClick: props.onResetFilters }} />
         ) : widget.type === "kpi" ? (
@@ -143,7 +170,9 @@ export function WidgetCard(props: WidgetCardProps) {
             height={CHART_PX}
           />
         ) : widget.type === "bar" ? (
-          <BarWidget metric={metric} series={result.series} sort={widget.sort} goal={widget.goal} />
+          <div className={cn(props.variant === "preview" && "max-h-[200px] overflow-y-auto")}>
+            <BarWidget metric={metric} series={result.series} sort={widget.sort} goal={widget.goal} />
+          </div>
         ) : widget.type === "stacked" ? (
           <StackedBarWidget metric={metric} result={result} splitBy={query.splitBy} goal={widget.goal} showValues={widget.showValues} height={CHART_PX + 24} />
         ) : (
@@ -191,7 +220,7 @@ function previousByValue(current: QueryResult, previous: QueryResult, additive: 
 /** The title; in edit mode a button that turns into a field. Enter or leaving the field saves, Escape cancels. */
 function WidgetTitle({ id, title, editing, onRename }: { id: string; title: string; editing: boolean; onRename: (t: string) => void }) {
   const [draft, setDraft] = useState<string | null>(null);
-  if (!editing) return <h3 id={id} className="truncate text-sm font-semibold text-slate-800">{title}</h3>;
+  if (!editing) return <h3 id={id} className={cn("truncate text-sm font-semibold", title ? "text-slate-800" : "italic text-slate-500")}>{title || "New widget"}</h3>;
   if (draft !== null) {
     const commit = () => { if (draft.trim()) onRename(draft.trim()); setDraft(null); };
     return (
@@ -249,13 +278,13 @@ function State({
   );
 }
 
-function Skeleton({ type }: { type: Widget["type"] }) {
+function Skeleton({ type, height }: { type: Widget["type"]; height: number }) {
   return (
     <div className="animate-pulse" aria-label="Loading">
       {type === "kpi" ? (
         <div className="space-y-2 py-2"><div className="h-7 w-28 rounded bg-slate-100" /><div className="h-3 w-40 rounded bg-slate-100" /></div>
       ) : (
-        <div className="rounded-lg bg-slate-100" style={{ height: CHART_PX }} />
+        <div className="rounded-lg bg-slate-100" style={{ height }} />
       )}
     </div>
   );

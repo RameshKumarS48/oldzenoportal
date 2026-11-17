@@ -1,0 +1,96 @@
+/**
+ * The widget panel's choices and how they affect each other. Every option
+ * that can't be used says why, and every change leaves the widget valid:
+ * a number loses its split, a bar chart gets one, options a chart doesn't
+ * use are cleared.
+ */
+import { metricById, PROPERTIES, type ChartType, type Metric } from "./catalogue";
+import { allowedSizes, chartBlocked, defaultSize, INTENTS, splitBlocked, type Intent } from "./rules";
+import type { Widget } from "./types";
+
+/** The title a widget would have if nobody typed one: the metric, and what it's split by. */
+export function autoTitle(w: Widget): string {
+  if (w.type === "text") return "Heading";
+  const metric = metricById(w.metricId);
+  if (!metric) return "";
+  return w.splitBy && w.type !== "kpi" ? `${metric.name} by ${PROPERTIES[w.splitBy].name.toLowerCase()}` : metric.name;
+}
+
+function firstSplit(metric: Metric): Widget["splitBy"] {
+  return metric.defaultSplit ?? metric.splitBy[0];
+}
+
+export function compareBlocked(w: Widget): string | null {
+  if (w.type === "kpi") return null;
+  if (w.type === "line") return w.splitBy ? "Comparing shows one line against the last period. Remove the split to compare." : null;
+  if (w.type === "table") return w.splitBy ? null : "Comparing shows a change for each row of a split table. Choose a split first.";
+  if (w.type === "text") return "Text has nothing to compare";
+  return "Bar charts don’t show the previous period. Use a line or a table to compare.";
+}
+
+export function groupingBlocked(w: Widget): string | null {
+  if (w.type === "kpi") return "A number shows the whole period in one figure";
+  if (w.type === "bar") return "Bars compare totals for the whole period";
+  if (w.type === "table" && w.splitBy) return "A split table shows totals for the whole period";
+  if (w.type === "text") return "Text has no time";
+  return null;
+}
+
+export function goalBlocked(w: Widget): string | null {
+  return w.type === "line" || w.type === "bar" || w.type === "stacked" ? null : "Goal lines show on line and bar charts";
+}
+
+export function showValuesBlocked(w: Widget): string | null {
+  if (w.type === "line" || w.type === "stacked") return null;
+  if (w.type === "kpi") return "A number already shows its value";
+  if (w.type === "bar" || w.type === "table") return "Bars and tables always show their values";
+  return "Text has no values";
+}
+
+export function sortBlocked(w: Widget): string | null {
+  return w.type === "bar" || w.type === "table" ? null : "Sorting applies to bar charts and tables";
+}
+
+/**
+ * Makes a widget consistent after any change: a split only where the chart
+ * takes one (and one it allows), options the chart doesn't use cleared, a
+ * size the chart allows.
+ */
+export function normalise(w: Widget, sizeChosen: boolean): Widget {
+  const out: Widget = { ...w };
+  const metric = metricById(out.metricId);
+  if (out.type === "text") {
+    delete out.metricId; delete out.splitBy; delete out.filter; delete out.range; delete out.grouping; delete out.goal;
+    out.compare = false;
+    out.showValues = false;
+  } else if (metric) {
+    if (out.type === "kpi") delete out.splitBy;
+    if (out.splitBy && splitBlocked(out.type, metric, out.splitBy)) delete out.splitBy;
+    if ((out.type === "bar" || out.type === "stacked") && !out.splitBy) out.splitBy = firstSplit(metric);
+    if (out.filter && !metric.filters.includes(out.filter.property)) delete out.filter;
+    if (out.type === "stacked" && metric.unit === "%") out.type = "line";
+  }
+  if (compareBlocked(out)) out.compare = false;
+  if (groupingBlocked(out)) delete out.grouping;
+  if (goalBlocked(out)) delete out.goal;
+  if (showValuesBlocked(out)) out.showValues = false;
+  if (!sizeChosen || !allowedSizes(out.type).includes(out.size)) out.size = defaultSize(out.type);
+  return out;
+}
+
+/** The chart a "What do you want to see?" choice starts with. */
+export function chartForIntent(intent: Intent): ChartType {
+  return INTENTS.find((i) => i.id === intent)!.charts[0];
+}
+
+/** Why a chart can't show this widget, for the "Change chart" choices. A missing split doesn't block: choosing the chart adds one. */
+export function chartChoiceBlocked(type: ChartType, w: Widget): string | null {
+  const metric = metricById(w.metricId);
+  if (type === "bar" || type === "stacked") return chartBlocked(type, metric, metric ? metric.splitBy[0] : undefined);
+  return chartBlocked(type, metric, undefined);
+}
+
+/** A widget's settings that change what it shows, to tell whether the panel has unsaved changes. */
+export function sameWidget(a: Widget, b: Widget): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
