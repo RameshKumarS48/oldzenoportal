@@ -39,10 +39,12 @@ function shares(metric: Metric, property: PropertyId): Map<string, number> {
   return new Map(values.map((v, i) => [v, raw[i] / sum]));
 }
 
-/** For a percentage, how far a value sits from the network's level, in points. */
-function offset(metric: Metric, property: PropertyId, value: string): number {
+/** For a percentage, how far a value sits from the network's level on a day, in points; each value drifts a little over time. */
+function offset(metric: Metric, property: PropertyId, value: string, day: Date): number {
   const spread = Math.min(20, (100 - metric.mock.base) * 1.6);
-  return (seeded(`${metric.id}|${property}|${value}|offset`) - 0.5) * spread;
+  const t = (day.getTime() - EPOCH) / (365 * DAY_MS);
+  const drift = (seeded(`${metric.id}|${property}|${value}|drift`) - 0.5) * spread * t;
+  return (seeded(`${metric.id}|${property}|${value}|offset`) - 0.5) * spread + drift;
 }
 
 /** The whole network's value on one day. */
@@ -87,7 +89,7 @@ function segmentDaily(metric: Metric, day: Date, filters: PropertyFilter[], spli
       const s = shares(metric, f.property);
       const weight = f.values.reduce((a, v) => a + (s.get(v) ?? 0), 0);
       if (weight === 0) return NaN;
-      shift += f.values.reduce((a, v) => a + (s.get(v) ?? 0) * offset(metric, f.property, v), 0) / weight;
+      shift += f.values.reduce((a, v) => a + (s.get(v) ?? 0) * offset(metric, f.property, v, day), 0) / weight;
     }
     return clampPct(total + shift);
   }

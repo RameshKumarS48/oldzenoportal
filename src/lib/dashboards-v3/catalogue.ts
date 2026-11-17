@@ -134,7 +134,7 @@ export const METRICS: Metric[] = [
     unit: "%", aggregation: "average", defaultChart: "line", splitBy: ["region", "station", "country"], filters: ["region", "station", "country"],
     higherIsBetter: true,
     notAllowed: { customerType: "Uptime is the station's, not a rider's", service: "Uptime is for swap stations only" },
-    mock: { base: 97.2, trend: 0.01, weekend: 1 },
+    mock: { base: 97.2, trend: 0.002, weekend: 1 },
   },
   {
     id: "failed-swaps", name: "Failed swaps", category: "swaps",
