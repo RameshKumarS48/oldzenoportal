@@ -5,11 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { LayoutDashboard, LayoutTemplate, Plus, RotateCcw, Search, SearchX, Star, Users } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { Button } from "@/components/ui/button";
-import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DeleteDialog, RenameDialog, ShareDialog } from "@/components/dashboards-v3/DashboardDialogs";
+import { NewDashboardModal, type NewDashboardStart } from "@/components/dashboards-v3/NewDashboardModal";
 import { DashboardsTable, dashboardHref, type RowActions } from "@/components/dashboards-v3/overview/DashboardsTable";
 import { ViewList, VIEWS } from "@/components/dashboards-v3/overview/ViewList";
+import { ConfirmDialog } from "@/components/dashboards-v3/ui/Dialog";
 import { ClearFilters, FilterChip } from "@/components/dashboards-v3/ui/FilterChip";
 import { useHydrated, useNowMinute } from "@/components/dashboards-v3/hooks";
 import { CATEGORIES, categoryName } from "@/lib/dashboards-v3/catalogue";
@@ -70,6 +71,9 @@ function Overview() {
   const [sharing, setSharing] = useState<Dashboard | null>(null);
   const [deleting, setDeleting] = useState<Dashboard | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [newStart, setNewStart] = useState<NewDashboardStart | null>(null);
+  const [newKey, setNewKey] = useState(0);
+  const openNew = (start: NewDashboardStart) => { setNewKey((k) => k + 1); setNewStart(start); };
 
   // A default dashboard opens instead of the overview, except when coming back to the list.
   const defaultExists = defaultId !== null && dashboards.some((d) => d.id === defaultId);
@@ -106,9 +110,6 @@ function Overview() {
   const filtered = prefs.category !== "all" || query !== "";
   const clearFilters = () => { setSearch(""); setPrefs({ category: "all" }); };
 
-  function newDashboard() {
-    toast.info("Coming in checkpoint 2", "The new dashboard flow isn't built yet.");
-  }
 
   const actions: RowActions = {
     open: (d) => router.push(dashboardHref(d)),
@@ -119,11 +120,7 @@ function Overview() {
       duplicate(d.id);
       toast.success("Duplicated", `“${d.name} (copy)” is in Your dashboards.`);
     },
-    customise: (d) => {
-      duplicate(d.id);
-      setPrefs({ view: "mine" });
-      toast.success("Copied to Your dashboards", `“${d.name} (copy)” is yours to change.`);
-    },
+    customise: (d) => openNew({ step: 2, kind: "template", sourceId: d.id }),
     toggleDefault: (d) => {
       const on = defaultId !== d.id;
       setDefault(on ? d.id : null);
@@ -144,7 +141,7 @@ function Overview() {
             {defaultName && <> Opens on <span className="font-medium text-slate-700">{defaultName}</span> by default.</>}
           </p>
         </div>
-        <Button onClick={newDashboard}>
+        <Button onClick={() => openNew({ step: 1 })}>
           <Plus className="h-4 w-4" />
           New dashboard
         </Button>
@@ -219,7 +216,7 @@ function Overview() {
                         <Button variant="outline" size="sm" onClick={() => setPrefs({ view: "templates" })}>
                           <LayoutTemplate className="h-4 w-4" /> Browse templates
                         </Button>
-                        <Button variant="teal" size="sm" onClick={newDashboard}>
+                        <Button variant="teal" size="sm" onClick={() => openNew({ step: 2, kind: "blank" })}>
                           <Plus className="h-4 w-4" /> Blank dashboard
                         </Button>
                       </div>
@@ -248,7 +245,8 @@ function Overview() {
       <RenameDialog key={`rename-${renaming?.id}`} dashboard={renaming} onClose={() => setRenaming(null)} />
       <ShareDialog key={`share-${sharing?.id}`} dashboard={sharing} onClose={() => setSharing(null)} />
       <DeleteDialog dashboard={deleting} onClose={() => setDeleting(null)} />
-      <ConfirmModal
+      <NewDashboardModal key={newKey} start={newStart} onClose={() => setNewStart(null)} />
+      <ConfirmDialog
         open={confirmReset}
         tone="neutral"
         title="Reset sandbox data"
@@ -262,7 +260,7 @@ function Overview() {
         }}
       >
         Every dashboard you made or changed here goes back to the sample data. This only affects this browser.
-      </ConfirmModal>
+      </ConfirmDialog>
     </>
   );
 }

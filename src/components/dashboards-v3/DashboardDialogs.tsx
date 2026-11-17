@@ -3,13 +3,12 @@
 import { useState } from "react";
 import { Check, Link2, Lock, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Input } from "@/components/ui/input";
-import { Modal } from "@/components/ui/modal";
 import type { Dashboard, Visibility } from "@/lib/dashboards-v3/types";
 import { cn } from "@/lib/utils";
 import { useDashboardsV3 } from "@/store/dashboards-v3";
 import { toast } from "@/store/toast";
+import { ConfirmDialog, Dialog } from "./ui/Dialog";
 
 export const NAME_MAX = 60;
 
@@ -28,15 +27,15 @@ export function RenameDialog({ dashboard, onClose }: { dashboard: Dashboard | nu
   }
 
   return (
-    <Modal open={dashboard !== null} onClose={onClose} title="Rename dashboard">
+    <Dialog open={dashboard !== null} onClose={onClose} title="Rename dashboard">
       <form onSubmit={save} className="space-y-5">
-        <Input label="Name" value={name} maxLength={NAME_MAX} autoFocus onChange={(e) => setName(e.target.value)} error={error ?? undefined} />
+        <Input label="Name" value={name} maxLength={NAME_MAX} data-autofocus onChange={(e) => setName(e.target.value)} error={error ?? undefined} />
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
           <Button type="submit" variant="teal" disabled={!!error}>Save</Button>
         </div>
       </form>
-    </Modal>
+    </Dialog>
   );
 }
 
@@ -101,7 +100,7 @@ export function ShareDialog({ dashboard, onClose }: { dashboard: Dashboard | nul
   }
 
   return (
-    <Modal open={dashboard !== null} onClose={onClose} title={`Share “${dashboard?.name ?? ""}”`} className="max-w-lg">
+    <Dialog open={dashboard !== null} onClose={onClose} title={`Share “${dashboard?.name ?? ""}”`} className="max-w-lg">
       <div className="space-y-5">
         <VisibilityChoice value={visibility} onChange={setVisibility} />
         <div>
@@ -117,7 +116,7 @@ export function ShareDialog({ dashboard, onClose }: { dashboard: Dashboard | nul
           <Button type="button" variant="teal" onClick={save}>Save</Button>
         </div>
       </div>
-    </Modal>
+    </Dialog>
   );
 }
 
@@ -125,7 +124,7 @@ export function ShareDialog({ dashboard, onClose }: { dashboard: Dashboard | nul
 export function DeleteDialog({ dashboard, onClose, onDeleted }: { dashboard: Dashboard | null; onClose: () => void; onDeleted?: () => void }) {
   const remove = useDashboardsV3((s) => s.remove);
   return (
-    <ConfirmModal
+    <ConfirmDialog
       open={dashboard !== null}
       title="Delete dashboard"
       confirmLabel="Delete dashboard"
@@ -140,6 +139,6 @@ export function DeleteDialog({ dashboard, onClose, onDeleted }: { dashboard: Das
     >
       “{dashboard?.name}” and its {dashboard?.widgets.length ?? 0} widget{dashboard?.widgets.length === 1 ? "" : "s"} will be deleted
       {dashboard?.visibility === "team" ? " for you and your team" : ""}. This can’t be undone.
-    </ConfirmModal>
+    </ConfirmDialog>
   );
 }
