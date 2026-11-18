@@ -11,24 +11,50 @@ export const MAX_SERIES = 6;
 /** Most values a bar chart or table names before the rest go into Other. */
 export const TOP_VALUES = 8;
 
-/** How many split values a chart names before Other: lines and stacks are capped by colours, bars and tables by rows. */
+/** Most named segments in a stacked bar before Other: more than four slices of a bar can't be told apart. */
+export const STACK_SEGMENTS = 4;
+
+/** How many split values a chart names before Other: lines are capped by colours, stacks by readable segments, bars and tables by rows. */
 export function topFor(type: ChartType): number {
-  return type === "line" || type === "stacked" ? MAX_SERIES - 1 : TOP_VALUES;
+  if (type === "stacked") return STACK_SEGMENTS;
+  return type === "line" ? MAX_SERIES - 1 : TOP_VALUES;
 }
 
-export type Intent = "number" | "trend" | "comparison" | "list";
+/**
+ * Each chart by the question it answers, in the same words in Explore and in
+ * the widget panel: the goal is the label, the chart's name and when to use
+ * it are its tooltip and accessible description.
+ */
+export const CHART_GOALS: Record<Exclude<ChartType, "text">, { goal: string; name: string; when: string }> = {
+  kpi: { goal: "A number", name: "Number", when: "One figure, with its change since the previous period." },
+  line: { goal: "Change over time", name: "Line chart", when: "See trends, spikes and dips over time." },
+  bar: { goal: "Compare items", name: "Bar chart", when: "Compare regions, stations or services side by side." },
+  stacked: { goal: "What it’s made of", name: "Stacked bar chart", when: "See how the parts add up to the total, period by period." },
+  table: { goal: "A list", name: "Table", when: "Read the exact figures in rows." },
+};
 
+/** "Line chart. See trends, spikes and dips over time." */
+export const chartTip = (type: Exclude<ChartType, "text">) => `${CHART_GOALS[type].name}. ${CHART_GOALS[type].when}`;
+
+/** Figures that add up, so their parts can be stacked into a total: not percentages, averages or ratios. */
+export const canStack = (metric: Metric) => metric.unit !== "%" && metric.aggregation !== "average" && metric.aggregation !== "ratio";
+
+export type Intent = "number" | "time" | "compare" | "parts" | "list";
+
+/** The panel's "What do you want to see?", one choice per chart. "What it's made of" is offered only with a breakdown. */
 export const INTENTS: { id: Intent; short: string; hint: string; charts: ChartType[] }[] = [
-  { id: "number", short: "Number", hint: "One figure, with its change since the previous period", charts: ["kpi"] },
-  { id: "trend", short: "Trend", hint: "How a figure moves day by day, week by week or month by month", charts: ["line", "stacked"] },
-  { id: "comparison", short: "Comparison", hint: "Regions, stations or services side by side, biggest first", charts: ["bar", "stacked"] },
-  { id: "list", short: "List", hint: "The figures in rows you can read across", charts: ["table"] },
+  { id: "number", short: CHART_GOALS.kpi.goal, hint: chartTip("kpi"), charts: ["kpi"] },
+  { id: "time", short: CHART_GOALS.line.goal, hint: chartTip("line"), charts: ["line"] },
+  { id: "compare", short: CHART_GOALS.bar.goal, hint: chartTip("bar"), charts: ["bar"] },
+  { id: "parts", short: CHART_GOALS.stacked.goal, hint: chartTip("stacked"), charts: ["stacked"] },
+  { id: "list", short: CHART_GOALS.table.goal, hint: chartTip("table"), charts: ["table"] },
 ];
 
 export function intentOf(type: ChartType): Intent | null {
   if (type === "kpi") return "number";
-  if (type === "line") return "trend";
-  if (type === "bar" || type === "stacked") return "comparison";
+  if (type === "line") return "time";
+  if (type === "bar") return "compare";
+  if (type === "stacked") return "parts";
   if (type === "table") return "list";
   return null;
 }

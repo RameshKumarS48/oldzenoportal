@@ -6,6 +6,7 @@
 import { metricById, PROPERTIES, type ChartType, type Metric, type PropertyId } from "./catalogue";
 import { bucketEnd, DEFAULT_RANGE, fmtAsOf, fmtSpan, previousDates, resolveRange, type ResolvedRange } from "./dates";
 import { autoTitle, normalise } from "./editor";
+import { canStack } from "./rules";
 import { change, fmtValue, type Change } from "./format";
 import { EVENTS } from "./mock-model";
 import { countriesLeft, regionsLeft, type Bucket, type QueryResult } from "./series";
@@ -32,11 +33,38 @@ export interface ExploreState {
   filters: DashboardFilters;
   /** The dashboard's filters when Explore was opened: what Back returns to and Reset goes back to. */
   backFilters: DashboardFilters;
-  /** Compare as last chosen: kept while a chart that can't compare is shown, and back when one that can is. */
-  comparePref: boolean;
-  /** A line broken down shows Other only when asked. */
-  showOther: boolean;
+  /** The Display options as last chosen, kept while a chart that doesn't use one is shown, and back when one that does is. */
+  display: Display;
+  /** The chart was chosen by the person; otherwise it follows the recommendation as the breakdown changes. */
+  picked: boolean;
+  /** The chart recommended for this metric and breakdown. */
+  recommended: ChartType;
 }
+
+/**
+ * Explore's Display options, each remembered in the URL whatever the chart:
+ * a chart that doesn't use one hides it, and it's there again on one that does.
+ */
+export interface Display {
+  /** Unset: automatic. Lines and stacked bars. */
+  grouping?: Grouping;
+  /** Bars and tables. */
+  sort: WidgetSort;
+  /** Value labels: bars and stacked bars. Unset: on for bars, off for stacks. */
+  values?: boolean;
+  /** Lines, tables, and the summary row. */
+  compare: boolean;
+  /** Stacked bars, and bars with a breakdown: each value as a share of the total. */
+  percent: boolean;
+  /** A line broken down shows Other only when asked. */
+  other: boolean;
+}
+
+/** Whether value labels show on this chart. */
+export const valuesShown = (type: ChartType, d: Display) => d.values ?? type === "bar";
+
+/** Display options as a widget has them: where Explore opened from. */
+export const displayOf = (w: Widget): Display => ({ grouping: w.grouping, sort: w.sort, values: w.showValues || undefined, compare: w.compare, percent: false, other: false });
 
 /** "service:Swap,Fast charge;customerType:BaaS;station:" (a filter just added, with nothing chosen yet, keeps its row). */
 const writeFilters = (fs: PropertyFilter[]) => fs.map((f) => `${f.property}:${f.values.join(",")}`).join(";");
@@ -52,8 +80,11 @@ function readFilters(text: string | null): PropertyFilter[] {
 /** Everything about an Explore view, as a query string. */
 export function exploreQuery(s: {
   dashboardId: string | null; widgetId: string | null; widget: Widget; filters: DashboardFilters; backFilters: DashboardFilters;
-  comparePref?: boolean; showOther?: boolean;
+  display?: Display;
+  /** The chart was chosen by the person, not recommended. */
+  picked?: boolean;
 }): string {
+  const d = s.display ?? displayOf(s.widget);
   const q = new URLSearchParams(viewQuery(s.filters));
   if (s.dashboardId) q.set("dash", s.dashboardId);
   if (s.widgetId) q.set("wid", s.widgetId);
@@ -62,11 +93,13 @@ export function exploreQuery(s: {
   if (s.widget.splitBy) q.set("split", s.widget.splitBy);
   const f = writeFilters(s.widget.filters ?? []);
   if (f) q.set("f", f);
-  if (s.comparePref ?? s.widget.compare) q.set("compare", "1");
-  if (s.showOther) q.set("other", "1");
-  if (s.widget.grouping) q.set("grouping", s.widget.grouping);
-  if (s.widget.sort !== "desc") q.set("sort", s.widget.sort);
-  if (s.widget.showValues) q.set("values", "1");
+  if (d.compare) q.set("compare", "1");
+  if (d.other) q.set("other", "1");
+  if (d.grouping) q.set("grouping", d.grouping);
+  if (d.sort !== "desc") q.set("sort", d.sort);
+  if (d.values !== undefined) q.set("values", d.values ? "1" : "0");
+  if (d.percent) q.set("pct", "1");
+  if (s.picked) q.set("picked", "1");
   q.set("back", viewQuery(s.backFilters));
   return q.toString();
 }
@@ -76,9 +109,24 @@ export function singlePeriod(metric: Metric, filters: DashboardFilters): boolean
   return metric.kind === "snapshot" || resolveRange(filters.range).days === 1;
 }
 
-/** The chart Explore starts with: a line over time, or bars when broken down for a single period. */
-export function defaultExploreChart(metric: Metric, splitBy: PropertyId | undefined, filters: DashboardFilters): ChartType {
-  return splitBy && singlePeriod(metric, filters) ? "bar" : "line";
+/**
+ * The recommended chart: no breakdown, change over time (line); a breakdown
+ * on a single period, compare items (bars); a breakdown over time, what it's
+ * made of (stacked), or lines for figures that don't add up.
+ */
+export function recommendedChart(metric: Metric, splitBy: PropertyId | undefined, filters: DashboardFilters): ChartType {
+  if (!splitBy) return "line";
+  if (singlePeriod(metric, filters)) return "bar";
+  return canStack(metric) ? "stacked" : "line";
+}
+
+/** The charts that fit: no stacking without a breakdown or for figures that don't add up, no bars without anything to compare. */
+export function exploreChartOptions(metric: Metric, splitBy: PropertyId | undefined): ChartType[] {
+  return EXPLORE_CHARTS.filter((c) => {
+    if (c === "stacked") return !!splitBy && canStack(metric);
+    if (c === "bar") return metric.splitBy.length > 0;
+    return true;
+  });
 }
 
 /** Explore opened from a dashboard's widget: that widget, with the dashboard's filters (and the widget's own range, if it has one). */
@@ -109,9 +157,12 @@ export function exploreFromParams(get: (key: string) => string | null, dashboard
   const sort = get("sort") as WidgetSort | null;
   const split = get("split") as PropertyId | null;
   const splitBy = split && split in PROPERTIES ? split : undefined;
-  // A number (or anything unknown) starts as Explore's default chart.
+  // The recommended chart, unless the person picked one that still fits.
+  const picked = get("picked") === "1";
+  const recommended = metric ? recommendedChart(metric, splitBy, filters) : "line";
+  const chosen = metric && picked && type && CHARTS.has(type) && exploreChartOptions(metric, splitBy).includes(type) ? type : recommended;
   const start: Widget = metric
-    ? makeWidget(metric, type && CHARTS.has(type) ? type : defaultExploreChart(metric, splitBy, filters))
+    ? makeWidget(metric, chosen)
     : { id: "explore", type: "line", title: "", compare: false, showValues: false, sort: "desc", size: "half" };
   const raw: Widget = {
     ...start,
@@ -131,8 +182,16 @@ export function exploreFromParams(get: (key: string) => string | null, dashboard
     dashboard, widgetId: base?.id ?? null,
     widget: { ...widget, title: base?.title && base.metricId === widget.metricId ? base.title : autoTitle(widget) },
     filters, backFilters,
-    comparePref: get("compare") === "1",
-    showOther: get("other") === "1",
+    picked: picked && chosen === type,
+    recommended,
+    display: {
+      grouping: grouping && GROUPINGS.has(grouping) ? grouping : undefined,
+      sort: sort && SORTS.has(sort) ? sort : "desc",
+      values: get("values") === "1" ? true : get("values") === "0" ? false : undefined,
+      compare: get("compare") === "1",
+      percent: get("pct") === "1",
+      other: get("other") === "1",
+    },
   };
 }
 
@@ -234,3 +293,21 @@ export function markersFor(buckets: Bucket[], grouping: Grouping, range: Resolve
   }
   return out;
 }
+
+/** Each value as a share: of its bar, period by period, and of the whole for the totals. */
+export function asShares(r: QueryResult): QueryResult {
+  const perBucket = r.buckets.map((_, i) => r.series.reduce((a, x) => a + (Number.isFinite(x.values[i]) ? x.values[i] : 0), 0));
+  const whole = r.series.reduce((a, x) => a + x.total, 0);
+  return {
+    ...r,
+    total: 100,
+    series: r.series.map((x) => ({
+      ...x,
+      values: x.values.map((v, i) => (perBucket[i] > 0 && Number.isFinite(v) ? (v / perBucket[i]) * 100 : 0)),
+      total: whole > 0 ? (x.total / whole) * 100 : 0,
+    })),
+  };
+}
+
+/** The metric as a percentage, so axes, labels and tooltips read 0–100%. */
+export const sharesMetric = (m: Metric): Metric => ({ ...m, unit: "%", noun: undefined });

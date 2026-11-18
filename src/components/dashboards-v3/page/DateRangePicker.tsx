@@ -33,7 +33,7 @@ function readDate(text: string): Date | null {
 const POP_W = 480;
 const POP_H = 340;
 
-export function DateRangePicker({ value, onChange }: { value: DateRange; onChange: (r: DateRange) => void }) {
+export function DateRangePicker({ value, onChange, fullWidth = false }: { value: DateRange; onChange: (r: DateRange) => void; fullWidth?: boolean }) {
   /** Fixed beside the button, so a scrolling column (Explore's controls) never clips it. */
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const open = pos !== null;
@@ -87,13 +87,17 @@ export function DateRangePicker({ value, onChange }: { value: DateRange; onChang
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={`Date range: ${rangeLabel(value)}${value.preset === "custom" ? "" : `, ${exact}`}`}
+        // One line; cut short with an ellipsis where there's no room, the whole of it on hover.
+        title={value.preset === "custom" ? exact : `${rangeLabel(value)} · ${exact}`}
         onClick={() => setOpen((o) => !o)}
-        className={CONTROL}
+        className={cn(CONTROL, "min-w-0 max-w-full whitespace-nowrap", fullWidth && "w-full")}
       >
-        <CalendarDays className="h-3.5 w-3.5 text-slate-500" aria-hidden />
-        <span className="font-medium text-slate-800">{rangeLabel(value)}</span>
-        {value.preset !== "custom" && <span className="text-slate-600">· {exact}</span>}
-        <ChevronDown className="h-3.5 w-3.5 text-slate-500" aria-hidden />
+        <CalendarDays className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+        <span className="min-w-0 flex-1 truncate text-left">
+          <span className="font-medium text-slate-800">{rangeLabel(value)}</span>
+          {value.preset !== "custom" && <span className="text-slate-600"> · {exact}</span>}
+        </span>
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
       </button>
 
       {open && (

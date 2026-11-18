@@ -5,13 +5,13 @@ import { ChartBar, ChartColumnStacked, ChartLine, ChevronDown, Copy, LayoutDashb
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CATEGORIES, PROPERTIES, PROPERTY_ORDER, type CategoryId, type ChartType, type Metric, type PropertyId } from "@/lib/dashboards-v3/catalogue";
-import { chartChoiceBlocked } from "@/lib/dashboards-v3/editor";
-import { EXPLORE_CHARTS, type Summary } from "@/lib/dashboards-v3/explore";
+import { autoGroupingHint } from "@/lib/dashboards-v3/dates";
+import { valuesShown, type Display, type Summary } from "@/lib/dashboards-v3/explore";
 import { fmtCompact, fmtValue, unitWords } from "@/lib/dashboards-v3/format";
 import { CHANGE_CLASS } from "@/lib/dashboards-v3/palette";
-import { CHART_LABEL, splitBlocked } from "@/lib/dashboards-v3/rules";
+import { CHART_GOALS, chartTip, splitBlocked } from "@/lib/dashboards-v3/rules";
 import { lastEdited } from "@/lib/dashboards-v3/templates";
-import type { Dashboard, Widget } from "@/lib/dashboards-v3/types";
+import type { Dashboard, Grouping, Widget, WidgetSort } from "@/lib/dashboards-v3/types";
 import { atLimit, MAX_WIDGETS_NOTE } from "@/lib/dashboards-v3/widgets";
 import { cn } from "@/lib/utils";
 import { toast } from "@/store/toast";
@@ -19,8 +19,9 @@ import { NAME_MAX } from "../DashboardDialogs";
 import { Dialog } from "../ui/Dialog";
 import { RowMenu, type MenuItem } from "../ui/RowMenu";
 import { LOWER_IS_BETTER } from "../widgets/KpiWidget";
+import { EYEBROW, Segmented, Switch } from "../editor/controls";
 
-const HEADING = "mb-1.5 text-sm font-semibold text-slate-800";
+const HEADING = EYEBROW;
 /** Outline chips that read as clickable; the chosen one is filled. */
 const CHIP = "rounded-full border px-3 py-1 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40";
 const CHIP_OFF = "border-slate-300 bg-white text-slate-700 hover:border-zeno-teal hover:text-zeno-teal";
@@ -62,29 +63,43 @@ export function BreakdownChips({ metric, type, value, onChange }: { metric: Metr
 
 const CHART_ICON: Record<string, typeof ChartLine> = { line: ChartLine, bar: ChartBar, stacked: ChartColumnStacked, table: Table2 };
 
-/** Chart: an icon segmented control of the chart types that can show this view, each named in a tooltip on hover and focus. */
-export function ChartSwitch({ widget, onChange }: { widget: Widget; onChange: (t: ChartType) => void }) {
-  const choices = EXPLORE_CHARTS.filter((c) => !chartChoiceBlocked(c, widget));
+/**
+ * Chart: a 2×2 grid of tiles, each the question it answers ("Change over
+ * time") with its icon, only those that fit. The recommended one says so.
+ * Each tile's chart name and when to use it show as a tooltip on hover and
+ * focus, and are its accessible description.
+ */
+export function ChartSwitch({ widget, options, recommended, onChange }: { widget: Widget; options: ChartType[]; recommended: ChartType; onChange: (t: ChartType) => void }) {
   return (
     <div>
       <p id="explore-chart" className={HEADING}>Chart</p>
-      <div role="radiogroup" aria-labelledby="explore-chart" className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5">
-        {choices.map((c) => {
+      <div role="radiogroup" aria-labelledby="explore-chart" className="grid grid-cols-2 gap-1.5">
+        {options.map((c, i) => {
           const Icon = CHART_ICON[c];
           const on = widget.type === c;
+          const goal = CHART_GOALS[c as Exclude<ChartType, "text">];
+          const tip = chartTip(c as Exclude<ChartType, "text">);
           return (
-            <span key={c} className="group relative inline-flex">
+            <span key={c} className="group relative flex">
               <button
                 type="button"
                 role="radio"
                 aria-checked={on}
-                aria-label={CHART_LABEL[c]}
+                aria-describedby={`explore-chart-${c}-tip`}
                 onClick={() => onChange(c)}
-                className={cn("rounded-md p-1.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40", on ? "bg-zeno-teal text-white" : "text-slate-600 hover:bg-slate-100")}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40",
+                  on ? "border-zeno-teal bg-slate-50" : "border-slate-300 bg-white hover:border-slate-400"
+                )}
               >
-                <Icon className="h-4 w-4" aria-hidden />
+                <Icon className={cn("h-4 w-4 shrink-0", on ? "text-zeno-teal" : "text-slate-500")} aria-hidden />
+                <span className="min-w-0">
+                  <span className="block text-xs font-medium text-slate-800">{goal.goal}</span>
+                  {c === recommended && <span className="block text-[11px] font-medium text-zeno-teal">Recommended</span>}
+                </span>
               </button>
-              <Tip text={CHART_LABEL[c]} />
+              <span id={`explore-chart-${c}-tip`} className="sr-only">{tip}</span>
+              <Tip text={tip} wrap align={i % 2 === 0 ? "left" : "right"} />
             </span>
           );
         })}
@@ -93,10 +108,70 @@ export function ChartSwitch({ widget, onChange }: { widget: Widget; onChange: (t
   );
 }
 
-/** A name shown above its icon button on hover and keyboard focus; the button's aria-label says the same. */
-function Tip({ text }: { text: string }) {
+/**
+ * Display: only the options the chosen chart uses (others are hidden, not
+ * greyed). Time grouping for lines and stacked bars; sort for bars and
+ * tables; value labels for bars and stacked bars; % of total for stacked
+ * bars and broken-down bars of figures that add up; compare for lines and
+ * tables that can show it. Nothing shown, no section.
+ */
+export function DisplaySection({
+  widget, metric, display, onDisplay, compareShown,
+}: {
+  widget: Widget; metric: Metric; display: Display; onDisplay: (patch: Partial<Display>) => void;
+  /** The chart can draw the previous period. */
+  compareShown: boolean;
+}) {
+  const t = widget.type;
+  const adds = metric.unit !== "%" && metric.aggregation !== "ratio" && metric.aggregation !== "average";
+  const items = [
+    (t === "line" || t === "stacked") && (
+      <div key="grouping">
+        <Segmented<Grouping | "auto">
+          label="Time grouping"
+          value={display.grouping ?? "auto"}
+          onChange={(g) => onDisplay({ grouping: g === "auto" ? undefined : g })}
+          options={[{ value: "auto", label: "Auto" }, { value: "day", label: "Day" }, { value: "week", label: "Week" }, { value: "month", label: "Month" }]}
+        />
+        {!display.grouping && <p className="mt-1 text-xs text-slate-500">{autoGroupingHint(t)}</p>}
+      </div>
+    ),
+    (t === "bar" || t === "table") && (
+      <Segmented<WidgetSort>
+        key="sort"
+        label="Sort"
+        value={display.sort}
+        onChange={(sort) => onDisplay({ sort })}
+        options={[{ value: "desc", label: "Biggest" }, { value: "asc", label: "Smallest" }, { value: "name", label: "A–Z" }]}
+      />
+    ),
+    (t === "bar" || t === "stacked") && <Switch key="values" label="Show values" checked={valuesShown(t, display)} onChange={(values) => onDisplay({ values })} />,
+    adds && (t === "stacked" || (t === "bar" && !!widget.splitBy)) && (
+      <Switch key="percent" label="Show as % of total" checked={display.percent} onChange={(percent) => onDisplay({ percent })} />
+    ),
+    compareShown && <Switch key="compare" label="Compare to previous period" checked={display.compare} onChange={(compare) => onDisplay({ compare })} />,
+  ].filter(Boolean);
+  if (items.length === 0) return null;
   return (
-    <span aria-hidden className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1.5 hidden -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-xs text-white group-hover:block group-has-[:focus-visible]:block">
+    <section aria-labelledby="explore-display" className="space-y-3">
+      <h3 id="explore-display" className={cn(EYEBROW, "mb-0")}>Display</h3>
+      {items}
+    </section>
+  );
+}
+
+/** A name shown under its icon button on hover and keyboard focus (clear of the heading above); the button's aria-label says the same. */
+function Tip({ text, wrap = false, align = "center" }: { text: string; wrap?: boolean; align?: "center" | "left" | "right" }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "pointer-events-none absolute top-full z-20 mt-1.5 hidden rounded bg-slate-800 px-2 py-1 text-xs text-white group-hover:block group-has-[:focus-visible]:block",
+        wrap ? "w-56" : "whitespace-nowrap",
+        // Tiles at the column's edges keep their tooltip inside it.
+        align === "left" ? "left-0" : align === "right" ? "right-0" : "left-1/2 -translate-x-1/2"
+      )}
+    >
       {text}
     </span>
   );

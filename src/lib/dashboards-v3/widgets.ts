@@ -4,7 +4,7 @@
  * widget limit. Pure, so the same functions serve view and edit mode.
  */
 import { isMoney, metricById, PROPERTIES, type ChartType, type Metric, type PropertyId } from "./catalogue";
-import { defaultGrouping, resolveRange, snapshotRange, type ResolvedRange } from "./dates";
+import { autoGrouping, resolveRange, snapshotRange, type ResolvedRange } from "./dates";
 import { defaultSize, MAX_WIDGETS, orderWidgets, topFor, widgetRank } from "./rules";
 import { anyPlaceLeft, countriesLeft, type Query } from "./series";
 import type { DashboardFilters, Grouping, PropertyFilter, Widget, WidgetSize } from "./types";
@@ -172,7 +172,7 @@ export function widgetQuery(widget: Widget, filters: DashboardFilters, today: Da
     byCountry,
     noOverlap,
     // A number's sparkline follows the same rule as a line: daily up to 31 days, weekly above.
-    grouping: current ? "day" : widget.type === "kpi" ? defaultGrouping(range) : widget.grouping ?? defaultGrouping(range),
+    grouping: current ? "day" : widget.type === "kpi" ? autoGrouping("kpi", range) : widget.grouping ?? autoGrouping(widget.type, range),
     top: topFor(widget.type),
   };
 }

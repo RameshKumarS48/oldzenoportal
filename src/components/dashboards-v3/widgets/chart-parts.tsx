@@ -30,7 +30,7 @@ function decimalsFor(step: number): number {
 /**
  * A value axis with its own ticks and one format for all of them: "0, 50K,
  * 100K, 150K" from 10,000 up, "0.5M, 1.0M" from a million, "0, 1,000,
- * 2,000" below, never a mix. Ticks are 1, 2 or 5 steps, from zero unless the
+ * 2,000" below, "0%, 20%, … 100%" for percentages, never a mix. Ticks are 1, 2 or 5 steps, from zero unless the
  * metric is a percentage.
  */
 export function valueAxis(metric: Metric, values: number[], fromZero: boolean) {
@@ -44,10 +44,10 @@ export function valueAxis(metric: Metric, values: number[], fromZero: boolean) {
   const ticks: number[] = [];
   for (let v = lo; v <= hi + step / 2; v += step) ticks.push(Math.round(v * 1e6) / 1e6);
   const unit = metric.unit === "%" ? 1 : hi >= 1e6 ? 1e6 : hi >= 1e4 ? 1e3 : 1;
-  const suffix = unit === 1e6 ? "M" : unit === 1e3 ? "K" : "";
+  const suffix = metric.unit === "%" ? "%" : unit === 1e6 ? "M" : unit === 1e3 ? "K" : "";
   const d = decimalsFor(step / unit);
   const tickFormatter = (v: number) =>
-    v === 0 ? "0" : `${(v / unit).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d })}${suffix}`;
+    v === 0 ? `0${metric.unit === "%" ? "%" : ""}` : `${(v / unit).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d })}${suffix}`;
   return { domain: [lo, hi] as [number, number], ticks, tickFormatter };
 }
 export const tooltipFormatter = (metric: Metric) => (v: unknown) => (typeof v === "number" ? fmtValue(v, metric) : String(v ?? "–"));
@@ -128,8 +128,10 @@ export function labelRoom(names: string[]): number {
 /** Legend text in slate-700 rather than the series colour, for the same reason. */
 export const legendText = (value: string) => <span style={{ color: LABEL_TEXT }}>{value}</span>;
 
-/** Legends, where lines aren't named at their ends, sit below the chart, centred, with square swatches. */
+/** Legends, where lines aren't named at their ends, sit below the chart, centred, with square swatches, in the series' order. */
 export const LEGEND_PROPS = {
+  // Recharts sorts legend items by name by default; null keeps the series order: largest first, Other last.
+  itemSorter: null,
   verticalAlign: "bottom" as const,
   align: "center" as const,
   iconType: "square" as const,
@@ -137,6 +139,12 @@ export const LEGEND_PROPS = {
   wrapperStyle: { fontSize: 11, paddingTop: 8 },
   formatter: legendText,
 };
+
+/** The gap on each side of a bar, as a share of its slot (Recharts takes it from both sides): bars fill about 66% of the slot. */
+export const BAR_GAP = "17%";
+
+/** Event markers sit behind bars (300) and lines (400), above the grid (-100). */
+export const MARKER_Z = 50;
 
 /** Light dashed horizontal gridlines only, drawn behind the data. */
 export const GRID_PROPS = { strokeDasharray: "3 3", vertical: false } as const;

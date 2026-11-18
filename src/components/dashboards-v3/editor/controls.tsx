@@ -78,6 +78,36 @@ export function Toggle({ label, checked, onChange, blocked, hint }: { label: str
   );
 }
 
+/** A compact segmented control for one choice from a few short ones ("Auto · Day · Week · Month"). */
+export function Segmented<T extends string>({ label, options, value, onChange }: { label: string; options: { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
+  const id = useId();
+  return (
+    <div>
+      <p id={`${id}-label`} className="mb-1.5 text-xs font-medium text-slate-700">{label}</p>
+      <div role="radiogroup" aria-labelledby={`${id}-label`} className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5">
+        {options.map((o) => {
+          const on = o.value === value;
+          return (
+            <button
+              key={o.value}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => onChange(o.value)}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40",
+                on ? "bg-zeno-teal text-white" : "text-slate-700 hover:bg-slate-100"
+              )}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /** An on/off switch that says why when it's not available: a button with role="switch", filled teal when on. */
 export function Switch({ label, checked, onChange, blocked }: { label: string; checked: boolean; onChange: (v: boolean) => void; blocked?: string | null }) {
   const id = useId();
@@ -85,7 +115,7 @@ export function Switch({ label, checked, onChange, blocked }: { label: string; c
   return (
     <div>
       <div className="flex items-center justify-between gap-3">
-        <span id={`${id}-label`} className={cn("text-sm font-semibold", blocked ? "text-slate-400" : "text-slate-800")}>{label}</span>
+        <span id={`${id}-label`} className={cn("text-sm", blocked ? "text-slate-400" : "text-slate-700")}>{label}</span>
         <button
           type="button"
           role="switch"
@@ -135,6 +165,13 @@ export function Disclosure({
     </section>
   );
 }
+
+/**
+ * Explore's section headings: small, uppercase and muted, like the app's
+ * popover headings but slate-500 so they stay readable. They name a section;
+ * the controls under them carry the darker, bolder text.
+ */
+export const EYEBROW = "mb-2 block text-[11px] font-semibold uppercase tracking-wider text-slate-500";
 
 export const FIELD_LABEL = "mb-1 block text-sm font-medium text-slate-700";
 export const FIELD =

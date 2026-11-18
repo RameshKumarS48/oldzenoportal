@@ -1,16 +1,16 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { BarChart3, Hash, Table2, TrendingUp, X } from "lucide-react";
+import { ChartBar, ChartColumnStacked, ChartLine, Hash, Table2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { metricById, PROPERTIES, PROPERTY_ORDER, type CategoryId, type ChartType, type PropertyId } from "@/lib/dashboards-v3/catalogue";
-import { RANGE_PRESETS, rangeLabel, rangeWithDates, WEEKLY_AFTER_DAYS } from "@/lib/dashboards-v3/dates";
+import { autoGroupingHint, RANGE_PRESETS, rangeLabel, rangeWithDates } from "@/lib/dashboards-v3/dates";
 import {
   autoTitle, chartChoiceBlocked, chartForIntent, compareBlocked, goalBlocked, groupingBlocked, normalise, rangeBlocked, sameWidget, showValuesBlocked, sortBlocked,
 } from "@/lib/dashboards-v3/editor";
 import { UNIT_LABEL } from "@/lib/dashboards-v3/format";
 import {
-  allowedSizes, CHART_LABEL, INTENTS, intentOf, SIZE_LABEL, splitBlocked, topFor, type Intent,
+  allowedSizes, canStack, CHART_LABEL, INTENTS, intentOf, SIZE_LABEL, splitBlocked, topFor, type Intent,
 } from "@/lib/dashboards-v3/rules";
 import type { DashboardFilters, Grouping, Widget, WidgetSize, WidgetSort } from "@/lib/dashboards-v3/types";
 import { activeFilters, widgetQuery } from "@/lib/dashboards-v3/widgets";
@@ -20,7 +20,7 @@ import { Disclosure, FIELD, FIELD_LABEL, OptionChips, Toggle } from "./controls"
 import { MetricPicker } from "./MetricPicker";
 import { WidgetFilters } from "./WidgetFilters";
 
-const INTENT_ICON: Record<Intent, typeof Hash> = { number: Hash, trend: TrendingUp, comparison: BarChart3, list: Table2 };
+const INTENT_ICON: Record<Intent, typeof Hash> = { number: Hash, time: ChartLine, compare: ChartBar, parts: ChartColumnStacked, list: Table2 };
 const CHARTS: ChartType[] = ["kpi", "line", "bar", "stacked", "table"];
 /** A section heading that stays at the top of the panel's scroll area while its section is in view. */
 const STICKY = "sticky top-0 z-10 -mx-5 bg-white px-5 py-2 text-sm font-semibold text-slate-800";
@@ -66,6 +66,7 @@ export function WidgetPanel({
   const metric = metricById(widget.metricId);
   const isText = widget.type === "text";
   const intent = intentOf(widget.type);
+  const intents = INTENTS.filter((i) => i.id !== "parts" || (!!widget.splitBy && !!metric && canStack(metric) && !chartChoiceBlocked("stacked", widget)));
   const dirty = !sameWidget(widget, initial);
   const valid = isText ? !!(widget.title.trim() || widget.text?.trim()) : !!metric;
   const cancelButton = useRef<HTMLButtonElement>(null);
@@ -124,9 +125,9 @@ export function WidgetPanel({
 
         <section aria-labelledby={`${headingId}-intent`}>
           <h3 id={`${headingId}-intent`} className={STICKY}>What do you want to see?</h3>
-          {/* One row of four; each one's description is its tooltip and is read out with it. */}
-          <div role="radiogroup" aria-labelledby={`${headingId}-intent`} className="grid grid-cols-4 gap-1.5">
-            {INTENTS.map(({ id, short, hint }) => {
+          {/* One row; each one's description is its tooltip and is read out with it. "What it's made of" needs a breakdown and figures that add up. */}
+          <div role="radiogroup" aria-labelledby={`${headingId}-intent`} className={cn("grid gap-1.5", intents.length === 5 ? "grid-cols-5" : "grid-cols-4")}>
+            {intents.map(({ id, short, hint }) => {
               const Icon = INTENT_ICON[id];
               const on = intent === id;
               return (
@@ -241,7 +242,7 @@ export function WidgetPanel({
                     label: { auto: "Automatic", day: "Daily", week: "Weekly", month: "Monthly" }[g],
                     blocked: groupingBlocked(widget),
                   }))}
-                  hint={groupingBlocked(widget) ? undefined : `Automatic is daily, or weekly for ranges over ${WEEKLY_AFTER_DAYS} days.`}
+                  hint={groupingBlocked(widget) ? undefined : autoGroupingHint(widget.type)}
                 />
 
                 <div>

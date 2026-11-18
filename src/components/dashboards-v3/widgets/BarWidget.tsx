@@ -6,7 +6,7 @@ import { GOAL, OTHER, SERIES, SERVICE_COLOR } from "@/lib/dashboards-v3/palette"
 import { fmtCompact, fmtSig3 } from "@/lib/dashboards-v3/format";
 import type { Series } from "@/lib/dashboards-v3/series";
 import type { WidgetSort } from "@/lib/dashboards-v3/types";
-import { AXIS_TICK, TOOLTIP_PROPS, tooltipFormatter } from "./chart-parts";
+import { AXIS_TICK, BAR_GAP, TOOLTIP_PROPS, tooltipFormatter } from "./chart-parts";
 
 const ROW_PX = 30;
 
@@ -25,8 +25,10 @@ export function sortSeries(series: Series[], sort: WidgetSort): Series[] {
  * bar keeps its service's colour; Other is grey.
  */
 export function BarWidget({
-  metric, series, sort, goal, splitBy, minHeight = 0,
+  metric, series, sort, goal, splitBy, minHeight = 0, showValues = true,
 }: {
+  /** Value labels at the bar ends; Explore can turn them off. */
+  showValues?: boolean;
   /** Explore's main chart is at least this tall; bars grow to fill it. */
   minHeight?: number;
   metric: Metric; series: Series[]; sort: WidgetSort; goal?: number; splitBy?: PropertyId;
@@ -38,7 +40,7 @@ export function BarWidget({
 
   return (
     <ResponsiveContainer width="100%" height={Math.max(minHeight, rows.length * ROW_PX + 24)}>
-      <BarChart data={data} layout="vertical" margin={{ top: 0, right: 56, left: 0, bottom: 0 }} barCategoryGap={6}>
+      <BarChart data={data} layout="vertical" margin={{ top: 0, right: showValues ? 56 : 12, left: 0, bottom: 0 }} barCategoryGap={BAR_GAP}>
         {/* Values sit at the bar ends, so there's no x-axis or gridlines to read them from. */}
         <XAxis type="number" domain={[0, "auto"]} hide />
         <YAxis type="category" dataKey="name" width={labelWidth} tick={{ ...AXIS_TICK, fill: "#334155" }} tickLine={false} axisLine={false} interval={0} />
@@ -49,7 +51,7 @@ export function BarWidget({
         <Bar dataKey="value" name={metric.name} radius={[0, 3, 3, 0]} isAnimationActive={false}>
           {data.map((d) => <Cell key={d.name} fill={d.fill} />)}
           {/* Three significant figures at the bar ends: 1.95M, 1.88M, 835K. The tooltip has the full figure. */}
-          <LabelList dataKey="value" position="right" fontSize={11} fill="#334155" formatter={(v: unknown) => (typeof v === "number" ? fmtSig3(v, metric) : "")} />
+          {showValues && <LabelList dataKey="value" position="right" fontSize={11} fill="#334155" formatter={(v: unknown) => (typeof v === "number" ? fmtSig3(v, metric) : "")} />}
         </Bar>
       </BarChart>
     </ResponsiveContainer>

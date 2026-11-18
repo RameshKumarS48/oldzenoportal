@@ -7,6 +7,7 @@ import { PROPERTIES, REGION_COUNTRY, regionsIn } from "@/lib/dashboards-v3/catal
 import { DATE_FORMAT, DEFAULT_RANGE } from "@/lib/dashboards-v3/dates";
 import { dataAsOf } from "@/lib/dashboards-v3/format";
 import type { DashboardFilters as Filters, DateRange } from "@/lib/dashboards-v3/types";
+import { cn } from "@/lib/utils";
 import { DateRangePicker } from "./DateRangePicker";
 
 // Battery Tracking's filter bar (BatteryFilterBar.tsx): a white card of compact text-xs controls.
@@ -106,7 +107,7 @@ const COUNTRY_CHOICES: { value: string | null; label: string }[] = [
 ];
 
 /** One country, or all, as radio rows in a popover; ↑ ↓ move between them. */
-export function CountryControl({ value, onChange }: { value: string | null; onChange: (c: string | null) => void }) {
+export function CountryControl({ value, onChange, fullWidth = false }: { value: string | null; onChange: (c: string | null) => void; fullWidth?: boolean }) {
   const { open, setOpen, button, panel, close, onKeyDown } = usePopover();
   function onArrows(e: React.KeyboardEvent) {
     const items = Array.from(panel.current?.querySelectorAll<HTMLElement>("[role=radio]") ?? []);
@@ -118,10 +119,10 @@ export function CountryControl({ value, onChange }: { value: string | null; onCh
   }
   return (
     <div className="relative">
-      <button ref={button} type="button" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen((o) => !o)} className={CONTROL}>
-        <Globe className="h-3.5 w-3.5 text-slate-500" aria-hidden />
-        <span>Country: <span className="font-medium text-slate-800">{value ?? "All"}</span></span>
-        <ChevronDown className="h-3.5 w-3.5 text-slate-500" aria-hidden />
+      <button ref={button} type="button" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen((o) => !o)} className={cn(CONTROL, fullWidth && "w-full")}>
+        <Globe className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+        <span className="min-w-0 flex-1 truncate text-left">Country: <span className="font-medium text-slate-800">{value ?? "All"}</span></span>
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
       </button>
       {open && (
         <div
@@ -151,7 +152,7 @@ export function CountryControl({ value, onChange }: { value: string | null; onCh
 }
 
 /** The chosen country's regions as a checkbox list in a popover, grouped by country when all countries are shown. */
-export function RegionControl({ country, value, onChange }: { country: string | null; value: string[]; onChange: (r: string[]) => void }) {
+export function RegionControl({ country, value, onChange, fullWidth = false }: { country: string | null; value: string[]; onChange: (r: string[]) => void; fullWidth?: boolean }) {
   const { open, setOpen, button, panel, close, onKeyDown } = usePopover();
   const label = value.length === 0 ? "All" : value.length === 1 ? value[0] : `${value.length} selected`;
   const groups = (country ? [country] : PROPERTIES.country.values).map((c) => ({ country: c, regions: regionsIn(c) }));
@@ -164,11 +165,11 @@ export function RegionControl({ country, value, onChange }: { country: string | 
         aria-haspopup="true"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className={CONTROL}
+        className={cn(CONTROL, fullWidth && "w-full")}
       >
-        <MapPin className="h-3.5 w-3.5 text-slate-500" aria-hidden />
-        <span>Region: <span className="font-medium text-slate-800">{label}</span></span>
-        <ChevronDown className="h-3.5 w-3.5 text-slate-500" aria-hidden />
+        <MapPin className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+        <span className="min-w-0 flex-1 truncate text-left">Region: <span className="font-medium text-slate-800">{label}</span></span>
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
       </button>
       {open && (
         <div

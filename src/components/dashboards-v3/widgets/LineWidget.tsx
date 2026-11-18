@@ -3,10 +3,10 @@
 import { CartesianGrid, LabelList, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Metric, PropertyId } from "@/lib/dashboards-v3/catalogue";
 import type { Marker } from "@/lib/dashboards-v3/explore";
-import { AXIS_TEXT, GOAL, GRID, PREVIOUS, SERIES, seriesColors } from "@/lib/dashboards-v3/palette";
+import { AXIS_TEXT, GOAL, GRID, MARKER, PREVIOUS, SERIES, seriesColors } from "@/lib/dashboards-v3/palette";
 import { fmtCompact } from "@/lib/dashboards-v3/format";
 import type { QueryResult } from "@/lib/dashboards-v3/series";
-import { AXIS_TICK, ChartTooltip, EndLabels, GRID_PROPS, labelRoom, labelsFit, LEGEND_PROPS, splitPartial, valueAxis } from "./chart-parts";
+import { AXIS_TICK, ChartTooltip, MARKER_Z, EndLabels, GRID_PROPS, labelRoom, labelsFit, LEGEND_PROPS, splitPartial, valueAxis } from "./chart-parts";
 
 /** Up to this many lines are named at their ends; more get a legend. */
 const DIRECT_LABELS_UP_TO = 4;
@@ -77,7 +77,8 @@ export function LineWidget({
           <ReferenceLine y={goal} stroke={GOAL} strokeDasharray="4 4" label={{ value: `Goal ${fmtCompact(goal, metric)}`, position: "insideTopLeft", fontSize: 11, fill: "#475569" }} />
         )}
         {markers.map((m) => (
-          <ReferenceLine key={m.x} x={m.x} stroke={AXIS_TEXT} strokeDasharray="2 3" label={{ value: m.label, position: "top", fontSize: 10, fill: AXIS_TEXT }} />
+          // Behind the lines, in a lighter grey: context, not data.
+          <ReferenceLine key={m.x} x={m.x} stroke={MARKER} strokeDasharray="2 3" zIndex={MARKER_Z} label={{ value: m.label, position: "top", fontSize: 10, fill: AXIS_TEXT }} />
         ))}
         {previous && !split && (
           <Line dataKey="prev" name="Previous period" stroke={PREVIOUS} strokeDasharray="4 4" strokeWidth={1.5} dot={false} isAnimationActive={false} />

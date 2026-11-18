@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { CategoryChip } from "../ui/CategoryChip";
 import { DefinitionTip, FocusTip } from "../ui/FocusTip";
 import { useAnchoredPopover } from "../ui/useAnchoredPopover";
+import { EYEBROW } from "./controls";
 
 /**
  * Choosing a metric. Once one is chosen it shows as a card with Change;
@@ -87,9 +88,10 @@ function CompactMetric({ value, category, onChange, hideLabel }: { value: Metric
 
   return (
     <div>
-      <p className={hideLabel ? "sr-only" : "mb-1 text-sm font-semibold text-slate-800"}>Metric</p>
-      <div ref={card} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-800">{value.name}</span>
+      <p className={hideLabel ? "sr-only" : EYEBROW}>Metric</p>
+      {/* A field, like a select: the metric in strong text, Change as its button. */}
+      <div ref={card} className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white py-1.5 pl-3 pr-1.5 shadow-sm">
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">{value.name}</span>
         <FocusTip label={`What ${value.name} means`} content={<DefinitionTip metric={value} />} />
         <button
           ref={change}
@@ -97,7 +99,7 @@ function CompactMetric({ value, category, onChange, hideLabel }: { value: Metric
           aria-haspopup="dialog"
           aria-expanded={open}
           onClick={() => (open ? close() : show())}
-          className="rounded text-sm font-medium text-zeno-teal hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
+          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
         >
           Change
         </button>

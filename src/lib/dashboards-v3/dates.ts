@@ -1,5 +1,6 @@
+import type { ChartType } from "./catalogue";
 import {
-  addDays, addHours, differenceInCalendarDays, isSameMonth, endOfMonth, format, isSameDay, parseISO, startOfDay, startOfMonth, startOfQuarter, startOfWeek, subDays, subMonths,
+  addDays, differenceInCalendarWeeks, addHours, differenceInCalendarDays, isSameMonth, endOfMonth, format, isSameDay, parseISO, startOfDay, startOfMonth, startOfQuarter, startOfWeek, subDays, subMonths,
 } from "date-fns";
 import type { DateRange, Grouping, RangePreset } from "./types";
 
@@ -182,6 +183,27 @@ export function previousLabel(r: ResolvedRange): string {
 
 export function defaultGrouping(r: ResolvedRange): Grouping {
   return r.days > WEEKLY_AFTER_DAYS ? "week" : "day";
+}
+
+/** Most bars a stacked chart draws before its automatic grouping moves up a step. */
+export const STACKED_BARS_MAX = 14;
+
+/**
+ * Automatic grouping for a chart. Stacked bars stay readable at 14 bars or
+ * fewer: by day, then by week, then by month. Everything else: daily up to
+ * 31 days, weekly beyond.
+ */
+export function autoGrouping(type: ChartType, r: ResolvedRange): Grouping {
+  if (type !== "stacked") return defaultGrouping(r);
+  if (r.days <= STACKED_BARS_MAX) return "day";
+  return differenceInCalendarWeeks(r.to, r.from, { weekStartsOn: 1 }) + 1 <= STACKED_BARS_MAX ? "week" : "month";
+}
+
+/** What "Automatic" means for a chart, in words. */
+export function autoGroupingHint(type: ChartType): string {
+  return type === "stacked"
+    ? `Automatic keeps it to ${STACKED_BARS_MAX} bars at most: daily, then weekly, then monthly.`
+    : `Automatic is daily, or weekly for ranges over ${WEEKLY_AFTER_DAYS} days.`;
 }
 
 /** The start of the bucket a day falls in; weeks start on Monday. */

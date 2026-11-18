@@ -19,6 +19,8 @@ export const OTHER = "#64748b";
 export const PREVIOUS = "#64748b";
 /** Goal lines, dashed and always labelled: slate-400. */
 export const GOAL = "#94a3b8";
+/** Event markers: lighter than the goal line, since they're context rather than data (slate-300, the tooltip cursor's grey). */
+export const MARKER = "#cbd5e1";
 /** Light gridlines: slate-100. */
 export const GRID = "#f1f5f9";
 /** Axis text: slate-500. */

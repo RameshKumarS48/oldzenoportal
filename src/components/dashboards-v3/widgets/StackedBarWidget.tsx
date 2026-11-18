@@ -3,10 +3,10 @@
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Metric, PropertyId } from "@/lib/dashboards-v3/catalogue";
 import type { Marker } from "@/lib/dashboards-v3/explore";
-import { AXIS_TEXT, GOAL, GRID, seriesColors } from "@/lib/dashboards-v3/palette";
+import { AXIS_TEXT, GOAL, GRID, MARKER, seriesColors } from "@/lib/dashboards-v3/palette";
 import { fmtCompact } from "@/lib/dashboards-v3/format";
 import type { QueryResult } from "@/lib/dashboards-v3/series";
-import { AXIS_TICK, ChartTooltip, GRID_PROPS, LEGEND_PROPS, valueAxis } from "./chart-parts";
+import { AXIS_TICK, BAR_GAP, ChartTooltip, GRID_PROPS, LEGEND_PROPS, MARKER_Z, valueAxis } from "./chart-parts";
 
 /**
  * The parts of a total over time: one stack per period, from zero, in
@@ -33,15 +33,16 @@ export function StackedBarWidget({
 
   return (
     <ResponsiveContainer width="100%" height={fill ? "100%" : minHeight} minHeight={minHeight}>
-      {/* Bars take about 55% of each period's slot, so periods read as separate. */}
-      <BarChart data={data} margin={{ top: markers.length > 0 ? 20 : 8, right: 12, left: 0, bottom: 0 }} barCategoryGap="45%">
+      {/* Bars take about 65% of each period's slot, so periods read as separate without thin slivers. */}
+      <BarChart data={data} margin={{ top: markers.length > 0 ? 20 : 8, right: 12, left: 0, bottom: 0 }} barCategoryGap={BAR_GAP}>
         <CartesianGrid stroke={GRID} {...GRID_PROPS} />
         <XAxis dataKey="label" tick={AXIS_TICK} tickLine={false} axisLine={false} minTickGap={16} />
         <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} width={48} domain={axis.domain} ticks={axis.ticks} tickFormatter={axis.tickFormatter} />
         <Tooltip cursor={{ fill: "#f8fafc" }} content={(p) => <ChartTooltip active={p.active} payload={p.payload as never} metric={metric} buckets={result.buckets} />} />
         <Legend {...LEGEND_PROPS} />
         {markers.map((m) => (
-          <ReferenceLine key={m.x} x={m.x} stroke={AXIS_TEXT} strokeDasharray="2 3" label={{ value: m.label, position: "top", fontSize: 10, fill: AXIS_TEXT }} />
+          // Behind the bars, in a lighter grey: context, not data.
+          <ReferenceLine key={m.x} x={m.x} stroke={MARKER} strokeDasharray="2 3" zIndex={MARKER_Z} label={{ value: m.label, position: "top", fontSize: 10, fill: AXIS_TEXT }} />
         ))}
         {goal !== undefined && <ReferenceLine y={goal} stroke={GOAL} strokeDasharray="4 4" label={{ value: `Goal ${fmtCompact(goal, metric)}`, position: "insideTopLeft", fontSize: 11, fill: "#475569" }} />}
         {result.series.map((s, j) => (
