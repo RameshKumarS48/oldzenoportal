@@ -4,9 +4,9 @@
  * catalogue, split properties, regions and time phrases. Pure, so it can be
  * checked without a browser.
  */
-import { metricById, PROPERTIES, type CategoryId, type Metric, type PropertyId } from "./catalogue";
+import { metricById, PROPERTIES, REGION_COUNTRY, type CategoryId, type Metric, type PropertyId } from "./catalogue";
 import { addDays, subMonths } from "date-fns";
-import { DEFAULT_RANGE, isoDay, lastCompleteDay, rangeLabel } from "./dates";
+import { DEFAULT_RANGE, isoDay, lastCompleteDay, rangeWithDates } from "./dates";
 import { normalise, splitName } from "./editor";
 import { hasNoData } from "./series";
 import { orderWidgets } from "./rules";
@@ -82,6 +82,8 @@ export interface Reading {
   split?: PropertyId;
   /** A split asked for that the main metric can't use. */
   splitDropped?: PropertyId;
+  /** A country named on its own, or the one every named region is in. */
+  country: string | null;
   regions: string[];
   range?: DateRange;
   grouping?: Grouping;
@@ -92,6 +94,7 @@ export interface DashboardDraft {
   category: CategoryId;
   widgets: Widget[];
   range: DateRange;
+  country: string | null;
   regions: string[];
   visibility: Visibility;
   reading: Reading;
@@ -146,9 +149,14 @@ export function readPrompt(raw: string, chosenMetricId?: string): Reading & { me
   if (chosenMetricId) metrics = [metricById(chosenMetricId)!, ...metrics.filter((m) => m.id !== chosenMetricId)];
   const split = SPLIT_WORDS.find((s) => s.re.test(text))?.property;
   const regions = PROPERTIES.region.values.filter((r) => new RegExp(`\\b${escape(r.toLowerCase())}\\b`).test(text));
+  const named = PROPERTIES.country.values.filter((c) => new RegExp(`\\b${c.toLowerCase()}\\b`).test(text));
+  const regionCountries = [...new Set(regions.map((r) => REGION_COUNTRY[r]))];
+  // One country, named or implied by the regions; none when the text spans two.
+  const countries = [...new Set([...named, ...regionCountries])];
+  const country = countries.length === 1 ? countries[0] : null;
   const range = TIME_WORDS.find((t) => t.re.test(text))?.range();
   const grouping = GROUPING_WORDS.find((g) => g.re.test(text))?.grouping;
-  return { metrics, split, regions, range, grouping, mentionsRevenue: /\b(?:revenue|income|sales|takings)\b/.test(text) };
+  return { metrics, split, country, regions, range, grouping, mentionsRevenue: /\b(?:revenue|income|sales|takings)\b/.test(text) };
 }
 
 /** Turns a prompt into a draft dashboard, a question, or "nothing matched". */
@@ -178,7 +186,7 @@ export function draftFromPrompt(raw: string, chosenMetricId?: string): DraftResu
   if (widgets.length < 4) widgets.push(others[1] ? make(others[1], "kpi") : make(main, "table", compareBy, { compare: true }));
 
   const ordered = orderWidgets(widgets.slice(0, 4)).map((w) => ({ ...w, title: titleFor(w) }));
-  const where = r.regions.length > 0 ? ` in ${r.regions.join(" and ")}` : "";
+  const where = r.regions.length > 0 ? ` in ${r.regions.join(" and ")}` : r.country ? ` in ${r.country}` : "";
   return {
     kind: "draft",
     draft: {
@@ -186,9 +194,10 @@ export function draftFromPrompt(raw: string, chosenMetricId?: string): DraftResu
       category: main.category,
       widgets: ordered,
       range: r.range ?? DEFAULT_RANGE,
+      country: r.country,
       regions: r.regions,
       visibility: "private",
-      reading: { metrics: r.metrics, split, splitDropped: r.split && !split ? r.split : undefined, regions: r.regions, range: r.range, grouping: r.grouping },
+      reading: { metrics: r.metrics, split, splitDropped: r.split && !split ? r.split : undefined, country: r.country, regions: r.regions, range: r.range, grouping: r.grouping },
     },
   };
 }
@@ -197,15 +206,16 @@ function titleFor(w: Widget): string {
   return splitName(metricById(w.metricId)!, w.type === "kpi" ? undefined : w.splitBy);
 }
 
-/** "Metric: Points debited · Split by: Service · Region: Nairobi · Last 30 days" */
+/** "Metric: Points debited · Split by: Service · Country: Kenya · Region: Nairobi · Last 30 days · 19 Oct – 17 Nov 2026" */
 export function readingLine(r: Reading): string {
   const parts = [`${r.metrics.length > 1 ? "Metrics" : "Metric"}: ${r.metrics.map((m) => m.name).join(", ")}`];
   if (r.split) parts.push(`Split by: ${PROPERTIES[r.split].name}`);
   if (r.splitDropped) parts.push(`Not split by ${PROPERTIES[r.splitDropped].name.toLowerCase()} (${r.metrics[0].name} can’t be)`);
+  if (r.country) parts.push(`Country: ${r.country}`);
   if (r.regions.length > 0) parts.push(`${r.regions.length > 1 ? "Regions" : "Region"}: ${r.regions.join(", ")}`);
   const empty = r.regions.filter((x) => hasNoData("region", x));
   if (empty.length > 0) parts.push(`No data for ${empty.join(" and ")} yet`);
-  parts.push(r.range ? rangeLabel(r.range) : `${rangeLabel(DEFAULT_RANGE)} (no time given)`);
+  parts.push(r.range ? rangeWithDates(r.range) : `${rangeWithDates(DEFAULT_RANGE)} (no time given)`);
   if (r.grouping) parts.push({ day: "Daily", week: "Weekly", month: "Monthly" }[r.grouping]);
   return parts.join(" · ");
 }

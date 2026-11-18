@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, ArrowDown, ArrowUp, BookOpen, Copy, Download, FilterX, Maximize2, Pencil, RotateCw, Trash2 } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, BookOpen, Copy, Download, FilterX, Maximize2, Pencil, RotateCw, Telescope, Trash2 } from "lucide-react";
 import { metricById, PROPERTIES } from "@/lib/dashboards-v3/catalogue";
-import { GROUPING_LABEL, previousPeriod, rangeLabel } from "@/lib/dashboards-v3/dates";
+import { fmtAsOf, fmtSpan, GROUPING_LABEL, previousDates, previousPeriod, rangeWithDates } from "@/lib/dashboards-v3/dates";
 import { showsUnitTag, UNIT_LABEL } from "@/lib/dashboards-v3/format";
 import { allowedSizes, SIZE_LABEL } from "@/lib/dashboards-v3/rules";
 import { runQuery, type QueryResult } from "@/lib/dashboards-v3/series";
 import type { DashboardFilters, Widget, WidgetSize } from "@/lib/dashboards-v3/types";
-import { SPAN, SPAN_COMPACT, widgetQuery } from "@/lib/dashboards-v3/widgets";
+import { filterLine, SPAN, SPAN_COMPACT, widgetQuery } from "@/lib/dashboards-v3/widgets";
 import { cn } from "@/lib/utils";
 import { toCsv, widgetTable } from "@/lib/dashboards-v3/export";
 import { toast } from "@/store/toast";
@@ -22,6 +22,7 @@ import { StackedBarWidget } from "../widgets/StackedBarWidget";
 import { TableWidget } from "../widgets/TableWidget";
 
 const GRID_CHART_PX = 220;
+const UNIT_TAG = "inline-flex rounded border border-slate-200 px-1.5 text-[11px] leading-4 text-slate-600";
 /** The panel's preview stays short so it can sit at the top while the options scroll. */
 const PREVIEW_CHART_PX = 140;
 /** How long the sandbox pretends a widget takes to load, so the loading state can be seen. */
@@ -44,12 +45,16 @@ export interface WidgetCardProps {
   onMove: (dir: -1 | 1) => void;
   onResize: (size: WidgetSize) => void;
   onEdit: () => void;
+  /** View mode, any dashboard: open it on the Explore page. */
+  onExplore?: () => void;
   onDuplicate: () => void;
   onRemove: () => void;
   /** "preview" is the panel's live preview: no menu, no loading pause, its container's width. */
   variant?: "grid" | "preview";
   /** placeholder: a new widget not added yet; editing: open in the panel; added: just added, briefly. */
   mark?: "placeholder" | "editing" | "added";
+  /** Another widget is open in the panel: this one fades back and can't be used until the panel closes. */
+  dimmed?: boolean;
   /** The grid is two columns while the panel is open. */
   compact?: boolean;
   /** Sizing from the parent instead of the grid spans: number widgets share their row in a flex layout. */
@@ -67,7 +72,7 @@ export function WidgetCard(props: WidgetCardProps) {
   const query = useMemo(() => widgetQuery(widget, filters, today), [widget, filters, today]);
 
   // A new query "loads" briefly; the signature is everything that changes the numbers.
-  const signature = JSON.stringify([widget.metricId, widget.type, widget.range, widget.filter, widget.splitBy, widget.grouping, widget.compare, filters, failed]);
+  const signature = JSON.stringify([widget.metricId, widget.type, widget.range, widget.filters, widget.splitBy, widget.grouping, widget.compare, filters, failed]);
   const [loaded, setLoaded] = useState<string | null>(null);
   useEffect(() => {
     const id = setTimeout(() => setLoaded(signature), LOAD_MS);
@@ -85,22 +90,34 @@ export function WidgetCard(props: WidgetCardProps) {
   const CHART_PX = props.variant === "preview" ? PREVIEW_CHART_PX : GRID_CHART_PX;
   const titleId = `widget-${widget.id}-title`;
   const isText = widget.type === "text";
-  // The footer only says what's different from the dashboard: its own period, grouping or filter, or a filter that doesn't apply.
-  const footerParts = !isText && query
+  const asOf = query?.range.asOf;
+  const compared = !!previous && ((widget.type === "line" && !query?.splitBy) || (widget.type === "table" && !!query?.splitBy));
+  const snapshotOverTime = metric?.kind === "snapshot" && !asOf;
+  // The footer says what's different from the dashboard (its own period with exact dates, a current value
+  // the date range doesn't apply to, its grouping, what it's compared with), then notes on what the figure is.
+  const footerParts = !isText && query && metric
     ? [
-        widget.range && rangeLabel(widget.range),
-        widget.grouping && widget.type !== "kpi" && widget.type !== "bar" && GROUPING_LABEL[widget.grouping],
-        widget.filter && widget.filter.values.length > 0 && `${PROPERTIES[widget.filter.property].name}: ${widget.filter.values.join(", ")}`,
+        asOf ? `As of ${fmtAsOf(asOf)}` : widget.range && rangeWithDates(widget.range, today),
+        asOf && "Date range doesn’t apply",
+        snapshotOverTime && `End-of-${query.grouping} value`,
+        widget.grouping && !asOf && widget.type !== "kpi" && widget.type !== "bar" && GROUPING_LABEL[widget.grouping],
+        compared && (widget.type === "line"
+          ? `Previous period: ${fmtSpan(previousPeriod(query.range).from, previousPeriod(query.range).to)}`
+          : `Change ${previousDates(query.range)}`),
+        query.byCountry && "Shown by country; currencies aren’t combined",
+        query.splitSetAside && `Choose one country to see it by ${PROPERTIES[query.splitSetAside].name.toLowerCase()}`,
         result && result.ignored.length > 0 && `${result.ignored.map((p) => PROPERTIES[p].name).join(" and ")} filter doesn’t apply to this metric`,
+        metric.excludes,
       ].filter((x): x is string => !!x)
     : [];
+  const filtered = filterLine(widget);
   const footer = footerParts.length > 0 ? footerParts : null;
   const [showDefinition, setShowDefinition] = useState(false);
 
   function exportCsv() {
     if (!result || !metric) return;
     // The same columns as this widget's sheet in the dashboard's Excel export.
-    const csv = toCsv(widgetTable(widget, result, metric));
+    const csv = toCsv(widgetTable(result, metric, query?.splitBy));
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const a = Object.assign(document.createElement("a"), { href: url, download: `${widget.title || "widget"}.csv` });
     a.click();
@@ -110,7 +127,8 @@ export function WidgetCard(props: WidgetCardProps) {
 
   const definition: MenuItem[] = metric ? [{ label: "View definition", icon: BookOpen, onSelect: () => setShowDefinition(true) }] : [];
   const exportItem: MenuItem[] = !isText ? [{ label: "Export CSV (mock)", icon: Download, onSelect: exportCsv }] : [];
-  // View mode never changes the saved dashboard: Edit is the way into changing it.
+  const exploreItem: MenuItem[] = !isText && metric && props.onExplore ? [{ label: "Explore", icon: Telescope, onSelect: props.onExplore }] : [];
+  // View mode never changes the saved dashboard: Edit is the way into changing it, on your own dashboards only.
   const menu: MenuItem[] = editing
     ? [
         { label: "Edit", icon: Pencil, onSelect: props.onEdit },
@@ -126,7 +144,7 @@ export function WidgetCard(props: WidgetCardProps) {
         ...exportItem,
         { label: "Remove", icon: Trash2, onSelect: props.onRemove, danger: true },
       ]
-    : [...definition, ...exportItem, ...(canChange ? [{ label: "Edit", icon: Pencil, onSelect: props.onEdit }] : [])];
+    : [...definition, ...exploreItem, ...exportItem, ...(canChange ? [{ label: "Edit", icon: Pencil, onSelect: props.onEdit }] : [])];
 
   return (
     <article
@@ -134,6 +152,7 @@ export function WidgetCard(props: WidgetCardProps) {
       tabIndex={-1}
       aria-labelledby={titleId}
       aria-busy={loading && !isText}
+      inert={props.dimmed}
       className={cn(
         // The shared Card's look (ui/card.tsx): light border, subtle shadow, roomier padding.
         "flex min-w-0 scroll-m-6 flex-col rounded-xl border bg-white shadow-sm transition-shadow focus:outline-none",
@@ -141,6 +160,7 @@ export function WidgetCard(props: WidgetCardProps) {
         props.variant !== "preview" && (editing ? "border-dashed border-slate-300" : "border-slate-200"),
         props.mark === "placeholder" && "border-2 border-dashed border-zeno-teal",
         props.mark === "editing" && "border-zeno-teal ring-2 ring-zeno-teal/30",
+        props.dimmed && "pointer-events-none opacity-50",
         props.mark === "added" && "ring-2 ring-zeno-teal ring-offset-2"
       )}
     >
@@ -150,10 +170,10 @@ export function WidgetCard(props: WidgetCardProps) {
       <header className="flex items-start gap-2 px-5 pb-3 pt-5">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1">
           <WidgetTitle id={titleId} title={widget.title} editing={editing && !props.mark && props.variant !== "preview"} onRename={props.onRename} />
-          {metric && <FocusTip label={`What ${metric.name} means`} content={<DefinitionTip {...metric} />} />}
-          {metric && !isText && showsUnitTag(metric) && (
-            <span className="rounded border border-slate-200 px-1.5 text-[11px] leading-4 text-slate-600">{UNIT_LABEL[metric.unit]}</span>
-          )}
+          {metric && <FocusTip label={`What ${metric.name} means`} content={<DefinitionTip metric={metric} />} />}
+          {/* A number already says its unit after the figure ("412.2K points", "97.2%"), so only charts and tables get the tag. */}
+          {metric && !isText && widget.type !== "kpi" && showsUnitTag(metric) && <span className={UNIT_TAG}>{UNIT_LABEL[metric.unit]}</span>}
+          {filtered && !isText && <p className="basis-full truncate text-xs text-slate-500" title={filtered}><span className="sr-only">Filtered to </span>{filtered}</p>}
         </div>
         {menu.length > 0 && !props.mark && props.variant !== "preview" && <RowMenu label={`Actions for ${widget.title || "widget"}`} items={menu} className="-mr-1.5 -mt-1 shrink-0" />}
       </header>
@@ -168,10 +188,17 @@ export function WidgetCard(props: WidgetCardProps) {
           <p className="flex min-h-[96px] items-center justify-center text-sm text-slate-500">Pick a metric to preview</p>
         ) : loading || !query || !result ? (
           <Skeleton type={widget.type} height={CHART_PX} />
+        ) : query.noOverlap ? (
+          <State
+            icon={FilterX}
+            title="No data: widget and dashboard filters don’t overlap"
+            detail={`The dashboard shows ${[filters.country, ...filters.regions].filter(Boolean).join(", ")}; this widget shows ${filtered}.`}
+            action={(canChange || editing) && props.variant !== "preview" ? { label: "Edit widget", icon: Pencil, onClick: props.onEdit } : undefined}
+          />
         ) : result.empty ? (
           <State icon={FilterX} title="No data for this filter" detail="Nothing matches the dashboard’s filters for this metric." action={{ label: "Reset filters", icon: RotateCw, onClick: props.onResetFilters }} />
         ) : widget.type === "kpi" ? (
-          <KpiWidget metric={metric} result={result} previous={previous?.total ?? null} range={query.range} compare={widget.compare} />
+          <KpiWidget metric={metric} result={result} previous={previous} range={query.range} compare={widget.compare} />
         ) : widget.type === "line" ? (
           <LineWidget
             metric={metric}
@@ -217,7 +244,7 @@ export function WidgetCard(props: WidgetCardProps) {
 }
 
 /** Each value's previous-period figure; Other is the rest of the total where figures add up. */
-function previousByValue(current: QueryResult, previous: QueryResult, additive: boolean): Map<string, number> {
+export function previousByValue(current: QueryResult, previous: QueryResult, additive: boolean): Map<string, number> {
   const map = new Map(previous.series.map((s) => [s.name, s.total]));
   if (additive && current.series.some((s) => s.other)) {
     const named = current.series.filter((s) => !s.other).reduce((a, s) => a + (map.get(s.name) ?? 0), 0);
@@ -269,13 +296,14 @@ function State({
   icon: Icon, title, detail, action, tone,
 }: {
   icon: typeof AlertCircle; title: string; detail: string; tone?: "error";
-  action: { label: string; icon: typeof RotateCw; onClick: () => void };
+  action?: { label: string; icon: typeof RotateCw; onClick: () => void };
 }) {
   return (
     <div className="flex h-full min-h-[120px] flex-col items-center justify-center gap-1 py-4 text-center">
       <Icon className={cn("h-5 w-5", tone === "error" ? "text-red-600" : "text-slate-400")} aria-hidden />
       <p className="text-sm font-medium text-slate-700">{title}</p>
       <p className="max-w-xs text-xs text-slate-500">{detail}</p>
+      {action && (
       <button
         type="button"
         onClick={action.onClick}
@@ -283,6 +311,7 @@ function State({
       >
         <action.icon className="h-3.5 w-3.5" /> {action.label}
       </button>
+      )}
     </div>
   );
 }

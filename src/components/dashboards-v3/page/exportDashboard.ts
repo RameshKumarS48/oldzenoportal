@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { categoryName, metricById, PROPERTIES } from "@/lib/dashboards-v3/catalogue";
-import { DATE_FORMAT, fmtSpan, rangeLabel, resolveRange } from "@/lib/dashboards-v3/dates";
+import { DATE_FORMAT, rangeLabel, rangeWithDates } from "@/lib/dashboards-v3/dates";
 import { safeFileName, sheetNames, widgetTableFor } from "@/lib/dashboards-v3/export";
 import { dataAsOf } from "@/lib/dashboards-v3/format";
 import { CHART_LABEL } from "@/lib/dashboards-v3/rules";
@@ -18,7 +18,6 @@ const XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.s
 export async function buildDashboardWorkbook(dashboard: Dashboard, filters: DashboardFilters, widgets: Dashboard["widgets"], today: Date) {
   const ExcelJS = (await import("exceljs")).default;
   const book = new ExcelJS.Workbook();
-  const range = resolveRange(filters.range, today);
   const dataWidgets = widgets.filter((w) => w.type !== "text");
   const names = sheetNames(dataWidgets.map((w) => w.title || metricById(w.metricId)?.name || "Widget"), [SUMMARY]);
   const sheetOf = new Map(dataWidgets.map((w, i) => [w.id, names[i]]));
@@ -28,7 +27,8 @@ export async function buildDashboardWorkbook(dashboard: Dashboard, filters: Dash
   const facts: [string, string][] = [
     ["Dashboard", dashboard.name],
     ["Category", categoryName(dashboard.category)],
-    ["Date range", `${rangeLabel(filters.range)} (${fmtSpan(range.from, range.to)})`],
+    ["Date range", rangeWithDates(filters.range, today)],
+    ["Country", filters.country ?? "All countries"],
     ["Region", filters.regions.length > 0 ? filters.regions.join(", ") : "All regions"],
     ["Data as of", format(dataAsOf(), `${DATE_FORMAT}, HH:mm`)],
     ["Note", "Sandbox export with mock data"],

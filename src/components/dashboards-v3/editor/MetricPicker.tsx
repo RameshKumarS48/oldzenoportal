@@ -2,10 +2,12 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Search } from "lucide-react";
-import { CATEGORIES, METRICS, suggestedMetrics, categoryName, type CategoryId, type Metric } from "@/lib/dashboards-v3/catalogue";
+import { CATEGORIES, METRICS, suggestedMetrics, categoryName, kindLabel, type CategoryId, type Metric } from "@/lib/dashboards-v3/catalogue";
 import { UNIT_LABEL } from "@/lib/dashboards-v3/format";
 import { cn } from "@/lib/utils";
 import { CategoryChip } from "../ui/CategoryChip";
+import { DefinitionTip, FocusTip } from "../ui/FocusTip";
+import { useAnchoredPopover } from "../ui/useAnchoredPopover";
 
 /**
  * Choosing a metric. Once one is chosen it shows as a card with Change;
@@ -13,23 +15,31 @@ import { CategoryChip } from "../ui/CategoryChip";
  * dashboard's category first, then groups the rest by category. Arrow keys
  * move through it like any radio group.
  */
-export function MetricPicker({ value, category, onChange }: { value: Metric | undefined; category: CategoryId; onChange: (m: Metric) => void }) {
+export function MetricPicker({
+  value, category, onChange, hideLabel = false, compact = false,
+}: {
+  value: Metric | undefined; category: CategoryId; onChange: (m: Metric) => void; hideLabel?: boolean;
+  /** Explore: the chosen metric as just its name, its definition behind ⓘ, and Change. */
+  compact?: boolean;
+}) {
   const [open, setOpen] = useState(!value);
   const [query, setQuery] = useState("");
   const search = useRef<HTMLInputElement>(null);
-  const id = useId();
 
   useEffect(() => {
     if (open) search.current?.focus();
   }, [open]);
 
+  if (value && compact) return <CompactMetric value={value} category={category} onChange={onChange} hideLabel={hideLabel} />;
+
   if (!open && value) {
     return (
       <div>
-        <p className="mb-1 text-sm font-medium text-slate-700">Metric</p>
+        <p className={hideLabel ? "sr-only" : "mb-1 text-sm font-medium text-slate-700"}>Metric</p>
         <div className="flex items-start gap-3 rounded-lg border border-slate-200 p-3">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-slate-800">{value.name}</p>
+            <p className="text-xs font-medium text-slate-600">{kindLabel(value)}</p>
             <p className="mt-0.5 text-xs text-slate-600">{value.definition}</p>
             <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
               <CategoryChip category={value.category} />
@@ -44,41 +54,103 @@ export function MetricPicker({ value, category, onChange }: { value: Metric | un
     );
   }
 
-  const q = query.trim().toLowerCase();
-  const match = (m: Metric) => !q || m.name.toLowerCase().includes(q) || m.definition.toLowerCase().includes(q) || categoryName(m.category).toLowerCase().includes(q);
-  const suggested = q ? [] : suggestedMetrics(category);
-  const groups = CATEGORIES.map((c) => ({ ...c, items: METRICS.filter((m) => m.category === c.id && match(m)) })).filter((g) => g.items.length > 0);
-
   const pick = (m: Metric) => { onChange(m); setOpen(false); setQuery(""); };
 
   return (
     <fieldset>
-      <legend className="mb-1 text-sm font-medium text-slate-700">Metric</legend>
-      <div className="rounded-lg border border-slate-300 focus-within:border-zeno-teal">
-        <div className="relative border-b border-slate-200">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
-          <input
-            ref={search}
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search metrics"
-            aria-label="Search metrics"
-            className="w-full rounded-t-lg py-2 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-500 focus:outline-none"
-          />
-        </div>
-        <div className="max-h-72 overflow-y-auto py-1">
-          {suggested.length > 0 && <Group title={`Suggested for ${categoryName(category).toLowerCase()}`} items={suggested} name={`${id}-suggested`} value={value} onPick={pick} prefix="s" />}
-          {groups.map((g) => <Group key={g.id} title={g.name} items={g.items} name={`${id}-metric`} value={value} onPick={pick} prefix="g" />)}
-          {groups.length === 0 && <p className="px-3 py-4 text-center text-sm text-slate-500">No metrics match “{query.trim()}”.</p>}
-        </div>
-      </div>
+      <legend className={hideLabel ? "sr-only" : "mb-1 text-sm font-medium text-slate-700"}>Metric</legend>
+      <MetricList value={value} category={category} query={query} onQuery={setQuery} onPick={pick} searchRef={search} />
       {value && (
         <button type="button" onClick={() => { setOpen(false); setQuery(""); }} className="mt-1.5 rounded text-xs font-medium text-slate-600 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40">
           Keep {value.name}
         </button>
       )}
     </fieldset>
+  );
+}
+
+/**
+ * Explore's metric: its name, its definition behind ⓘ, and Change, which
+ * opens the list in a popover (search, suggestions first, each metric once).
+ * Escape, a click outside or a choice close it, and focus goes back to Change.
+ */
+function CompactMetric({ value, category, onChange, hideLabel }: { value: Metric; category: CategoryId; onChange: (m: Metric) => void; hideLabel: boolean }) {
+  const [query, setQuery] = useState("");
+  const search = useRef<HTMLInputElement>(null);
+  const change = useRef<HTMLButtonElement>(null);
+  const { open, button: card, panel, show, close: hide, style } = useAnchoredPopover<HTMLDivElement>({ height: 380 });
+  const close = () => { hide(false); setQuery(""); change.current?.focus(); };
+
+  useEffect(() => {
+    if (open) search.current?.focus();
+  }, [open]);
+
+  return (
+    <div>
+      <p className={hideLabel ? "sr-only" : "mb-1 text-sm font-semibold text-slate-800"}>Metric</p>
+      <div ref={card} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-800">{value.name}</span>
+        <FocusTip label={`What ${value.name} means`} content={<DefinitionTip metric={value} />} />
+        <button
+          ref={change}
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onClick={() => (open ? close() : show())}
+          className="rounded text-sm font-medium text-zeno-teal hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
+        >
+          Change
+        </button>
+      </div>
+      {open && (
+        <div
+          ref={panel}
+          role="dialog"
+          aria-label="Choose a metric"
+          style={style}
+          onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); } }}
+          className="z-50 rounded-lg bg-white shadow-lg"
+        >
+          <MetricList value={value} category={category} query={query} onQuery={setQuery} onPick={(m) => { onChange(m); close(); }} searchRef={search} once />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Search, then suggestions for the category, then every metric by category; `once` leaves the suggested ones out of their categories. */
+function MetricList({
+  value, category, query, onQuery, onPick, searchRef, once = false,
+}: {
+  value: Metric | undefined; category: CategoryId; query: string; onQuery: (q: string) => void; onPick: (m: Metric) => void;
+  searchRef: React.RefObject<HTMLInputElement | null>; once?: boolean;
+}) {
+  const id = useId();
+  const q = query.trim().toLowerCase();
+  const match = (m: Metric) => !q || m.name.toLowerCase().includes(q) || m.definition.toLowerCase().includes(q) || categoryName(m.category).toLowerCase().includes(q);
+  const suggested = q ? [] : suggestedMetrics(category);
+  const skip = new Set(once ? suggested.map((m) => m.id) : []);
+  const groups = CATEGORIES.map((c) => ({ ...c, items: METRICS.filter((m) => m.category === c.id && match(m) && !skip.has(m.id)) })).filter((g) => g.items.length > 0);
+  return (
+    <div className="rounded-lg border border-slate-300 focus-within:border-zeno-teal">
+      <div className="relative border-b border-slate-200">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+        <input
+          ref={searchRef}
+          type="search"
+          value={query}
+          onChange={(e) => onQuery(e.target.value)}
+          placeholder="Search metrics"
+          aria-label="Search metrics"
+          className="w-full rounded-t-lg py-2 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-500 focus:outline-none"
+        />
+      </div>
+      <div className="max-h-72 overflow-y-auto py-1">
+        {suggested.length > 0 && <Group title={`Suggested for ${categoryName(category).toLowerCase()}`} items={suggested} name={`${id}-suggested`} value={value} onPick={onPick} prefix="s" />}
+        {groups.map((g) => <Group key={g.id} title={g.name} items={g.items} name={`${id}-metric`} value={value} onPick={onPick} prefix="g" />)}
+        {groups.length === 0 && suggested.length === 0 && <p className="px-3 py-4 text-center text-sm text-slate-500">No metrics match “{query.trim()}”.</p>}
+      </div>
+    </div>
   );
 }
 

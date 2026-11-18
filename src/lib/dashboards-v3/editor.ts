@@ -7,6 +7,7 @@
 import { metricById, PROPERTIES, type ChartType, type Metric, type PropertyId } from "./catalogue";
 import { allowedSizes, chartBlocked, defaultSize, INTENTS, splitBlocked, type Intent } from "./rules";
 import type { Widget } from "./types";
+import { showsCurrentValue, WIDGET_FILTERS_MAX } from "./widgets";
 
 /** A metric's name with its split, unless the name already says it ("Battery inventory by state"). */
 export function splitName(metric: Metric, splitBy: PropertyId | undefined): string {
@@ -34,7 +35,13 @@ export function compareBlocked(w: Widget): string | null {
   return "Bar charts don’t show the previous period. Use a line or a table to compare.";
 }
 
+/** Why a widget can't have its own time range: a snapshot's number, bar or table shows the current value. */
+export function rangeBlocked(w: Widget): string | null {
+  return showsCurrentValue(w, metricById(w.metricId)) ? "Shows the current value, so the date range doesn’t apply. A line or stacked bar shows it over time." : null;
+}
+
 export function groupingBlocked(w: Widget): string | null {
+  if (rangeBlocked(w)) return "A current value is one moment, with no time to group";
   if (w.type === "kpi") return "A number shows the whole period in one figure";
   if (w.type === "bar") return "Bars compare totals for the whole period";
   if (w.type === "table" && w.splitBy) return "A split table shows totals for the whole period";
@@ -66,16 +73,22 @@ export function normalise(w: Widget, sizeChosen: boolean): Widget {
   const out: Widget = { ...w };
   const metric = metricById(out.metricId);
   if (out.type === "text") {
-    delete out.metricId; delete out.splitBy; delete out.filter; delete out.range; delete out.grouping; delete out.goal;
+    delete out.metricId; delete out.splitBy; delete out.filters; delete out.range; delete out.grouping; delete out.goal;
     out.compare = false;
     out.showValues = false;
   } else if (metric) {
     if (out.type === "kpi") delete out.splitBy;
     if (out.splitBy && splitBlocked(out.type, metric, out.splitBy)) delete out.splitBy;
     if ((out.type === "bar" || out.type === "stacked") && !out.splitBy) out.splitBy = firstSplit(metric);
-    if (out.filter && !metric.filters.includes(out.filter.property)) delete out.filter;
+    if (out.filters) {
+      // Filters the metric can use, one per property, three at most.
+      const kept = out.filters.filter((f, i, all) => metric.filters.includes(f.property) && all.findIndex((g) => g.property === f.property) === i);
+      out.filters = kept.slice(0, WIDGET_FILTERS_MAX);
+      if (out.filters.length === 0) delete out.filters;
+    }
     if (out.type === "stacked" && metric.unit === "%") out.type = "line";
   }
+  if (rangeBlocked(out)) delete out.range;
   if (compareBlocked(out)) out.compare = false;
   if (groupingBlocked(out)) delete out.grouping;
   if (goalBlocked(out)) delete out.goal;

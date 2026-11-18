@@ -26,7 +26,8 @@ export interface Widget {
   metricId?: string;
   /** Unset follows the dashboard's date range. */
   range?: DateRange;
-  filter?: PropertyFilter;
+  /** Up to three (WIDGET_FILTERS_MAX), on different properties, all of which must match; applied on top of the dashboard's. */
+  filters?: PropertyFilter[];
   /** One property only. */
   splitBy?: PropertyId;
   compare: boolean;
@@ -44,6 +45,9 @@ export interface Widget {
 
 export interface DashboardFilters {
   range: DateRange;
+  /** null for all countries. */
+  country: string | null;
+  /** Regions in the chosen country; empty for all. */
   regions: string[];
 }
 
@@ -61,5 +65,21 @@ export interface Dashboard {
   filters: DashboardFilters;
   widgets: Widget[];
   createdAt: string;
+  /** When it was last saved with a change; unset means never since it was created. */
+  updatedAt?: string;
   lastViewedAt: string | null;
+  /** Zeno templates only: what it's for and who looks after it. */
+  template?: TemplateInfo;
+  /** A copy made from a template remembers it; later changes to the template don't reach the copy. */
+  basedOnTemplateId?: string;
+}
+
+export interface TemplateInfo {
+  /** One line on the job it's for: "For finance's month-end review". Also its description. */
+  purpose: string;
+  /** The team that owns it. */
+  ownerTeam: string;
+  /** yyyy-MM-dd. */
+  lastReviewed: string;
+  version: number;
 }

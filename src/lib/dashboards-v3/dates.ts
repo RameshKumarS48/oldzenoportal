@@ -1,11 +1,11 @@
 import {
-  addDays, differenceInCalendarDays, endOfMonth, format, isSameDay, parseISO, startOfDay, startOfMonth, startOfQuarter, startOfWeek, subDays, subMonths,
+  addDays, addHours, differenceInCalendarDays, isSameMonth, endOfMonth, format, isSameDay, parseISO, startOfDay, startOfMonth, startOfQuarter, startOfWeek, subDays, subMonths,
 } from "date-fns";
 import type { DateRange, Grouping, RangePreset } from "./types";
 
 export type PresetId = Exclude<RangePreset, "custom" | "6m">;
 
-/** The presets on offer, in the picker's two groups: rolling back from now, and calendar periods. */
+/** The presets on offer, in the picker's two groups: rolling back from yesterday, and calendar periods. */
 export const PRESET_GROUPS: { label: string; presets: { value: PresetId; label: string }[] }[] = [
   {
     label: "Rolling",
@@ -20,9 +20,10 @@ export const PRESET_GROUPS: { label: string; presets: { value: PresetId; label: 
   {
     label: "Calendar",
     presets: [
-      { value: "mtd", label: "This month" },
-      { value: "lastMonth", label: "Last month" },
-      { value: "qtd", label: "This quarter" },
+      // "Calendar" in each name, so "Last calendar month" never reads as "Last 30 days".
+      { value: "mtd", label: "This calendar month" },
+      { value: "lastMonth", label: "Last calendar month" },
+      { value: "qtd", label: "This calendar quarter" },
     ],
   },
 ];
@@ -42,8 +43,8 @@ export const DATA_HOUR = 6;
 
 export const DEFAULT_RANGE: DateRange = { preset: "30d" };
 
-/** Ranges longer than this are grouped by week unless the widget says otherwise. */
-export const WEEKLY_AFTER_DAYS = 90;
+/** Ranges longer than this are grouped by week unless the widget says otherwise (sparklines too): a month or less reads day by day. */
+export const WEEKLY_AFTER_DAYS = 31;
 
 export interface ResolvedRange {
   from: Date;
@@ -57,7 +58,27 @@ export interface ResolvedRange {
    * point, so the comparison stays fair.
    */
   endFraction?: number;
+  /** Set for a snapshot's current value: the one moment it shows, today's 06:00 refresh. */
+  asOf?: Date;
+  /**
+   * The day it was resolved on. A week, month or day holding it isn't over
+   * yet, so it's drawn as "so far"; a range that ended before it (last
+   * month, say) is complete throughout. Unset for previous periods.
+   */
+  today?: Date;
 }
+
+/** A snapshot is compared with its value this many days earlier. */
+export const SNAPSHOT_COMPARE_DAYS = 7;
+
+/** A snapshot's current value: today, as of the morning refresh. The date range doesn't apply. */
+export function snapshotRange(today: Date = new Date()): ResolvedRange {
+  const day = startOfDay(today);
+  return { from: day, to: day, days: 1, preset: "today", asOf: addHours(day, DATA_HOUR), today: day };
+}
+
+/** "18 Nov, 06:00": when a current value is from. */
+export const fmtAsOf = (d: Date) => format(d, "d MMM, HH:mm");
 
 /**
  * The last complete day: data refreshes each morning up to the end of
@@ -78,7 +99,7 @@ export function resolveRange(range: DateRange, today: Date = new Date()): Resolv
   const now = startOfDay(today);
   let from: Date;
   switch (range.preset) {
-    case "today": return { from: now, to: now, days: 1, preset, endFraction: DATA_HOUR / 24 };
+    case "today": return { from: now, to: now, days: 1, preset, endFraction: DATA_HOUR / 24, today: now };
     case "lastMonth": {
       from = startOfMonth(subMonths(now, 1));
       to = startOfDay(endOfMonth(from));
@@ -94,10 +115,10 @@ export function resolveRange(range: DateRange, today: Date = new Date()): Resolv
     case "custom": {
       const t = range.to ? minDate(parseISO(range.to), now) : to;
       const f = range.from ? minDate(parseISO(range.from), t) : subDays(t, 29);
-      return { from: f, to: t, days: differenceInCalendarDays(t, f) + 1, preset, ...(isSameDay(t, now) ? { endFraction: DATA_HOUR / 24 } : {}) };
+      return { from: f, to: t, days: differenceInCalendarDays(t, f) + 1, preset, today: now, ...(isSameDay(t, now) ? { endFraction: DATA_HOUR / 24 } : {}) };
     }
   }
-  return { from, to, days: differenceInCalendarDays(to, from) + 1, preset };
+  return { from, to, days: differenceInCalendarDays(to, from) + 1, preset, today: now };
 }
 
 const minDate = (a: Date, b: Date) => (a < b ? a : b);
@@ -108,6 +129,10 @@ const minDate = (a: Date, b: Date) => (a < b ? a : b);
  * its last day when the range ends today.
  */
 export function previousPeriod(r: ResolvedRange): ResolvedRange {
+  if (r.asOf) {
+    const day = subDays(r.from, SNAPSHOT_COMPARE_DAYS);
+    return { ...r, from: day, to: day, asOf: subDays(r.asOf, SNAPSHOT_COMPARE_DAYS), today: undefined };
+  }
   if (r.preset === "lastMonth") {
     const from = startOfMonth(subMonths(r.from, 1));
     const to = startOfDay(endOfMonth(from));
@@ -117,9 +142,10 @@ export function previousPeriod(r: ResolvedRange): ResolvedRange {
   return { from: subDays(to, r.days - 1), to, days: r.days, preset: r.preset, endFraction: r.endFraction };
 }
 
-/** Two dates as one span, the year said once when both share it: "18 Oct – 17 Nov 2026". */
+/** Two dates as one span, the month and year said once when both share them: "1–31 Oct 2026", "18 Oct – 17 Nov 2026". */
 export function fmtSpan(from: Date, to: Date): string {
   if (isSameDay(from, to)) return fmtDate(from);
+  if (isSameMonth(from, to)) return `${format(from, "d")}–${fmtDate(to)}`;
   return from.getFullYear() === to.getFullYear() ? `${format(from, "d MMM")} – ${fmtDate(to)}` : `${fmtDate(from)} – ${fmtDate(to)}`;
 }
 
@@ -130,8 +156,23 @@ export function rangeLabel(range: DateRange): string {
   return fmtSpan(r.from, r.to);
 }
 
+/** A range by name with its exact dates: "Last calendar month · 1–31 Oct 2026"; a custom range is its dates. */
+export function rangeWithDates(range: DateRange, today: Date = new Date()): string {
+  const r = resolveRange(range, today);
+  return range.preset === "custom" ? fmtSpan(r.from, r.to) : `${rangeLabel(range)} · ${fmtSpan(r.from, r.to)}`;
+}
+
+/** What a comparison is with, in exact dates: "vs 1–30 Sep 2026", "vs 11 Nov, 06:00", "vs 17 Nov 2026, to 06:00". */
+export function previousDates(r: ResolvedRange): string {
+  const p = previousPeriod(r);
+  if (p.asOf) return `vs ${fmtAsOf(p.asOf)}`;
+  if (p.endFraction !== undefined && p.days === 1) return `vs ${fmtDate(p.from)}, to ${String(DATA_HOUR).padStart(2, "0")}:00`;
+  return `vs ${fmtSpan(p.from, p.to)}`;
+}
+
 /** How a comparison is described, in the filter's own words: "vs previous 12 months", "vs previous 30 days". */
 export function previousLabel(r: ResolvedRange): string {
+  if (r.asOf) return `vs ${SNAPSHOT_COMPARE_DAYS} days earlier`;
   if (r.preset === "today") return "vs same time yesterday";
   if (r.preset === "lastMonth") return "vs the month before";
   if (r.preset === "6m") return "vs previous 6 months";

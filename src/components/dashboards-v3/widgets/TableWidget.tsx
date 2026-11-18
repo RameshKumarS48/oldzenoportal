@@ -68,7 +68,7 @@ export function TableWidget({
                 {previous && (
                   <td
                     className={cn(TD, "whitespace-nowrap text-right text-xs font-medium", CHANGE_CLASS[tone])}
-                    title={c && !metric.higherIsBetter ? LOWER_IS_BETTER : undefined}
+                    title={c && metric.higherIsBetter === false ? LOWER_IS_BETTER : undefined}
                   >
                     {c ? <><span aria-hidden>{c.direction === "up" ? "▲ " : c.direction === "down" ? "▼ " : ""}</span>{c.direction === "flat" ? "No change" : c.text}</> : "–"}
                   </td>

@@ -78,13 +78,47 @@ export function Toggle({ label, checked, onChange, blocked, hint }: { label: str
   );
 }
 
+/** An on/off switch that says why when it's not available: a button with role="switch", filled teal when on. */
+export function Switch({ label, checked, onChange, blocked }: { label: string; checked: boolean; onChange: (v: boolean) => void; blocked?: string | null }) {
+  const id = useId();
+  const on = checked && !blocked;
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3">
+        <span id={`${id}-label`} className={cn("text-sm font-semibold", blocked ? "text-slate-400" : "text-slate-800")}>{label}</span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-labelledby={`${id}-label`}
+          aria-disabled={!!blocked}
+          aria-describedby={blocked ? `${id}-why` : undefined}
+          title={blocked ?? undefined}
+          onClick={() => { if (!blocked) onChange(!checked); }}
+          className={cn(
+            "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40",
+            on ? "bg-zeno-teal" : "bg-slate-300",
+            blocked && "cursor-not-allowed opacity-50"
+          )}
+        >
+          <span aria-hidden className={cn("inline-block h-4 w-4 rounded-full bg-white shadow transition-transform", on ? "translate-x-4" : "translate-x-0.5")} />
+        </button>
+      </div>
+      {blocked && <p id={`${id}-why`} className="mt-0.5 text-xs text-slate-500">{blocked}</p>}
+    </div>
+  );
+}
+
 /** A collapsed group of options; its summary says what's set inside without opening it. */
-export function Disclosure({ title, summary, children, defaultOpen = false }: { title: string; summary?: string; children: React.ReactNode; defaultOpen?: boolean }) {
+export function Disclosure({
+  title, summary, children, defaultOpen = false, sticky = false,
+}: { title: string; summary?: string; children: React.ReactNode; defaultOpen?: boolean; sticky?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   const id = useId();
   return (
     <section className="rounded-lg border border-slate-200">
-      <h3>
+      {/* Sticky: the heading stays at the top of the scroll area while its options are in view. */}
+      <h3 className={cn(sticky && "sticky top-0 z-10 rounded-t-lg bg-white")}>
         <button
           type="button"
           aria-expanded={open}

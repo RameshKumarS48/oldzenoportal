@@ -3,6 +3,8 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { buildSeed, SEED_REVISION } from "@/lib/mock/dashboards-v3";
 import type { CategoryId } from "@/lib/dashboards-v3/catalogue";
 import { DEFAULT_RANGE } from "@/lib/dashboards-v3/dates";
+import { canEdit } from "@/lib/dashboards-v3/templates";
+import { addWidget, atLimit } from "@/lib/dashboards-v3/widgets";
 import type { Dashboard, DashboardFilters, Visibility, Widget } from "@/lib/dashboards-v3/types";
 
 export type OverviewView = "favorites" | "mine" | "shared" | "templates" | "all";
@@ -28,6 +30,8 @@ export interface NewDashboard {
   /** Or start with these, e.g. from a drafted dashboard. */
   widgets?: Widget[];
   filters?: DashboardFilters;
+  /** The template it was made from, when it's an unsaved copy being saved. */
+  basedOnTemplateId?: string;
 }
 
 interface DashboardsV3State {
@@ -38,6 +42,14 @@ interface DashboardsV3State {
   prefs: OverviewPrefs;
   /** Prompts sent to the draft composer, newest first, for its Recent list. */
   recentPrompts: string[];
+  /**
+   * The template "Duplicate to customise" was just pressed on. Not saved in
+   * the browser: a reloaded or pasted copy link finds it empty and goes back
+   * to the template, so the link never creates anything.
+   */
+  copyIntent: string | null;
+  startCopy: (templateId: string) => void;
+  endCopy: () => void;
 
   addRecentPrompt: (prompt: string) => void;
   setPrefs: (patch: Partial<OverviewPrefs>) => void;
@@ -49,6 +61,8 @@ interface DashboardsV3State {
   rename: (id: string, name: string) => void;
   update: (id: string, patch: Partial<Pick<Dashboard, "name" | "description" | "category" | "visibility" | "filters" | "widgets">>) => void;
   remove: (id: string) => void;
+  /** Explore's "Add to dashboard": a copy of the widget, at the end of its group. False for a template, someone else's dashboard, or a full one. */
+  addWidgetTo: (id: string, widget: Widget) => boolean;
   reset: () => void;
 }
 
@@ -84,6 +98,9 @@ export const useDashboardsV3 = create<DashboardsV3State>()(
   persist(
     (set, get) => ({
       ...initial(),
+      copyIntent: null,
+      startCopy: (templateId) => set({ copyIntent: templateId }),
+      endCopy: () => set({ copyIntent: null }),
 
       addRecentPrompt: (prompt) =>
         set((s) => {
@@ -102,7 +119,7 @@ export const useDashboardsV3 = create<DashboardsV3State>()(
       markViewed: (id) =>
         set((s) => ({ dashboards: s.dashboards.map((d) => (d.id === id ? { ...d, lastViewedAt: new Date().toISOString() } : d)) })),
 
-      create: ({ name, category, description, visibility, fromId, widgets, filters }) => {
+      create: ({ name, category, description, visibility, fromId, widgets, filters, basedOnTemplateId }) => {
         const source = fromId ? get().dashboards.find((d) => d.id === fromId) : undefined;
         const now = new Date().toISOString();
         const dashboard: Dashboard = {
@@ -113,10 +130,12 @@ export const useDashboardsV3 = create<DashboardsV3State>()(
           visibility,
           owner: null,
           isTemplate: false,
-          filters: filters ?? (source ? { ...source.filters, regions: [...source.filters.regions] } : { range: DEFAULT_RANGE, regions: [] }),
+          filters: filters ?? (source ? { ...source.filters, regions: [...source.filters.regions] } : { range: DEFAULT_RANGE, country: null, regions: [] }),
           widgets: widgets ? copyWidgets(widgets) : source ? copyWidgets(source.widgets) : [],
           createdAt: now,
           lastViewedAt: now,
+          // A copy remembers its template (a copy of a copy, the same one); nothing syncs between them.
+          ...(source?.isTemplate ? { basedOnTemplateId: source.id } : source?.basedOnTemplateId ? { basedOnTemplateId: source.basedOnTemplateId } : basedOnTemplateId ? { basedOnTemplateId } : {}),
         };
         set((s) => ({ dashboards: [dashboard, ...s.dashboards] }));
         return dashboard.id;
@@ -134,18 +153,32 @@ export const useDashboardsV3 = create<DashboardsV3State>()(
         });
       },
 
+      // Rename, update and remove only ever touch your own dashboards: templates and shared ones are refused here,
+      // whatever the UI offers, so no route can change them.
       rename: (id, name) =>
-        set((s) => ({ dashboards: s.dashboards.map((d) => (d.id === id && !d.isTemplate ? { ...d, name: name.trim() } : d)) })),
+        set((s) => ({ dashboards: s.dashboards.map((d) => (d.id === id && canEdit(d) ? { ...d, name: name.trim(), updatedAt: new Date().toISOString() } : d)) })),
 
       update: (id, patch) =>
-        set((s) => ({ dashboards: s.dashboards.map((d) => (d.id === id && !d.isTemplate ? { ...d, ...patch } : d)) })),
+        set((s) => ({ dashboards: s.dashboards.map((d) => (d.id === id && canEdit(d) ? { ...d, ...patch, updatedAt: new Date().toISOString() } : d)) })),
 
       remove: (id) =>
-        set((s) => ({
-          dashboards: s.dashboards.filter((d) => d.id !== id || d.isTemplate || d.owner !== null),
-          favorites: s.favorites.filter((f) => f !== id),
-          defaultId: s.defaultId === id ? null : s.defaultId,
-        })),
+        set((s) => {
+          const target = s.dashboards.find((d) => d.id === id);
+          if (!target || !canEdit(target)) return s;
+          return {
+            dashboards: s.dashboards.filter((d) => d.id !== id),
+            favorites: s.favorites.filter((f) => f !== id),
+            defaultId: s.defaultId === id ? null : s.defaultId,
+          };
+        }),
+
+      addWidgetTo: (id, widget) => {
+        const target = get().dashboards.find((d) => d.id === id);
+        if (!target || !canEdit(target) || atLimit(target.widgets)) return false;
+        const [copy] = copyWidgets([widget]);
+        set((s) => ({ dashboards: s.dashboards.map((d) => (d.id === id ? { ...d, widgets: addWidget(d.widgets, copy), updatedAt: new Date().toISOString() } : d)) }));
+        return true;
+      },
 
       reset: () => set(initial()),
     }),
@@ -172,6 +205,4 @@ export function inView(d: Dashboard, view: OverviewView, favorites: string[]): b
 }
 
 /** Only your own dashboards can be edited, renamed, shared or deleted. */
-export function isOwn(d: Dashboard): boolean {
-  return !d.isTemplate && d.owner === null;
-}
+export const isOwn = canEdit;

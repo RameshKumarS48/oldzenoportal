@@ -23,13 +23,27 @@ function readDate(text: string): Date | null {
  * The dashboard's date range: presets on the left (rolling, then calendar,
  * applied on click), a custom range on the right (typed "17 Nov 2026" dates
  * with a calendar button each, applied with Apply). The trigger names the
- * preset, with its exact dates on hover, or shows the custom dates.
+ * preset with its exact dates ("Last 30 days · 19 Oct – 17 Nov 2026"), or
+ * shows the custom dates. Each preset row shows its dates too.
  *
  * ↑ ↓ move through the presets, Enter picks one, Escape closes, and focus
  * goes back to the trigger.
  */
+/** The popover's size: presets and custom dates side by side. */
+const POP_W = 480;
+const POP_H = 340;
+
 export function DateRangePicker({ value, onChange }: { value: DateRange; onChange: (r: DateRange) => void }) {
-  const [open, setOpen] = useState(false);
+  /** Fixed beside the button, so a scrolling column (Explore's controls) never clips it. */
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const open = pos !== null;
+  const setOpen = (o: boolean | ((was: boolean) => boolean)) => {
+    const next = typeof o === "function" ? o(open) : o;
+    const r = trigger.current?.getBoundingClientRect();
+    if (!next || !r) { setPos(null); return; }
+    const top = r.bottom + 4 + POP_H > window.innerHeight && r.top - 4 - POP_H > 0 ? r.top - 4 - POP_H : r.bottom + 4;
+    setPos({ top, left: Math.max(8, Math.min(r.left, window.innerWidth - POP_W - 8)) });
+  };
   const trigger = useRef<HTMLButtonElement>(null);
   const pop = useRef<HTMLDivElement>(null);
   const id = useId();
@@ -37,7 +51,7 @@ export function DateRangePicker({ value, onChange }: { value: DateRange; onChang
   const exact = fmtSpan(resolved.from, resolved.to);
 
   function close(returnFocus = true) {
-    setOpen(false);
+    setPos(null);
     if (returnFocus) trigger.current?.focus();
   }
 
@@ -45,10 +59,15 @@ export function DateRangePicker({ value, onChange }: { value: DateRange; onChang
     if (!open) return;
     (pop.current?.querySelector<HTMLElement>("[data-preset][aria-checked=true]") ?? pop.current?.querySelector<HTMLElement>("[data-preset]"))?.focus();
     const onDown = (e: MouseEvent) => {
-      if (!pop.current?.contains(e.target as Node) && !trigger.current?.contains(e.target as Node)) setOpen(false);
+      if (!pop.current?.contains(e.target as Node) && !trigger.current?.contains(e.target as Node)) setPos(null);
     };
+    const onScroll = (e: Event) => { if (!pop.current?.contains(e.target as Node)) setPos(null); };
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("scroll", onScroll, true);
+    };
   }, [open]);
 
   function onPresetKey(e: React.KeyboardEvent) {
@@ -68,12 +87,12 @@ export function DateRangePicker({ value, onChange }: { value: DateRange; onChang
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={`Date range: ${rangeLabel(value)}${value.preset === "custom" ? "" : `, ${exact}`}`}
-        title={value.preset === "custom" ? undefined : exact}
         onClick={() => setOpen((o) => !o)}
         className={CONTROL}
       >
         <CalendarDays className="h-3.5 w-3.5 text-slate-500" aria-hidden />
         <span className="font-medium text-slate-800">{rangeLabel(value)}</span>
+        {value.preset !== "custom" && <span className="text-slate-600">· {exact}</span>}
         <ChevronDown className="h-3.5 w-3.5 text-slate-500" aria-hidden />
       </button>
 
@@ -83,12 +102,14 @@ export function DateRangePicker({ value, onChange }: { value: DateRange; onChang
           role="dialog"
           aria-label="Date range"
           onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); } }}
-          className="absolute left-0 top-full z-30 mt-1 flex rounded-xl border border-slate-200 bg-white shadow-lg"
+          style={pos ? { position: "fixed", top: pos.top, left: pos.left } : undefined}
+          className="z-50 flex rounded-xl border border-slate-200 bg-white shadow-lg"
         >
-          <div className="w-44 py-1" onKeyDown={onPresetKey}>
+          <div className="w-64 py-1" onKeyDown={onPresetKey}>
             {PRESET_GROUPS.map((g, gi) => (
-              <div key={g.label} role="radiogroup" aria-label={`${g.label} presets`}>
+              <div key={g.label} role="radiogroup" aria-labelledby={`${id}-${gi}`}>
                 {gi > 0 && <div aria-hidden className="my-1 border-t border-slate-100" />}
+                <p id={`${id}-${gi}`} className="px-3 pb-0.5 pt-1.5 text-xs font-semibold text-slate-500">{GROUP_HEADING[g.label] ?? g.label}</p>
                 {g.presets.map((p) => (
                   <PresetRow
                     key={p.value}
@@ -113,6 +134,9 @@ export function DateRangePicker({ value, onChange }: { value: DateRange; onChang
   );
 }
 
+/** The groups' visible headings, so rolling and calendar presets read as different kinds. */
+const GROUP_HEADING: Record<string, string> = { Rolling: "Rolling periods", Calendar: "Calendar periods" };
+
 function PresetRow({ preset, label, active, onPick }: { preset: PresetId; label: string; active: boolean; onPick: () => void }) {
   const dates = resolveRange({ preset });
   return (
@@ -121,14 +145,16 @@ function PresetRow({ preset, label, active, onPick }: { preset: PresetId; label:
       role="radio"
       aria-checked={active}
       data-preset
-      title={fmtSpan(dates.from, dates.to)}
       onClick={onPick}
       className={cn(
         "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm focus:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zeno-teal/40",
         active ? "bg-slate-100 font-medium text-slate-900" : "text-slate-700 hover:bg-slate-50"
       )}
     >
-      <span className="flex-1">{label}</span>
+      <span className="flex-1">
+        <span className="block">{label}</span>
+        <span className="block text-xs font-normal text-slate-500">{fmtSpan(dates.from, dates.to)}</span>
+      </span>
       <Check className={cn("h-3.5 w-3.5 shrink-0 text-zeno-teal", !active && "invisible")} aria-hidden />
     </button>
   );

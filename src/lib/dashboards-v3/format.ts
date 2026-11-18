@@ -7,7 +7,7 @@ export const UNIT_LABEL: Record<Unit, string> = { points: "points", kWh: "kWh", 
 /** A figure in full: "412,180", "97.2", "2.8". Percentages and averages keep one decimal. */
 export function fmtNumber(n: number, metric: Metric): string {
   if (!Number.isFinite(n)) return "–";
-  const decimals = metric.unit === "%" || (metric.aggregation === "average" && Math.abs(n) < 100) ? 1 : 0;
+  const decimals = metric.unit === "%" || ((metric.aggregation === "average" || metric.aggregation === "ratio") && Math.abs(n) < 100) ? 1 : 0;
   return n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
@@ -23,6 +23,16 @@ export function fmtCompact(n: number, metric: Metric): string {
   if (!Number.isFinite(n)) return "–";
   if (metric.unit === "%" || Math.abs(n) <= FULL_UP_TO) return fmtNumber(n, metric);
   return n.toLocaleString("en-US", { notation: "compact", maximumFractionDigits: 1 });
+}
+
+/**
+ * A bar's value label: three significant figures, abbreviated ("1.95M",
+ * "835K", "4.41K", "96"); percentages keep their one decimal.
+ */
+export function fmtSig3(n: number, metric: Metric): string {
+  if (!Number.isFinite(n)) return "–";
+  if (metric.unit === "%" || Math.abs(n) < 1000) return fmtNumber(n, metric);
+  return n.toLocaleString("en-US", { notation: "compact", maximumSignificantDigits: 3 });
 }
 
 /** What follows a figure in words: "swaps", "points", "kWh"; "%" sits on the number itself. */
@@ -49,7 +59,7 @@ export interface Change {
   direction: "up" | "down" | "flat";
   /** "+12.4%", or "+0.4 pts" for a percentage. */
   text: string;
-  /** Whether this change is good news, by the metric's higherIsBetter; null when flat or unknown. */
+  /** Whether this change is good news, by the metric's higherIsBetter; null when flat, or for a neutral metric (shown grey). */
   good: boolean | null;
 }
 
@@ -64,6 +74,7 @@ export function change(current: number, previous: number, metric: Metric): Chang
   const direction = rounded > 0 ? "up" : "down";
   const sign = rounded > 0 ? "+" : "−";
   const text = `${sign}${Math.abs(rounded).toFixed(1)}${pts ? " pts" : "%"}`;
+  if (metric.higherIsBetter === "neutral") return { direction, text, good: null };
   return { direction, text, good: direction === "up" ? metric.higherIsBetter : !metric.higherIsBetter };
 }
 

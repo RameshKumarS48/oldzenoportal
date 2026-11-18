@@ -5,8 +5,8 @@ import { Check, Lightbulb, Pencil, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { DashboardDraft } from "@/lib/dashboards-v3/ai-draft";
 import { readingLine } from "@/lib/dashboards-v3/ai-draft";
-import { CATEGORIES, metricById, PROPERTIES, type CategoryId } from "@/lib/dashboards-v3/catalogue";
-import { RANGE_PRESETS, rangeLabel } from "@/lib/dashboards-v3/dates";
+import { CATEGORIES, metricById, PROPERTIES, REGION_COUNTRY, regionsIn, type CategoryId } from "@/lib/dashboards-v3/catalogue";
+import { RANGE_PRESETS, rangeWithDates } from "@/lib/dashboards-v3/dates";
 import { CHART_LABEL } from "@/lib/dashboards-v3/rules";
 import type { RangePreset, Visibility } from "@/lib/dashboards-v3/types";
 import { cn } from "@/lib/utils";
@@ -42,7 +42,7 @@ export function DraftPreview({
   const set = (patch: Partial<DashboardDraft>) => onChange({ ...draft, ...patch });
   const nameError = !draft.name.trim();
   const commitName = () => { if (naming !== null && naming.trim()) set({ name: naming.trim() }); setNaming(null); };
-  const regionsLeft = PROPERTIES.region.values.filter((r) => !draft.regions.includes(r));
+  const regionsLeft = regionsIn(draft.country).filter((r) => !draft.regions.includes(r));
 
   return (
     <section aria-label="Draft dashboard" className="mt-3 rounded-xl border border-zeno-teal/30 bg-slate-50 p-4">
@@ -102,8 +102,20 @@ export function DraftPreview({
             onChange={(e) => { if (e.target.value !== draft.range.preset) set({ range: { preset: e.target.value as RangePreset } }); }}
             className={CHIP_SELECT}
           >
-            {RANGE_PRESETS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-            {!RANGE_PRESETS.some((p) => p.value === draft.range.preset) && <option value={draft.range.preset}>{rangeLabel(draft.range)}</option>}
+            {RANGE_PRESETS.map((p) => <option key={p.value} value={p.value}>{rangeWithDates({ preset: p.value })}</option>)}
+            {!RANGE_PRESETS.some((p) => p.value === draft.range.preset) && <option value={draft.range.preset}>{rangeWithDates(draft.range)}</option>}
+          </select>
+          <select
+            aria-label="Country"
+            value={draft.country ?? ""}
+            onChange={(e) => {
+              const country = e.target.value || null;
+              set({ country, regions: draft.regions.filter((r) => !country || REGION_COUNTRY[r] === country) });
+            }}
+            className={CHIP_SELECT}
+          >
+            <option value="">All countries</option>
+            {PROPERTIES.country.values.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
           {draft.regions.map((r) => (
             <span key={r} className={CHIP}>

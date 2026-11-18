@@ -18,11 +18,11 @@ export function topFor(type: ChartType): number {
 
 export type Intent = "number" | "trend" | "comparison" | "list";
 
-export const INTENTS: { id: Intent; label: string; hint: string; charts: ChartType[] }[] = [
-  { id: "number", label: "A number", hint: "One figure, with its change since the previous period", charts: ["kpi"] },
-  { id: "trend", label: "A trend over time", hint: "How a figure moves day by day, week by week or month by month", charts: ["line", "stacked"] },
-  { id: "comparison", label: "A comparison", hint: "Regions, stations or services side by side, biggest first", charts: ["bar", "stacked"] },
-  { id: "list", label: "A list", hint: "The figures in rows you can read across", charts: ["table"] },
+export const INTENTS: { id: Intent; short: string; hint: string; charts: ChartType[] }[] = [
+  { id: "number", short: "Number", hint: "One figure, with its change since the previous period", charts: ["kpi"] },
+  { id: "trend", short: "Trend", hint: "How a figure moves day by day, week by week or month by month", charts: ["line", "stacked"] },
+  { id: "comparison", short: "Comparison", hint: "Regions, stations or services side by side, biggest first", charts: ["bar", "stacked"] },
+  { id: "list", short: "List", hint: "The figures in rows you can read across", charts: ["table"] },
 ];
 
 export function intentOf(type: ChartType): Intent | null {
@@ -32,9 +32,6 @@ export function intentOf(type: ChartType): Intent | null {
   if (type === "table") return "list";
   return null;
 }
-
-/** Shown in the chart choices but not selectable yet. */
-export const COMING_LATER = ["Funnel", "Retention", "Map"] as const;
 
 export const CHART_LABEL: Record<ChartType, string> = {
   kpi: "Number",

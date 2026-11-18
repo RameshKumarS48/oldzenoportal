@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDown, ArrowUp, ArrowUpDown, ArrowUpRight, Copy, CopyPlus, Home, Lock, Pencil, Share2, Star, Trash2, Users, Globe } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ArrowUpRight, Copy, CopyPlus, Home, Link2, Lock, Pencil, Share2, Star, Trash2, Users, Globe } from "lucide-react";
 import { fmtLastViewed } from "@/lib/dashboards-v3/format";
 import type { Dashboard } from "@/lib/dashboards-v3/types";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ export interface RowActions {
   rename: (d: Dashboard) => void;
   duplicate: (d: Dashboard) => void;
   customise: (d: Dashboard) => void;
+  copyLink: (d: Dashboard) => void;
   share: (d: Dashboard) => void;
   toggleDefault: (d: Dashboard) => void;
   remove: (d: Dashboard) => void;
@@ -26,10 +27,18 @@ export function dashboardHref(d: Dashboard): string {
   return `/dashboards-v3/${d.id}`;
 }
 
-function menuItems(d: Dashboard, isDefault: boolean, a: RowActions): MenuItem[] {
+export function menuItems(d: Dashboard, isDefault: boolean, a: RowActions): MenuItem[] {
   const open: MenuItem = { label: "Open", icon: ArrowUpRight, onSelect: () => a.open(d) };
-  if (d.isTemplate) return [open, { label: "Duplicate to customise", icon: CopyPlus, onSelect: () => a.customise(d) }];
   const setDefault: MenuItem = { label: isDefault ? "Remove as default" : "Set as default", icon: Home, onSelect: () => a.toggleDefault(d) };
+  // Templates are read-only: open, copy, link or make default, nothing that changes them.
+  if (d.isTemplate) {
+    return [
+      open,
+      { label: "Duplicate to customise", icon: CopyPlus, onSelect: () => a.customise(d) },
+      { label: "Copy link", icon: Link2, onSelect: () => a.copyLink(d) },
+      setDefault,
+    ];
+  }
   const duplicate: MenuItem = { label: "Duplicate", icon: Copy, onSelect: () => a.duplicate(d) };
   if (!isOwn(d)) return [open, duplicate, setDefault];
   return [
@@ -100,7 +109,10 @@ export function DashboardsTable({
   sort,
   onSort,
   actions,
+  templateNames = {},
 }: {
+  /** Template names by id, so a copy without a description says which template it's based on. */
+  templateNames?: Record<string, string>;
   rows: Dashboard[];
   favorites: string[];
   defaultId: string | null;
@@ -175,7 +187,9 @@ export function DashboardsTable({
                 {d.widgets.length === 0 ? (
                   <p className="mt-0.5 truncate text-xs italic text-slate-500">No widgets yet</p>
                 ) : (
-                  d.description && <p className="mt-0.5 truncate text-xs text-slate-500">{d.description}</p>
+                  (d.description || (d.basedOnTemplateId && templateNames[d.basedOnTemplateId])) && (
+                    <p className="mt-0.5 truncate text-xs text-slate-500">{d.description || `Based on ${templateNames[d.basedOnTemplateId!]}`}</p>
+                  )
                 )}
               </td>
               <td className={TD}><CategoryChip category={d.category} /></td>

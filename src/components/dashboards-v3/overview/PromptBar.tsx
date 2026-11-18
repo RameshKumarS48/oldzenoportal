@@ -68,7 +68,7 @@ export function PromptBar() {
       visibility: d.visibility,
       description: `Drafted from “${status.prompt}”`.slice(0, 160),
       widgets: d.widgets,
-      filters: { range: d.range, regions: d.regions },
+      filters: { range: d.range, country: d.country, regions: d.regions },
     });
     toast.success("Dashboard created", `“${d.name.trim()}” is in Your dashboards.`);
     router.push(then === "edit" ? `/dashboards-v3/${newId}?edit=1` : `/dashboards-v3/${newId}`);

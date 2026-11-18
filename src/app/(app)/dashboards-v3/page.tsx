@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DeleteDialog, RenameDialog, ShareDialog } from "@/components/dashboards-v3/DashboardDialogs";
 import { NewDashboardModal, type NewDashboardStart } from "@/components/dashboards-v3/NewDashboardModal";
+import { copyLink } from "@/components/dashboards-v3/copyLink";
+import { useCustomise } from "@/components/dashboards-v3/useCustomise";
 import { DashboardsTable, dashboardHref, type RowActions } from "@/components/dashboards-v3/overview/DashboardsTable";
 import { PromptBar } from "@/components/dashboards-v3/overview/PromptBar";
 import { ViewList, VIEWS } from "@/components/dashboards-v3/overview/ViewList";
@@ -51,6 +53,11 @@ function Overview() {
   const defaultId = useDashboardsV3((s) => s.defaultId);
   const prefs = useDashboardsV3((s) => s.prefs);
   const setPrefs = useDashboardsV3((s) => s.setPrefs);
+  // A link to one list (the dashboard page's breadcrumb) opens the overview on it.
+  const viewParam = params.get("view");
+  useEffect(() => {
+    if (viewParam && VIEWS.some((v) => v.id === viewParam)) setPrefs({ view: viewParam as OverviewView });
+  }, [viewParam, setPrefs]);
   const toggleFavorite = useDashboardsV3((s) => s.toggleFavorite);
   const setDefault = useDashboardsV3((s) => s.setDefault);
   const duplicate = useDashboardsV3((s) => s.duplicate);
@@ -102,6 +109,9 @@ function Overview() {
   const clearFilters = () => { setSearch(""); setPrefs({ category: "all" }); };
 
 
+  const { customise, prompt: copyPrompt } = useCustomise();
+  const templateNames = useMemo(() => Object.fromEntries(dashboards.filter((d) => d.isTemplate).map((d) => [d.id, d.name])), [dashboards]);
+
   const actions: RowActions = {
     open: (d) => router.push(dashboardHref(d)),
     rename: setRenaming,
@@ -111,7 +121,8 @@ function Overview() {
       duplicate(d.id);
       toast.success("Duplicated", `“${d.name} (copy)” is in Your dashboards.`);
     },
-    customise: (d) => openNew({ step: 2, kind: "template", sourceId: d.id }),
+    customise: (d) => customise(d),
+    copyLink: (d) => { void copyLink(dashboardHref(d), d.name); },
     toggleDefault: (d) => {
       const on = defaultId !== d.id;
       setDefault(on ? d.id : null);
@@ -224,6 +235,7 @@ function Overview() {
                     sort={sort}
                     onSort={(key) => setPrefs({ sort: sort.key === key ? { key, dir: sort.dir === "asc" ? "desc" : "asc" } : { key, dir: FIRST_DIR[key] } })}
                     actions={actions}
+                    templateNames={templateNames}
                   />
                 )}
               </div>
@@ -237,6 +249,7 @@ function Overview() {
       <ShareDialog key={`share-${sharing?.id}`} dashboard={sharing} onClose={() => setSharing(null)} />
       <DeleteDialog dashboard={deleting} onClose={() => setDeleting(null)} />
       <NewDashboardModal key={newKey} start={newStart} onClose={() => setNewStart(null)} />
+      {copyPrompt}
       <ConfirmDialog
         open={confirmReset}
         tone="neutral"

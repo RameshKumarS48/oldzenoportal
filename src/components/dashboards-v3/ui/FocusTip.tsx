@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState } from "react";
 import { Info } from "lucide-react";
+import { isMoney, MONEY_NOTE, type Metric } from "@/lib/dashboards-v3/catalogue";
 import { cn } from "@/lib/utils";
 
 const WIDTH = 280;
@@ -57,13 +58,17 @@ export function FocusTip({ content, label, className }: { content: React.ReactNo
   );
 }
 
-/** A metric's definition in its three parts, for the ⓘ tip. */
-export function DefinitionTip({ definition, counted, goodTrend }: { definition: string; counted: string; goodTrend: string }) {
+/**
+ * What a number includes, for the widget's one ⓘ: what it is, how it's
+ * counted, what it leaves out, and for points what a point is worth.
+ */
+export function DefinitionTip({ metric }: { metric: Metric }) {
   return (
     <span className="block space-y-1.5">
-      <span className="block">{definition}</span>
-      <span className="block"><span className="font-semibold">How it’s counted: </span>{counted}</span>
-      <span className="block"><span className="font-semibold">Good trend: </span>{goodTrend}</span>
+      <span className="block">{metric.definition}</span>
+      <span className="block"><span className="font-semibold">How it’s counted: </span>{metric.counted}</span>
+      <span className="block"><span className="font-semibold">Excludes: </span>{metric.excludes.replace(/^Excludes /, "")}</span>
+      {isMoney(metric) && <span className="block"><span className="font-semibold">Points: </span>{MONEY_NOTE}</span>}
     </span>
   );
 }

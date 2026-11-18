@@ -31,7 +31,14 @@ const ITEM_PX = 36;
  * viewport so a scroll box never clips it, and opens upwards near the
  * bottom of the screen. Blocked items stay focusable and say why.
  */
-export function RowMenu({ label, items, className }: { label: string; items: MenuItem[]; className?: string }) {
+export function RowMenu({
+  label, items, className, trigger, triggerClassName,
+}: {
+  label: string; items: MenuItem[]; className?: string;
+  /** A labelled button ("Add to dashboard ▾") instead of the ⋯ icon; `label` stays its accessible name. */
+  trigger?: React.ReactNode;
+  triggerClassName?: string;
+}) {
   const [pos, setPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
   const [active, setActive] = useState(0);
   const [sub, setSub] = useState<{ index: number; top: number; right: number; active: number } | null>(null);
@@ -135,9 +142,9 @@ export function RowMenu({ label, items, className }: { label: string; items: Men
           if (e.key === "ArrowDown") { e.preventDefault(); show(0); }
           if (e.key === "ArrowUp") { e.preventDefault(); show(items.length - 1); }
         }}
-        className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
+        className={triggerClassName ?? "rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"}
       >
-        <MoreHorizontal className="h-4 w-4" />
+        {trigger ?? <MoreHorizontal className="h-4 w-4" />}
       </button>
       {open && (
         <div

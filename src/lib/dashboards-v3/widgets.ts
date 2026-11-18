@@ -3,10 +3,10 @@
  * its group order (numbers, then charts, then tables) and within the
  * widget limit. Pure, so the same functions serve view and edit mode.
  */
-import { metricById, PROPERTIES, type ChartType, type Metric } from "./catalogue";
-import { defaultGrouping, resolveRange, type ResolvedRange } from "./dates";
+import { isMoney, metricById, PROPERTIES, type ChartType, type Metric, type PropertyId } from "./catalogue";
+import { defaultGrouping, resolveRange, snapshotRange, type ResolvedRange } from "./dates";
 import { defaultSize, MAX_WIDGETS, orderWidgets, topFor, widgetRank } from "./rules";
-import type { Query } from "./series";
+import { anyPlaceLeft, countriesLeft, type Query } from "./series";
 import type { DashboardFilters, Grouping, PropertyFilter, Widget, WidgetSize } from "./types";
 
 let seq = 0;
@@ -31,6 +31,7 @@ export function makeWidget(metric: Metric, type: ChartType = metric.defaultChart
 }
 
 export const atLimit = (widgets: Widget[]) => widgets.length >= MAX_WIDGETS;
+export const MAX_WIDGETS_NOTE = `Full: ${MAX_WIDGETS} widgets is the most a dashboard can hold`;
 
 export function addWidget(widgets: Widget[], widget: Widget): Widget[] {
   return atLimit(widgets) ? widgets : orderWidgets([...widgets, widget]);
@@ -70,6 +71,8 @@ export function restoreWidget(widgets: Widget[], widget: Widget, index: number):
  */
 export function moveBlocked(widgets: Widget[], id: string, dir: -1 | 1): string | null {
   const i = widgets.findIndex((w) => w.id === id);
+  // A new widget's placeholder isn't in the list yet.
+  if (i < 0) return "Not added yet";
   const neighbour = widgets[i + dir];
   if (!neighbour) return dir === -1 ? "Already at the top" : "Already at the bottom";
   if (widgetRank(neighbour.type) !== widgetRank(widgets[i].type)) {
@@ -96,35 +99,80 @@ export const SPAN_COMPACT: Record<WidgetSize, string> = { quarter: "col-span-1",
 
 const NO_MATCH = "(no match)";
 
-export interface WidgetQuery extends Query {
-  /** The widget's own range or the dashboard's, resolved. */
-  range: ResolvedRange;
-  grouping: Grouping;
+/** Most filters one widget can have. */
+export const WIDGET_FILTERS_MAX = 3;
+
+/** Whether a widget shows a snapshot's current value: numbers, bars and tables do; lines and stacks show it over time. */
+export function showsCurrentValue(widget: Widget, metric: Metric | undefined): boolean {
+  return metric?.kind === "snapshot" && (widget.type === "kpi" || widget.type === "bar" || widget.type === "table");
 }
 
-/** What a widget asks for: its metric, the dashboard's filters plus its own, and its range and grouping. */
+/** A widget's filters that filter something: on a property, with at least one value ticked. */
+export function activeFilters(widget: Widget): PropertyFilter[] {
+  return (widget.filters ?? []).filter((f) => f.values.length > 0);
+}
+
+/** The muted line under a widget's title: "Swap · BaaS", "Nairobi, Nanyuki". */
+export function filterLine(widget: Widget): string {
+  return activeFilters(widget).map((f) => f.values.join(", ")).join(" · ");
+}
+
+/** The dashboard's filters as query parts: country, then regions. */
+function dashboardParts(filters: DashboardFilters): PropertyFilter[] {
+  const out: PropertyFilter[] = [];
+  if (filters.country) out.push({ property: "country", values: [filters.country] });
+  if (filters.regions.length > 0) out.push({ property: "region", values: filters.regions });
+  return out;
+}
+
+export interface WidgetQuery extends Query {
+  /** The widget's own range or the dashboard's, resolved; for a snapshot's current value, today's 06:00 refresh. */
+  range: ResolvedRange;
+  grouping: Grouping;
+  /** A money metric across more than one country: split by country so currencies are never added up. */
+  byCountry: boolean;
+  /** The split the widget asked for, set aside to show it by country. */
+  splitSetAside?: PropertyId;
+  /** Both the dashboard's filters and the widget's have places in them, but none in common: nothing can match. */
+  noOverlap: boolean;
+}
+
+/**
+ * What a widget asks for: its metric, the dashboard's filters with its own
+ * on top (all must match), and its range and grouping. A snapshot's number,
+ * bar or table ignores the range and shows the current value. A money
+ * metric that would add up more than one country is split by country.
+ */
 export function widgetQuery(widget: Widget, filters: DashboardFilters, today: Date): WidgetQuery | null {
   const metric = metricById(widget.metricId);
   if (!metric || widget.type === "text") return null;
-  const range = resolveRange(widget.range ?? filters.range, today);
-  const all: PropertyFilter[] = [];
-  if (filters.regions.length > 0) all.push({ property: "region", values: filters.regions });
-  if (widget.filter && widget.filter.values.length > 0) {
-    const same = all.find((f) => f.property === widget.filter!.property);
+  const current = showsCurrentValue(widget, metric);
+  const range = current ? snapshotRange(today) : resolveRange(widget.range ?? filters.range, today);
+  const board = dashboardParts(filters);
+  const own = activeFilters(widget);
+  const all: PropertyFilter[] = board.map((f) => ({ ...f, values: [...f.values] }));
+  for (const f of own) {
+    const same = all.find((x) => x.property === f.property);
     // A widget's own filter on the same property narrows the dashboard's.
     // When they share no values, nothing matches: a value no data has keeps the filter from being dropped as empty.
     if (same) {
-      const both = same.values.filter((v) => widget.filter!.values.includes(v));
+      const both = same.values.filter((v) => f.values.includes(v));
       same.values = both.length > 0 ? both : [NO_MATCH];
-    }
-    else all.push(widget.filter);
+    } else all.push(f);
   }
+  const noOverlap = own.length > 0 && board.length > 0 && !anyPlaceLeft(metric, all) && anyPlaceLeft(metric, board) && anyPlaceLeft(metric, own);
+  const byCountry = isMoney(metric) && countriesLeft(metric, all).length > 1;
+  const asked = widget.type === "kpi" ? undefined : widget.splitBy;
   return {
     metric,
     range,
     filters: all,
-    splitBy: widget.type === "kpi" ? undefined : widget.splitBy,
-    grouping: widget.grouping ?? defaultGrouping(range),
+    splitBy: byCountry ? "country" : asked,
+    splitSetAside: byCountry && asked && asked !== "country" ? asked : undefined,
+    byCountry,
+    noOverlap,
+    // A number's sparkline follows the same rule as a line: daily up to 31 days, weekly above.
+    grouping: current ? "day" : widget.type === "kpi" ? defaultGrouping(range) : widget.grouping ?? defaultGrouping(range),
     top: topFor(widget.type),
   };
 }

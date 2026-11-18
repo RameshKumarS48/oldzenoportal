@@ -6,6 +6,7 @@ import { ArrowLeft, Check, Copy, Info, SquareDashed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CATEGORIES, type CategoryId } from "@/lib/dashboards-v3/catalogue";
+import { copyPath, existingCopies } from "@/lib/dashboards-v3/templates";
 import type { Dashboard, Visibility } from "@/lib/dashboards-v3/types";
 import { cn } from "@/lib/utils";
 import { isOwn, useDashboardsV3 } from "@/store/dashboards-v3";
@@ -13,14 +14,19 @@ import { toast } from "@/store/toast";
 import { NAME_MAX, VisibilityChoice } from "./DashboardDialogs";
 import { Dialog } from "./ui/Dialog";
 import { InlineConfirm } from "./ui/InlineConfirm";
+import { ExistingCopyNotice } from "./useCustomise";
 
 export type StartKind = "template" | "blank" | "duplicate";
 
-/** Where the modal opens: step 1 to choose, or straight to the details with a starting point already picked. */
+/**
+ * Where the modal opens: step 1 to choose, or straight to the details with a
+ * starting point already picked. Templates never reach step 2: choosing one
+ * opens it as an unsaved copy in edit mode.
+ */
 export type NewDashboardStart =
   | { step: 1 }
   | { step: 2; kind: "blank" }
-  | { step: 2; kind: "template" | "duplicate"; sourceId: string };
+  | { step: 2; kind: "duplicate"; sourceId: string };
 
 const DESCRIPTION_MAX = 160;
 
@@ -32,14 +38,17 @@ const INCLUDES_SHOWN = 3;
 const widgetCount = (n: number) => `${n} widget${n === 1 ? "" : "s"}`;
 
 /**
- * New dashboard, in two steps: a starting point, then the details. Nothing
- * is saved until Create, which opens the new dashboard in edit mode.
- * Mount it with a `key` per opening so each one starts fresh.
+ * New dashboard. Blank and "Duplicate one of yours" take two steps, a
+ * starting point then the details, and nothing is saved until Create. A
+ * template goes straight to an unsaved copy in edit mode (or, if you already
+ * have a copy, offers that first). Mount it with a `key` per opening so each
+ * one starts fresh.
  */
 export function NewDashboardModal({ start, onClose }: { start: NewDashboardStart | null; onClose: () => void }) {
   const router = useRouter();
   const dashboards = useDashboardsV3((s) => s.dashboards);
   const create = useDashboardsV3((s) => s.create);
+  const startCopy = useDashboardsV3((s) => s.startCopy);
 
   const byName = (a: Dashboard, b: Dashboard) => a.name.localeCompare(b.name);
   const templates = dashboards.filter((d) => d.isTemplate).sort(byName);
@@ -49,12 +58,15 @@ export function NewDashboardModal({ start, onClose }: { start: NewDashboardStart
   const [kind, setKind] = useState<StartKind | null>(start?.step === 2 ? start.kind : null);
   /** Next was pressed with nothing chosen: the footer says so, rather than Next being disabled. */
   const [needChoice, setNeedChoice] = useState(false);
-  const choose = (k: StartKind) => { setKind(k); setNeedChoice(false); };
-  const [templateId, setTemplateId] = useState<string | null>(start?.step === 2 && start.kind === "template" ? start.sourceId : null);
+  /** A copy of the chosen template you already have: the footer offers it before making another. */
+  const [existing, setExisting] = useState<Dashboard | null>(null);
+  const choose = (k: StartKind) => { setKind(k); setNeedChoice(false); setExisting(null); };
+  const [templateId, setTemplateId] = useState<string | null>(null);
   const [duplicateId, setDuplicateId] = useState<string | null>(start?.step === 2 && start.kind === "duplicate" ? start.sourceId : null);
 
-  const source = kind === "template" ? templates.find((t) => t.id === templateId) : kind === "duplicate" ? own.find((d) => d.id === duplicateId) : undefined;
-  const sourceReady = kind === "blank" || source !== undefined;
+  const template = kind === "template" ? templates.find((t) => t.id === templateId) : undefined;
+  const source = kind === "duplicate" ? own.find((d) => d.id === duplicateId) : undefined;
+  const sourceReady = kind === "blank" || source !== undefined || template !== undefined;
 
   const [name, setName] = useState(() => (source ? suggestedName(source) : ""));
   const [category, setCategory] = useState<CategoryId | "">(source?.category ?? "");
@@ -91,8 +103,21 @@ export function NewDashboardModal({ start, onClose }: { start: NewDashboardStart
   const sameName = name.trim() && own.some((d) => d.name.toLowerCase() === name.trim().toLowerCase());
 
   /** Moving on from step 1 fills the details from the chosen starting point, keeping anything typed. */
+  /** A template opens as an unsaved copy in edit mode; nothing is created until it's saved there. */
+  function copyTemplate(t: Dashboard) {
+    startCopy(t.id);
+    onClose();
+    router.push(copyPath(t.id));
+  }
+
   function next() {
     if (!sourceReady) { setNeedChoice(true); return; }
+    if (template) {
+      const [copy] = existingCopies(template.id, dashboards);
+      if (copy) setExisting(copy);
+      else copyTemplate(template);
+      return;
+    }
     if (!edited.name) setName(source ? suggestedName(source) : "");
     if (!edited.category) setCategory(source?.category ?? "");
     if (!edited.description) setDescription(source?.description ?? "");
@@ -129,11 +154,18 @@ export function NewDashboardModal({ start, onClose }: { start: NewDashboardStart
             onDiscard={() => { setConfirmDiscard(false); onClose(); }}
             onKeep={keepEditing}
           />
+        ) : step === 1 && existing && template ? (
+          <ExistingCopyNotice
+            copy={existing}
+            className="w-full"
+            onOpen={() => { onClose(); router.push(`/dashboards-v3/${existing.id}`); }}
+            onAnother={() => copyTemplate(template)}
+          />
         ) : step === 1 ? (
           <>
             {needChoice && <p role="alert" className="mr-auto text-sm font-medium text-red-600">Choose a starting point</p>}
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
-            <Button variant="teal" onClick={next}>Next</Button>
+            <Button variant="teal" onClick={next}>{template ? "Duplicate to customise" : "Next"}</Button>
           </>
         ) : (
           <>

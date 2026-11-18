@@ -1,39 +1,40 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { BarChart3, Hash, Table2, TrendingUp, Type, X } from "lucide-react";
+import { BarChart3, Hash, Table2, TrendingUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { metricById, PROPERTIES, PROPERTY_ORDER, type CategoryId, type ChartType, type PropertyId } from "@/lib/dashboards-v3/catalogue";
+import { RANGE_PRESETS, rangeLabel, rangeWithDates, WEEKLY_AFTER_DAYS } from "@/lib/dashboards-v3/dates";
 import {
-  metricById, propertyBlocked, PROPERTIES, PROPERTY_ORDER, suggestedMetrics, type CategoryId, type ChartType, type PropertyId,
-} from "@/lib/dashboards-v3/catalogue";
-import { RANGE_PRESETS, rangeLabel, WEEKLY_AFTER_DAYS } from "@/lib/dashboards-v3/dates";
-import {
-  autoTitle, chartChoiceBlocked, chartForIntent, compareBlocked, goalBlocked, groupingBlocked, normalise, sameWidget, showValuesBlocked, sortBlocked,
+  autoTitle, chartChoiceBlocked, chartForIntent, compareBlocked, goalBlocked, groupingBlocked, normalise, rangeBlocked, sameWidget, showValuesBlocked, sortBlocked,
 } from "@/lib/dashboards-v3/editor";
 import { UNIT_LABEL } from "@/lib/dashboards-v3/format";
 import {
-  allowedSizes, CHART_LABEL, COMING_LATER, INTENTS, intentOf, SIZE_LABEL, splitBlocked, topFor, type Intent,
+  allowedSizes, CHART_LABEL, INTENTS, intentOf, SIZE_LABEL, splitBlocked, topFor, type Intent,
 } from "@/lib/dashboards-v3/rules";
 import type { DashboardFilters, Grouping, Widget, WidgetSize, WidgetSort } from "@/lib/dashboards-v3/types";
+import { activeFilters, widgetQuery } from "@/lib/dashboards-v3/widgets";
 import { cn } from "@/lib/utils";
-import { WidgetCard } from "../page/WidgetCard";
 import { InlineConfirm } from "../ui/InlineConfirm";
 import { Disclosure, FIELD, FIELD_LABEL, OptionChips, Toggle } from "./controls";
 import { MetricPicker } from "./MetricPicker";
+import { WidgetFilters } from "./WidgetFilters";
 
 const INTENT_ICON: Record<Intent, typeof Hash> = { number: Hash, trend: TrendingUp, comparison: BarChart3, list: Table2 };
 const CHARTS: ChartType[] = ["kpi", "line", "bar", "stacked", "table"];
-const COMING = "Coming later";
-const noop = () => {};
+/** A section heading that stays at the top of the panel's scroll area while its section is in view. */
+const STICKY = "sticky top-0 z-10 -mx-5 bg-white px-5 py-2 text-sm font-semibold text-slate-800";
 
 /**
- * Adding or editing a widget, beside the dashboard rather than over it. It
- * works on a copy the dashboard draws live, in place; nothing reaches the
- * dashboard's draft until Add widget or Save widget.
+ * Adding or editing a widget, edit mode only, beside the dashboard rather
+ * than over it. The widget in the grid (or the dashed placeholder for a new
+ * one) is the live preview; nothing reaches the dashboard's draft until Add
+ * widget or Save widget.
  *
  * Choices come in layers: what to see, the metric, its time range and
- * title; then Refine and More options, both collapsed. Choices that don't
- * fit the data stay visible, greyed, with the reason.
+ * title; then Refine and More options, both collapsed. Section headings stay
+ * in view as the options scroll. Choices that don't fit the data stay
+ * visible, greyed, with the reason.
  */
 export function WidgetPanel({
   mode, widget, initial, category, filters, today, onChange, onSubmit, onClose, switchRequest,
@@ -90,7 +91,7 @@ export function WidgetPanel({
 
   const splitTop = topFor(widget.type);
   const refineSummary = [
-    widget.filter && widget.filter.values.length > 0 && `${PROPERTIES[widget.filter.property].name}: ${widget.filter.values.length}`,
+    activeFilters(widget).length > 0 && `${activeFilters(widget).length} filter${activeFilters(widget).length > 1 ? "s" : ""}`,
     widget.splitBy && `Split by ${PROPERTIES[widget.splitBy].name.toLowerCase()}`,
     widget.compare && "Compared",
   ].filter(Boolean).join(" · ");
@@ -119,89 +120,26 @@ export function WidgetPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {/* The preview stays in view while the options scroll under it. */}
-        <section aria-label="Live preview" className="sticky top-0 z-10 border-b border-slate-200 bg-white px-5 pb-3 pt-4">
-          <div className="rounded-xl bg-zeno-bg p-3">
-          <p className="mb-2 text-xs font-medium text-slate-600">Live preview</p>
-          {!isText && !metric ? (
-            <div className="rounded-xl border border-dashed border-slate-300 bg-white p-3">
-              <p className="text-sm font-medium text-slate-700">Pick a metric to preview</p>
-              <p className="mt-0.5 text-xs text-slate-500">Suggested for this dashboard:</p>
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                {suggestedMetrics(category).map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => set({ metricId: m.id })}
-                    className="rounded-lg border border-slate-200 p-2 text-left transition-colors hover:border-zeno-teal focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
-                  >
-                    <span className="block text-xs font-semibold text-slate-800">{m.name}</span>
-                    <span className="mt-0.5 line-clamp-2 block text-[11px] text-slate-500">{m.definition}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-          <WidgetCard
-            variant="preview"
-            widget={widget}
-            filters={filters}
-            today={today}
-            editing={false}
-            canChange={false}
-            failed={false}
-            moveUpBlocked={null}
-            moveDownBlocked={null}
-            onRetry={noop}
-            onResetFilters={noop}
-            onRename={noop}
-            onMove={noop}
-            onResize={noop}
-            onEdit={noop}
-            onDuplicate={noop}
-            onRemove={noop}
-          />
-          )}
-          </div>
-        </section>
+        <div className="space-y-5 px-5 pb-4">
 
-        <div className="space-y-5 px-5 py-4">
-
-        <fieldset>
-          <legend className="mb-1.5 text-sm font-medium text-slate-700">What do you want to see?</legend>
-          <div className="grid grid-cols-2 gap-2">
-            {INTENTS.map(({ id, label, hint }) => {
+        <section aria-labelledby={`${headingId}-intent`}>
+          <h3 id={`${headingId}-intent`} className={STICKY}>What do you want to see?</h3>
+          {/* One row of four; each one's description is its tooltip and is read out with it. */}
+          <div role="radiogroup" aria-labelledby={`${headingId}-intent`} className="grid grid-cols-4 gap-1.5">
+            {INTENTS.map(({ id, short, hint }) => {
               const Icon = INTENT_ICON[id];
               const on = intent === id;
               return (
-                <label key={id} className={cn("flex cursor-pointer gap-2.5 rounded-lg border p-2.5 transition-colors focus-within:ring-2 focus-within:ring-zeno-teal/40", on ? "border-zeno-teal bg-slate-50" : "border-slate-200 hover:border-slate-300")}>
-                  <input type="radio" name={`${headingId}-intent`} checked={on} onChange={() => set({ type: chartForIntent(id) })} className="sr-only" />
-                  <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", on ? "text-zeno-teal" : "text-slate-400")} aria-hidden />
-                  <span>
-                    <span className="block text-sm font-medium text-slate-800">{label}</span>
-                    <span className="block text-xs text-slate-500">{hint}</span>
-                  </span>
+                <label key={id} title={hint} className={cn("flex cursor-pointer flex-col items-center gap-1 rounded-lg border px-1 py-2 text-center transition-colors focus-within:ring-2 focus-within:ring-zeno-teal/40", on ? "border-zeno-teal bg-slate-50" : "border-slate-200 hover:border-slate-300")}>
+                  <input type="radio" name={`${headingId}-intent`} checked={on} aria-describedby={`${headingId}-intent-${id}`} onChange={() => set({ type: chartForIntent(id) })} className="sr-only" />
+                  <Icon className={cn("h-4 w-4", on ? "text-zeno-teal" : "text-slate-500")} aria-hidden />
+                  <span className="text-xs font-medium text-slate-800">{short}</span>
+                  <span id={`${headingId}-intent-${id}`} className="sr-only">{hint}</span>
                 </label>
               );
             })}
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
-            <button
-              type="button"
-              aria-pressed={isText}
-              onClick={() => set({ type: "text" })}
-              className={cn("inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40", isText ? "border-zeno-teal bg-zeno-teal text-white" : "border-slate-300 text-slate-700 hover:border-slate-400")}
-            >
-              <Type className="h-3.5 w-3.5" aria-hidden /> Text or heading
-            </button>
-            <span className="ml-1">Coming later:</span>
-            {COMING_LATER.map((c) => (
-              <span key={c} aria-disabled title={COMING} className="cursor-not-allowed rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-medium text-slate-400">
-                {c}<span className="sr-only">, coming later</span>
-              </span>
-            ))}
-          </div>
-        </fieldset>
+        </section>
 
         {isText ? (
           <>
@@ -222,24 +160,30 @@ export function WidgetPanel({
           </>
         ) : (
           <>
-            <MetricPicker value={metric} category={category} onChange={(m) => set({ metricId: m.id })} />
+            <section aria-labelledby={`${headingId}-metric`}>
+              <h3 id={`${headingId}-metric`} className={STICKY}>Metric</h3>
+              <MetricPicker value={metric} category={category} hideLabel onChange={(m) => set({ metricId: m.id })} />
+            </section>
 
-            <div>
-              <label htmlFor={`${headingId}-range`} className={FIELD_LABEL}>Time range</label>
+            <section>
+              <label htmlFor={`${headingId}-range`} className={cn(STICKY, "block")}>Time range</label>
               <select
                 id={`${headingId}-range`}
+                disabled={!!rangeBlocked(widget)}
+                aria-describedby={rangeBlocked(widget) ? `${headingId}-range-why` : undefined}
                 value={widget.range?.preset ?? ""}
                 onChange={(e) => {
                   if (e.target.value === widget.range?.preset) return;
                   set({ range: e.target.value ? { preset: e.target.value as (typeof RANGE_PRESETS)[number]["value"] } : undefined });
                 }}
-                className={FIELD}
+                className={cn(FIELD, "disabled:bg-slate-50 disabled:text-slate-500")}
               >
-                <option value="">Same as the dashboard ({rangeLabel(filters.range)})</option>
-                {RANGE_PRESETS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+                <option value="">{rangeBlocked(widget) ? "Current value" : `Same as the dashboard (${rangeWithDates(filters.range, today)})`}</option>
+                {RANGE_PRESETS.map((p) => <option key={p.value} value={p.value}>{rangeWithDates({ preset: p.value }, today)}</option>)}
                 {widget.range && !RANGE_PRESETS.some((p) => p.value === widget.range!.preset) && <option value={widget.range.preset}>{rangeLabel(widget.range)}</option>}
               </select>
-            </div>
+              {rangeBlocked(widget) && <p id={`${headingId}-range-why`} className="mt-1 text-xs text-slate-500">{rangeBlocked(widget)}</p>}
+            </section>
 
             <div>
               <div className="mb-1 flex items-baseline justify-between">
@@ -255,38 +199,14 @@ export function WidgetPanel({
             </div>
 
             {metric && (
-              <Disclosure title="Refine" summary={refineSummary || "No filter or split"}>
-                <OptionChips<PropertyId | "none">
-                  label="Filter"
-                  value={widget.filter?.property ?? "none"}
-                  onChange={(p) => set({ filter: p === "none" ? undefined : { property: p, values: [] } })}
-                  options={[{ value: "none", label: "None" }, ...PROPERTY_ORDER.map((p) => ({ value: p, label: PROPERTIES[p].name, blocked: propertyBlocked(metric, p, "filter") }))]}
+              <Disclosure sticky title="Refine" summary={refineSummary || "No filter or split"}>
+                <WidgetFilters
+                  metric={metric}
+                  value={widget.filters ?? []}
+                  dashboard={filters}
+                  noOverlap={!!widgetQuery(widget, filters, today)?.noOverlap}
+                  onChange={(f) => set({ filters: f })}
                 />
-                {widget.filter && (
-                  <fieldset className="-mt-2 rounded-lg border border-slate-200 p-2.5">
-                    <legend className="px-1 text-xs font-medium text-slate-600">{PROPERTIES[widget.filter.property].name}: show only</legend>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                      {PROPERTIES[widget.filter.property].values.map((v) => {
-                        const f = widget.filter!;
-                        return (
-                          <label key={v} className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
-                            <input
-                              type="checkbox"
-                              checked={f.values.includes(v)}
-                              onChange={(e) => set({ filter: { ...f, values: e.target.checked ? PROPERTIES[f.property].values.filter((x) => x === v || f.values.includes(x)) : f.values.filter((x) => x !== v) } })}
-                              className="h-4 w-4 rounded border-slate-300 accent-[#003B49]"
-                            />
-                            {v}
-                          </label>
-                        );
-                      })}
-                    </div>
-                    {widget.filter.values.length === 0 && <p className="mt-1.5 text-xs text-slate-500">Nothing ticked yet, so nothing is filtered.</p>}
-                    {widget.filter.property === "region" && filters.regions.length > 0 && (
-                      <p className="mt-1.5 text-xs text-slate-500">The dashboard already shows {filters.regions.join(", ")}; this narrows it further.</p>
-                    )}
-                  </fieldset>
-                )}
 
                 <OptionChips<PropertyId | "none">
                   label="Split by"
@@ -305,16 +225,13 @@ export function WidgetPanel({
                   label="Change chart"
                   value={widget.type}
                   onChange={(type) => set({ type })}
-                  options={[
-                    ...CHARTS.map((c) => ({ value: c, label: CHART_LABEL[c], blocked: chartChoiceBlocked(c, widget) })),
-                    ...COMING_LATER.map((c) => ({ value: c as ChartType, label: c, blocked: COMING })),
-                  ]}
+                  options={CHARTS.map((c) => ({ value: c, label: CHART_LABEL[c], blocked: chartChoiceBlocked(c, widget) }))}
                 />
               </Disclosure>
             )}
 
             {metric && (
-              <Disclosure title="More options" summary={moreSummary}>
+              <Disclosure sticky title="More options" summary={moreSummary}>
                 <OptionChips<Grouping | "auto">
                   label="Time grouping"
                   value={widget.grouping ?? "auto"}

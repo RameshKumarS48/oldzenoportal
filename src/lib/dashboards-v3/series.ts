@@ -1,25 +1,16 @@
 /**
- * Mock numbers for the Dashboards (v3) sandbox. Every value comes from a
- * seeded hash of the metric, the property value and the calendar day, so a
- * widget shows the same numbers on every render and every visit. Nothing
- * here touches real data.
+ * Queries over the Dashboards (v3) mock data. The numbers come from
+ * mock-model.ts (realistic shapes, seeded so they're stable); this file
+ * turns them into a widget's buckets, series and totals. Nothing here
+ * touches real data.
  */
-import { PROPERTIES, STATION_REGION, type Metric, type PropertyId } from "./catalogue";
-import { bucketEnd, bucketFullLabel, bucketLabel, bucketStart, eachDay, isoDay, type ResolvedRange } from "./dates";
+import { format } from "date-fns";
+import { LOCATION, PROPERTIES, REGION_COUNTRY, STATION_REGION, type Metric, type PropertyId } from "./catalogue";
+import { bucketEnd, bucketFullLabel, bucketLabel, bucketStart, DATE_FORMAT, eachDay, fmtAsOf, type ResolvedRange } from "./dates";
+import { allowed, evaluate, seeded, type Pair } from "./mock-model";
 import type { Grouping, PropertyFilter } from "./types";
 
-/** FNV-1a, then one mulberry32 step: a stable number in [0, 1) for any key. */
-export function seeded(key: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < key.length; i++) {
-    h ^= key.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  let t = (h + 0x6d2b79f5) | 0;
-  t = Math.imul(t ^ (t >>> 15), t | 1);
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-}
+export { seeded };
 
 /** Values with no data at all: there are no stations in Mombasa yet, so filtering on it shows the empty state. */
 const NO_DATA: Partial<Record<PropertyId, string[]>> = { region: ["Mombasa"] };
@@ -28,44 +19,19 @@ export function hasNoData(property: PropertyId, value: string): boolean {
   return NO_DATA[property]?.includes(value) ?? false;
 }
 
-const EPOCH = new Date(2025, 0, 1).getTime();
 const DAY_MS = 86_400_000;
 
-const isPercent = (m: Metric) => m.unit === "%";
+/** Percentages and ratios are one total over another; everything else is a total on its own. */
+const divides = (m: Metric) => m.unit === "%" || m.aggregation === "ratio";
+const valueOf = (m: Metric, p: Pair) => (divides(m) ? (p.den > 0 ? p.num / p.den : NaN) : p.num);
+const addPairs = (a: Pair, b: Pair): Pair => ({ num: a.num + b.num, den: a.den + b.den });
+const ZERO: Pair = { num: 0, den: 0 };
 
-/** Each value's share of a metric, skewed so the first values lead and stable per metric. */
-function shares(metric: Metric, property: PropertyId): Map<string, number> {
-  const values = PROPERTIES[property].values;
-  const raw = values.map((v, i) =>
-    NO_DATA[property]?.includes(v) ? 0 : (0.5 + seeded(`${metric.id}|${property}|${v}`)) / (1 + i * 0.45)
-  );
-  const sum = raw.reduce((a, b) => a + b, 0);
-  return new Map(values.map((v, i) => [v, raw[i] / sum]));
-}
-
-/** For a percentage, how far a value sits from the network's level on a day, in points; each value drifts a little over time. */
-function offset(metric: Metric, property: PropertyId, value: string, day: Date): number {
-  const spread = Math.min(20, (100 - metric.mock.base) * 1.6);
-  const t = (day.getTime() - EPOCH) / (365 * DAY_MS);
-  const drift = (seeded(`${metric.id}|${property}|${value}|drift`) - 0.5) * spread * t;
-  return (seeded(`${metric.id}|${property}|${value}|offset`) - 0.5) * spread + drift;
-}
-
-/** The whole network's value on one day. */
-function dailyTotal(metric: Metric, day: Date): number {
-  const t = (day.getTime() - EPOCH) / (365 * DAY_MS);
-  const key = `${metric.id}|${isoDay(day)}`;
-  const { base, trend, weekend } = metric.mock;
-  if (isPercent(metric)) {
-    return clampPct(base * (1 + trend * t) + (seeded(key) - 0.5) * 0.8);
-  }
-  const dow = day.getDay();
-  const week = dow === 0 || dow === 6 ? weekend : 1;
-  return Math.max(0, base * (1 + trend * t) * week * (1 + (seeded(key) - 0.5) * 0.16));
-}
-
-function clampPct(n: number): number {
-  return Math.min(99.9, Math.max(0, n));
+/** The country a region or station is in. */
+function countryOf(property: PropertyId, value: string): string | undefined {
+  if (property === "region") return REGION_COUNTRY[value];
+  if (property === "station") return REGION_COUNTRY[STATION_REGION[value]];
+  return undefined;
 }
 
 /** The filters that apply to a metric; the rest are reported back so the widget can say so. */
@@ -83,73 +49,60 @@ export function applicableFilters(metric: Metric, filters: PropertyFilter[]): { 
 /** Metrics counted at stations: their regions are the sum of the stations in them, so region and station always agree. */
 const atStations = (m: Metric) => m.splitBy.includes("station") || m.filters.includes("station");
 
-/** The values every part on a property allows, or null when no part constrains it. */
-function allowed(parts: PropertyFilter[], property: PropertyId): string[] | null {
-  let out: string[] | null = null;
-  for (const p of parts) {
-    if (p.property !== property) continue;
-    out = out ? out.filter((v) => p.values.includes(v)) : [...p.values];
-  }
-  return out;
-}
+/** The finest place a metric is counted at: a station, or a region for metrics not tied to stations. */
+const leafLevel = (m: Metric): PropertyId => (atStations(m) ? "station" : "region");
+const isLocation = (p: PropertyId) => LOCATION.includes(p);
 
-/** The stations a set of parts leaves: in an allowed region, and allowed themselves. */
-function stationsIn(parts: PropertyFilter[]): string[] {
+/** The places (stations, or regions) a set of parts leaves: in an allowed country and region, and allowed themselves. */
+function leavesIn(metric: Metric, parts: PropertyFilter[]): string[] {
+  const level = leafLevel(metric);
+  const countries = allowed(parts, "country");
   const regions = allowed(parts, "region");
   const stations = allowed(parts, "station");
-  return PROPERTIES.station.values.filter((s) => (!regions || regions.includes(STATION_REGION[s])) && (!stations || stations.includes(s)));
+  return PROPERTIES[level].values.filter((leaf) => {
+    const region = level === "station" ? STATION_REGION[leaf] : leaf;
+    return (!countries || countries.includes(REGION_COUNTRY[region])) && (!regions || regions.includes(region)) && (!stations || level !== "station" || stations.includes(leaf));
+  });
 }
 
-/**
- * One segment's value on one day: the network total scaled by every filter
- * (and the split value, if any) for counts, or shifted by them for
- * percentages. For metrics counted at stations, region and station are one
- * hierarchy: a region is its stations, so filtering Nairobi only ever leaves
- * Nairobi's stations. Other properties are independent of each other.
- */
-function segmentDaily(metric: Metric, day: Date, filters: PropertyFilter[], split?: { property: PropertyId; value: string }): number {
-  const total = dailyTotal(metric, day);
-  const parts = split ? [...filters, { property: split.property, values: [split.value] }] : filters;
-  const hierarchy = atStations(metric);
-  const independent = hierarchy ? parts.filter((p) => p.property !== "region" && p.property !== "station") : parts;
-  const percent = isPercent(metric);
+/** Whether any place is left once these filters are applied: false when, say, the region is in another country. */
+export function anyPlaceLeft(metric: Metric, filters: PropertyFilter[]): boolean {
+  return leavesIn(metric, filters.filter((f) => isLocation(f.property))).length > 0;
+}
 
-  let factor = 1;
-  let shift = 0;
-  if (hierarchy && parts.some((p) => p.property === "region" || p.property === "station")) {
-    const s = shares(metric, "station");
-    const kept = stationsIn(parts);
-    const weight = kept.reduce((a, st) => a + (s.get(st) ?? 0), 0);
-    if (weight === 0) return percent ? NaN : 0;
-    factor *= weight;
-    if (percent) shift += kept.reduce((a, st) => a + (s.get(st) ?? 0) * offset(metric, "station", st, day), 0) / weight;
-  }
-  for (const p of independent) {
-    // Two parts on the same property (a filter and the split) narrow each other.
-    const values = allowed(parts, p.property)!;
-    if (independent.find((q) => q.property === p.property) !== p) continue;
-    const s = shares(metric, p.property);
-    const weight = values.reduce((a, v) => a + (s.get(v) ?? 0), 0);
-    if (weight === 0) return percent ? NaN : 0;
-    factor *= weight;
-    if (percent) shift += values.reduce((a, v) => a + (s.get(v) ?? 0) * offset(metric, p.property, v, day), 0) / weight;
-  }
+/** The regions these filters leave places in: for a station filter, the stations' regions. */
+export function regionsLeft(metric: Metric, filters: PropertyFilter[]): string[] {
+  const level = leafLevel(metric);
+  const leaves = leavesIn(metric, filters.filter((f) => isLocation(f.property)));
+  return [...new Set(leaves.map((l) => (level === "station" ? STATION_REGION[l] : l)))];
+}
 
-  if (percent) return clampPct(total + shift);
-  const jitter = split ? 1 + (seeded(`${metric.id}|${split.property}|${split.value}|${isoDay(day)}`) - 0.5) * 0.2 : 1;
-  return total * factor * jitter;
+/** The countries these filters leave places in, in order: both, when no country or region narrows it. */
+export function countriesLeft(metric: Metric, filters: PropertyFilter[]): string[] {
+  const level = leafLevel(metric);
+  const leaves = leavesIn(metric, filters.filter((f) => isLocation(f.property)));
+  return PROPERTIES.country.values.filter((c) => leaves.some((l) => countryOf(level, l) === c));
+}
+
+/** One segment's figure on one day: the metric for the filters, plus the split value if any. */
+function segmentDaily(metric: Metric, day: Date, filters: PropertyFilter[], split?: { property: PropertyId; value: string }): Pair {
+  return evaluate(metric.id, day, split ? [...filters, { property: split.property, values: [split.value] }] : filters);
 }
 
 /** Many days into one figure, by the metric's own aggregation. */
-function aggregate(metric: Metric, days: number[]): number {
-  const real = days.filter((n) => Number.isFinite(n));
-  if (real.length === 0) return NaN;
+function aggregate(metric: Metric, days: Pair[]): number {
+  if (days.length === 0) return NaN;
   switch (metric.aggregation) {
-    case "sum": return real.reduce((a, b) => a + b, 0);
-    case "average": return real.reduce((a, b) => a + b, 0) / real.length;
-    case "latest": return real[real.length - 1];
+    case "sum": return days.reduce((a, p) => a + p.num, 0);
+    // One total over another for the whole period: points per swap is all swap points ÷ all swaps.
+    case "ratio": return valueOf(metric, days.reduce(addPairs, ZERO));
+    case "average": {
+      const real = days.map((p) => valueOf(metric, p)).filter(Number.isFinite);
+      return real.length ? real.reduce((a, b) => a + b, 0) / real.length : NaN;
+    }
+    case "latest": return valueOf(metric, days[days.length - 1]);
     // Someone active on several days is counted once: a range's unique count grows slower than its days.
-    case "unique": return (real.reduce((a, b) => a + b, 0) / real.length) * (1 + 0.35 * Math.log(real.length));
+    case "unique": return (days.reduce((a, p) => a + p.num, 0) / days.length) * (1 + 0.35 * Math.log(days.length));
   }
 }
 
@@ -217,25 +170,28 @@ export function runQuery({ metric, range, filters, splitBy, grouping, top }: Que
     const newYear = !last || last.start.getFullYear() !== start.getFullYear();
     buckets.push({
       start,
-      label: bucketLabel(start, grouping, crossesYear && newYear),
-      fullLabel: bucketFullLabel(start, grouping),
-      // Not over yet: a week or month that runs past the range's end, or any period holding today so far.
-      partial: bucketEnd(start, grouping) > range.to || (range.endFraction !== undefined && bucketEnd(start, grouping) >= range.to),
+      // A current value is one moment: "As of 18 Nov, 06:00".
+      label: range.asOf ? `As of ${fmtAsOf(range.asOf)}` : bucketLabel(start, grouping, crossesYear && newYear),
+      fullLabel: range.asOf ? `As of ${format(range.asOf, `${DATE_FORMAT}, HH:mm`)}` : bucketFullLabel(start, grouping),
+      // Not over yet: only a day, week or month that holds today. A range that ended before today
+      // (1–31 Oct, say) is complete, so it's solid throughout, even where its last week runs past it.
+      partial: !range.asOf && range.today !== undefined && bucketEnd(start, grouping) >= range.today,
       idx: [i],
     });
   });
   // Today so far: counts that build up through the day only have the part of it that has data.
   const builds = metric.aggregation === "sum" || metric.aggregation === "unique";
-  const soFar = (daily: number[]) => {
-    if (range.endFraction !== undefined && builds) daily[daily.length - 1] *= range.endFraction;
+  const soFar = (daily: Pair[]) => {
+    const last = daily.length - 1;
+    if (range.endFraction !== undefined && builds) daily[last] = { num: daily[last].num * range.endFraction, den: daily[last].den * range.endFraction };
     return daily;
   };
-  const byBucket = (daily: number[]) => buckets.map((b) => aggregate(metric, b.idx.map((i) => daily[i])));
-  const overRange = (daily: number[]) => aggregate(metric, daily.filter((_, i) => inRange[i]));
+  const byBucket = (daily: Pair[]) => buckets.map((b) => aggregate(metric, b.idx.map((i) => daily[i])));
+  const overRange = (daily: Pair[]) => aggregate(metric, daily.filter((_, i) => inRange[i]));
 
   const totalDaily = soFar(days.map((d) => segmentDaily(metric, d, used)));
   const total = overRange(totalDaily);
-  const empty = !Number.isFinite(total) || (!isPercent(metric) && total === 0);
+  const empty = !Number.isFinite(total) || (!divides(metric) && total === 0);
 
   let series: Series[];
   if (!splitBy) {
@@ -256,10 +212,8 @@ export function runQuery({ metric, range, filters, splitBy, grouping, top }: Que
     const rest = all.length > top ? all.slice(top) : [];
     series = named.map((s) => ({ name: s.name, values: byBucket(s.daily), total: s.total }));
     if (rest.length > 0) {
-      const daily = days.map((_, i) => {
-        const vals = rest.map((s) => s.daily[i]);
-        return isPercent(metric) ? vals.reduce((a, b) => a + b, 0) / vals.length : vals.reduce((a, b) => a + b, 0);
-      });
+      // The rest added up as pairs, so a percentage or ratio stays one total over another.
+      const daily = days.map((_, i) => rest.reduce((a, s) => addPairs(a, s.daily[i]), ZERO));
       series.push({ name: "Other", values: byBucket(daily), total: overRange(daily), other: true });
     }
   }
