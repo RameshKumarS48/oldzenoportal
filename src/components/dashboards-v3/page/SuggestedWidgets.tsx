@@ -1,11 +1,11 @@
 "use client";
 
-import { Hash, Pencil, Plus, TrendingUp, BarChart3, Table2, Layers } from "lucide-react";
+import { Hash, Pencil, Plus, TrendingUp, BarChart3, Table2, Layers, ListOrdered } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { suggestedMetrics, type CategoryId, type ChartType, type Metric } from "@/lib/dashboards-v3/catalogue";
 import { CHART_LABEL } from "@/lib/dashboards-v3/rules";
 
-const ICON: Record<Exclude<ChartType, "text">, typeof Hash> = { kpi: Hash, line: TrendingUp, bar: BarChart3, stacked: Layers, table: Table2 };
+const ICON: Record<Exclude<ChartType, "text">, typeof Hash> = { kpi: Hash, line: TrendingUp, bar: BarChart3, stacked: Layers, table: Table2, toplist: ListOrdered };
 
 /** Four starting widgets for a category: its first two metrics as numbers, the first as a trend, and the third in its own chart. */
 export function suggestionsFor(category: CategoryId): { metric: Metric; type: Exclude<ChartType, "text"> }[] {

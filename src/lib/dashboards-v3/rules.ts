@@ -21,8 +21,8 @@ export function topFor(type: ChartType): number {
 }
 
 /**
- * Each chart by the question it answers, in the same words in Explore and in
- * the widget panel: the goal is the label, the chart's name and when to use
+ * Each chart by the question it answers, as the widget panel offers it:
+ * the goal is the label, the chart's name and when to use
  * it are its tooltip and accessible description.
  */
 export const CHART_GOALS: Record<Exclude<ChartType, "text">, { goal: string; name: string; when: string }> = {
@@ -31,6 +31,7 @@ export const CHART_GOALS: Record<Exclude<ChartType, "text">, { goal: string; nam
   bar: { goal: "Compare items", name: "Bar chart", when: "Compare regions, stations or services side by side." },
   stacked: { goal: "What it’s made of", name: "Stacked bar chart", when: "See how the parts add up to the total, period by period." },
   table: { goal: "A list", name: "Table", when: "Read the exact figures in rows." },
+  toplist: { goal: "Top list", name: "Ranked list", when: "See the biggest items with their share and change." },
 };
 
 /** "Line chart. See trends, spikes and dips over time." */
@@ -39,14 +40,15 @@ export const chartTip = (type: Exclude<ChartType, "text">) => `${CHART_GOALS[typ
 /** Figures that add up, so their parts can be stacked into a total: not percentages, averages or ratios. */
 export const canStack = (metric: Metric) => metric.unit !== "%" && metric.aggregation !== "average" && metric.aggregation !== "ratio";
 
-export type Intent = "number" | "time" | "compare" | "parts" | "list";
+export type Intent = "number" | "time" | "compare" | "parts" | "top" | "list";
 
-/** The panel's "What do you want to see?", one choice per chart. "What it's made of" is offered only with a breakdown. */
+/** The panel's "What do you want to see?", one choice per chart. "What it's made of" and "Top list" are offered only with a breakdown. */
 export const INTENTS: { id: Intent; short: string; hint: string; charts: ChartType[] }[] = [
   { id: "number", short: CHART_GOALS.kpi.goal, hint: chartTip("kpi"), charts: ["kpi"] },
   { id: "time", short: CHART_GOALS.line.goal, hint: chartTip("line"), charts: ["line"] },
   { id: "compare", short: CHART_GOALS.bar.goal, hint: chartTip("bar"), charts: ["bar"] },
   { id: "parts", short: CHART_GOALS.stacked.goal, hint: chartTip("stacked"), charts: ["stacked"] },
+  { id: "top", short: CHART_GOALS.toplist.goal, hint: chartTip("toplist"), charts: ["toplist"] },
   { id: "list", short: CHART_GOALS.table.goal, hint: chartTip("table"), charts: ["table"] },
 ];
 
@@ -56,6 +58,7 @@ export function intentOf(type: ChartType): Intent | null {
   if (type === "bar") return "compare";
   if (type === "stacked") return "parts";
   if (type === "table") return "list";
+  if (type === "toplist") return "top";
   return null;
 }
 
@@ -65,6 +68,7 @@ export const CHART_LABEL: Record<ChartType, string> = {
   bar: "Bar",
   stacked: "Stacked bar",
   table: "Table",
+  toplist: "Top list",
   text: "Text or heading",
 };
 
@@ -76,6 +80,7 @@ export function chartBlocked(type: ChartType, metric: Metric | undefined, splitB
   if (type === "bar" && !splitBy) return "A bar chart compares values side by side. Choose what to split by first.";
   if (type === "stacked" && metric.unit === "%") return "Percentages don't add up, so they can't be stacked.";
   if (type === "stacked" && !splitBy) return "A stacked bar shows the parts of a total. Choose what to split by first.";
+  if (type === "toplist" && !splitBy) return "A top list ranks items. Choose what to break down by first.";
   return null;
 }
 
@@ -86,7 +91,14 @@ export function splitBlocked(type: ChartType, metric: Metric, property: Property
 }
 
 /** Top to bottom: numbers first, then charts (and text), then tables. */
-const RANK: Record<ChartType, number> = { kpi: 0, text: 1, line: 1, bar: 1, stacked: 1, table: 2 };
+const RANK: Record<ChartType, number> = { kpi: 0, text: 1, line: 1, bar: 1, stacked: 1, toplist: 1, table: 2 };
+
+/** Widgets whose viewers can switch the breakdown with tabs: they show one breakdown at a time, for the whole period. */
+export const canSwitch = (type: ChartType) => type === "bar" || type === "toplist" || type === "table";
+/** Most breakdown tabs a widget offers. */
+export const SWITCH_MAX = 4;
+/** A top list names this many items, or this many with Show all. */
+export const TOP_LIST_ALL = 20;
 
 export function widgetRank(type: ChartType): number {
   return RANK[type];

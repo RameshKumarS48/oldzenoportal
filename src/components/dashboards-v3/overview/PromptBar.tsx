@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Loader2, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { draftFromPrompt, EXAMPLE_PROMPTS, type DashboardDraft, type DraftResult } from "@/lib/dashboards-v3/ai-draft";
-import { useDashboardsV3 } from "@/store/dashboards-v3";
+import type { Dashboard } from "@/lib/dashboards-v3/types";
+import { isOwn, useDashboardsV3 } from "@/store/dashboards-v3";
 import { toast } from "@/store/toast";
 import { DraftPreview } from "./DraftPreview";
 import { PromptComposer } from "./PromptComposer";
@@ -25,12 +26,14 @@ type Status =
 /**
  * "Describe the dashboard you need": a mocked draft from the words typed.
  * Sandbox only, with no AI and no API: drafts come from matching words to
- * the metric catalogue. Nothing is saved until Create dashboard or Open in
- * editor.
+ * the metric catalogue. Nothing is saved until Create dashboard from this,
+ * Open in editor, or Add to dashboard (its widgets, onto one of yours).
  */
 export function PromptBar() {
   const router = useRouter();
   const create = useDashboardsV3((s) => s.create);
+  const dashboards = useDashboardsV3((s) => s.dashboards);
+  const own = dashboards.filter(isOwn);
   const [text, setText] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -72,6 +75,17 @@ export function PromptBar() {
     });
     toast.success("Dashboard created", `“${d.name.trim()}” is in Your dashboards.`);
     router.push(then === "edit" ? `/dashboards-v3/${newId}?edit=1` : `/dashboards-v3/${newId}`);
+  }
+
+  function addTo(target: Dashboard) {
+    if (status.kind !== "draft") return;
+    const n = status.draft.widgets.length;
+    if (!useDashboardsV3.getState().addWidgetsTo(target.id, status.draft.widgets)) {
+      toast.error("Couldn’t add the widgets", `“${target.name}” doesn’t have room for ${n}.`);
+      return;
+    }
+    toast.success(`Added ${n} widget${n === 1 ? "" : "s"}`, `They’re on “${target.name}”.`);
+    router.push(`/dashboards-v3/${target.id}`);
   }
 
   return (
@@ -132,6 +146,8 @@ export function PromptBar() {
             draft={status.draft}
             onChange={(draft) => setStatus({ ...status, draft })}
             onCreate={save}
+            own={own}
+            onAddTo={addTo}
             onDiscard={() => { setStatus({ kind: "idle" }); document.getElementById(INPUT_ID)?.focus(); }}
           />
         )}

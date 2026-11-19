@@ -220,3 +220,21 @@ export function runQuery({ metric, range, filters, splitBy, grouping, top }: Que
 
   return { buckets: buckets.map((b) => ({ start: b.start, label: b.label, fullLabel: b.fullLabel, partial: b.partial })), series, total, empty, ignored };
 }
+
+/** "% of total": each value as a share of its bar, period by period, and of the whole for the totals. */
+export function asShares(r: QueryResult): QueryResult {
+  const perBucket = r.buckets.map((_, i) => r.series.reduce((a, x) => a + (Number.isFinite(x.values[i]) ? x.values[i] : 0), 0));
+  const whole = r.series.reduce((a, x) => a + x.total, 0);
+  return {
+    ...r,
+    total: 100,
+    series: r.series.map((x) => ({
+      ...x,
+      values: x.values.map((v, i) => (perBucket[i] > 0 && Number.isFinite(v) ? (v / perBucket[i]) * 100 : 0)),
+      total: whole > 0 ? (x.total / whole) * 100 : 0,
+    })),
+  };
+}
+
+/** The metric as a percentage, so axes, labels and tooltips read 0–100%. */
+export const sharesMetric = (m: Metric): Metric => ({ ...m, unit: "%", noun: undefined });

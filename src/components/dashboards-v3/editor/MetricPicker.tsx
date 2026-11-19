@@ -1,86 +1,30 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import { CATEGORIES, METRICS, suggestedMetrics, categoryName, kindLabel, type CategoryId, type Metric } from "@/lib/dashboards-v3/catalogue";
-import { UNIT_LABEL } from "@/lib/dashboards-v3/format";
 import { cn } from "@/lib/utils";
-import { CategoryChip } from "../ui/CategoryChip";
 import { DefinitionTip, FocusTip } from "../ui/FocusTip";
 import { useAnchoredPopover } from "../ui/useAnchoredPopover";
-import { EYEBROW } from "./controls";
 
 /**
- * Choosing a metric. Once one is chosen it shows as a card with Change;
- * the list searches names and definitions, puts three suggestions for the
- * dashboard's category first, then groups the rest by category. Arrow keys
- * move through it like any radio group.
+ * The metric, as a dropdown: the chosen one's name (its definition behind
+ * ⓘ), or "Choose a metric". The list opens in a popover with search,
+ * three suggestions for the dashboard's category first, then every other
+ * metric by category. Escape, a click outside or a choice close it, and
+ * focus goes back to the field.
  */
 export function MetricPicker({
-  value, category, onChange, hideLabel = false, compact = false,
+  value, category, onChange, labelledBy,
 }: {
-  value: Metric | undefined; category: CategoryId; onChange: (m: Metric) => void; hideLabel?: boolean;
-  /** Explore: the chosen metric as just its name, its definition behind ⓘ, and Change. */
-  compact?: boolean;
+  value: Metric | undefined; category: CategoryId; onChange: (m: Metric) => void;
+  /** The heading that names the field. */
+  labelledBy?: string;
 }) {
-  const [open, setOpen] = useState(!value);
   const [query, setQuery] = useState("");
   const search = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (open) search.current?.focus();
-  }, [open]);
-
-  if (value && compact) return <CompactMetric value={value} category={category} onChange={onChange} hideLabel={hideLabel} />;
-
-  if (!open && value) {
-    return (
-      <div>
-        <p className={hideLabel ? "sr-only" : "mb-1 text-sm font-medium text-slate-700"}>Metric</p>
-        <div className="flex items-start gap-3 rounded-lg border border-slate-200 p-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-slate-800">{value.name}</p>
-            <p className="text-xs font-medium text-slate-600">{kindLabel(value)}</p>
-            <p className="mt-0.5 text-xs text-slate-600">{value.definition}</p>
-            <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-              <CategoryChip category={value.category} />
-              {value.unit === "count" ? "Count" : `In ${UNIT_LABEL[value.unit]}`}
-            </p>
-          </div>
-          <button type="button" onClick={() => setOpen(true)} className="rounded text-sm font-medium text-zeno-teal hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40">
-            Change
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const pick = (m: Metric) => { onChange(m); setOpen(false); setQuery(""); };
-
-  return (
-    <fieldset>
-      <legend className={hideLabel ? "sr-only" : "mb-1 text-sm font-medium text-slate-700"}>Metric</legend>
-      <MetricList value={value} category={category} query={query} onQuery={setQuery} onPick={pick} searchRef={search} />
-      {value && (
-        <button type="button" onClick={() => { setOpen(false); setQuery(""); }} className="mt-1.5 rounded text-xs font-medium text-slate-600 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40">
-          Keep {value.name}
-        </button>
-      )}
-    </fieldset>
-  );
-}
-
-/**
- * Explore's metric: its name, its definition behind ⓘ, and Change, which
- * opens the list in a popover (search, suggestions first, each metric once).
- * Escape, a click outside or a choice close it, and focus goes back to Change.
- */
-function CompactMetric({ value, category, onChange, hideLabel }: { value: Metric; category: CategoryId; onChange: (m: Metric) => void; hideLabel: boolean }) {
-  const [query, setQuery] = useState("");
-  const search = useRef<HTMLInputElement>(null);
-  const change = useRef<HTMLButtonElement>(null);
-  const { open, button: card, panel, show, close: hide, style } = useAnchoredPopover<HTMLDivElement>({ height: 380 });
-  const close = () => { hide(false); setQuery(""); change.current?.focus(); };
+  const { open, button, panel, show, close: hide, style } = useAnchoredPopover({ height: 380 });
+  const close = () => { hide(); setQuery(""); };
 
   useEffect(() => {
     if (open) search.current?.focus();
@@ -88,21 +32,23 @@ function CompactMetric({ value, category, onChange, hideLabel }: { value: Metric
 
   return (
     <div>
-      <p className={hideLabel ? "sr-only" : EYEBROW}>Metric</p>
-      {/* A field, like a select: the metric in strong text, Change as its button. */}
-      <div ref={card} className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white py-1.5 pl-3 pr-1.5 shadow-sm">
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">{value.name}</span>
-        <FocusTip label={`What ${value.name} means`} content={<DefinitionTip metric={value} />} />
+      <div className="flex items-center gap-1.5">
         <button
-          ref={change}
+          ref={button}
           type="button"
           aria-haspopup="dialog"
           aria-expanded={open}
+          aria-labelledby={labelledBy ? `${labelledBy} ${labelledBy}-value` : undefined}
           onClick={() => (open ? close() : show())}
-          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-left hover:border-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40"
         >
-          Change
+          <span id={labelledBy ? `${labelledBy}-value` : undefined} className={cn("min-w-0 flex-1 truncate text-sm", value ? "font-medium text-slate-900" : "text-slate-500")}>
+            {value ? value.name : "Choose a metric"}
+          </span>
+          {value && <span className="shrink-0 text-xs text-slate-500">{kindLabel(value)}</span>}
+          <ChevronDown className={cn("h-4 w-4 shrink-0 text-slate-500 transition-transform", open && "rotate-180")} aria-hidden />
         </button>
+        {value && <FocusTip label={`What ${value.name} means`} content={<DefinitionTip metric={value} />} />}
       </div>
       {open && (
         <div

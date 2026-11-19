@@ -2,7 +2,7 @@
 
 import { CartesianGrid, LabelList, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Metric, PropertyId } from "@/lib/dashboards-v3/catalogue";
-import type { Marker } from "@/lib/dashboards-v3/explore";
+import type { Marker } from "@/lib/dashboards-v3/markers";
 import { AXIS_TEXT, GOAL, GRID, MARKER, PREVIOUS, SERIES, seriesColors } from "@/lib/dashboards-v3/palette";
 import { fmtCompact } from "@/lib/dashboards-v3/format";
 import type { QueryResult } from "@/lib/dashboards-v3/series";
@@ -26,7 +26,7 @@ const DIRECT_LABELS_UP_TO = 4;
 export function LineWidget({
   metric, result, previous, splitBy, goal, showValues, minHeight, fill, markers = [],
 }: {
-  /** Events to mark with a dotted vertical line and a short label (Explore). */
+  /** Events to mark with a dotted vertical line and a short label. */
   markers?: Marker[];
   metric: Metric; result: QueryResult; previous: number[] | null; splitBy?: PropertyId; goal?: number; showValues: boolean;
   minHeight: number;

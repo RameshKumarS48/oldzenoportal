@@ -109,7 +109,7 @@ export const PROPERTY_ORDER: PropertyId[] = ["region", "station", "service", "cu
 export type Unit = "points" | "kWh" | "count" | "%";
 /** ratio: one total over another for the whole period (points per swap = swap points ÷ swaps), not an average of daily ratios. */
 export type Aggregation = "sum" | "average" | "latest" | "unique" | "ratio";
-export type ChartType = "kpi" | "line" | "bar" | "stacked" | "table" | "text";
+export type ChartType = "kpi" | "line" | "bar" | "stacked" | "table" | "toplist" | "text";
 /** period: a total (or average) over a date range. snapshot: the state at one moment, such as now. */
 export type MetricKind = "period" | "snapshot";
 
@@ -131,6 +131,10 @@ export interface Metric {
   goodTrend: string;
   /** What the figure leaves out, in a short phrase for a widget's footer. "[to confirm]" marks placeholders. */
   excludes: string;
+  /** A short line under a number widget's value ("average per swap"). Without one, a number shows its excludes note there. */
+  contextLine?: string;
+  /** Or: what the number is out of, as another metric's figure for the same filters ("of 8,310 active riders"). */
+  contextOf?: string;
   unit: Unit;
   aggregation: Aggregation;
   defaultChart: Exclude<ChartType, "text">;
@@ -189,6 +193,7 @@ export const METRICS: Metric[] = [
     counted: "All points debited for swaps in the period divided by all swaps in it.",
     goodTrend: "Steady; sudden moves usually mean a price change.",
     excludes: "Excludes free swaps from promotions",
+    contextLine: "average per swap",
     unit: "points", aggregation: "ratio", defaultChart: "kpi", splitBy: ["region", "station", "customerType", "country"], filters: ["region", "station", "customerType", "country"],
     higherIsBetter: "neutral",
     notAllowed: { service: "This metric already covers swaps only" },
@@ -211,6 +216,7 @@ export const METRICS: Metric[] = [
     counted: "Stations online divided by all stations, at each morning’s 06:00 refresh.",
     goodTrend: "High and steady, close to 100%.",
     excludes: "Excludes test stations and planned maintenance",
+    contextLine: "of stations online at 06:00",
     unit: "%", aggregation: "latest", defaultChart: "line", splitBy: ["region", "station", "country"], filters: ["region", "station", "country"],
     higherIsBetter: true,
     notAllowed: { customerType: "Uptime is the station's, not a rider's", service: "Uptime is for swap stations only" },
@@ -221,6 +227,7 @@ export const METRICS: Metric[] = [
     counted: "Each swap that didn’t complete counts once, added up over the period.",
     goodTrend: "Falling; a jump usually points to a station fault.",
     excludes: "Excludes test stations",
+    contextOf: "swaps",
     unit: "count", aggregation: "sum", defaultChart: "bar", splitBy: ["region", "station", "country"], filters: ["region", "station", "country"],
     higherIsBetter: false,
   },
@@ -252,6 +259,7 @@ export const METRICS: Metric[] = [
     counted: "All kWh delivered in the period divided by all sessions in it.",
     goodTrend: "Steady; a fall can mean sessions are being cut short.",
     excludes: "Excludes unbilled fast charges",
+    contextLine: "average per charge session",
     unit: "kWh", aggregation: "ratio", defaultChart: "kpi", splitBy: ["service", "region"], filters: ["service", "region", "country"],
     higherIsBetter: "neutral",
   },
@@ -282,6 +290,7 @@ export const METRICS: Metric[] = [
     counted: "Remaining capacity against new, averaged across batteries in service at the 06:00 refresh.",
     goodTrend: "High and slow to fall.",
     excludes: "Excludes Quarantine and Retired batteries",
+    contextLine: "average remaining capacity",
     unit: "%", aggregation: "latest", defaultChart: "kpi", splitBy: ["region", "station"], filters: ["region", "station", "country"],
     higherIsBetter: true,
   },
@@ -302,6 +311,7 @@ export const METRICS: Metric[] = [
     counted: "Vehicles not reporting for over 24 hours at the 06:00 refresh.",
     goodTrend: "Low and falling.",
     excludes: "Excludes immobilised vehicles",
+    contextOf: "active-vehicles",
     unit: "count", aggregation: "latest", defaultChart: "bar", splitBy: ["region", "country"], filters: ["region", "customerType", "country"],
     higherIsBetter: false,
   },
@@ -311,6 +321,7 @@ export const METRICS: Metric[] = [
     counted: "Vehicles switched off remotely at the 06:00 refresh.",
     goodTrend: "Low; a rise often follows missed payments.",
     excludes: "Excludes vehicles off the road for repairs [to confirm]",
+    contextOf: "active-vehicles",
     unit: "count", aggregation: "latest", defaultChart: "bar", splitBy: ["region", "customerType"], filters: ["region", "customerType", "country"],
     higherIsBetter: false,
   },
@@ -331,6 +342,7 @@ export const METRICS: Metric[] = [
     counted: "Riders with a wallet below zero at the 06:00 refresh.",
     goodTrend: "Low and falling.",
     excludes: "Excludes closed accounts",
+    contextOf: "active-riders",
     unit: "count", aggregation: "latest", defaultChart: "line", splitBy: ["region", "customerType", "country"], filters: ["region", "customerType", "country"],
     higherIsBetter: false,
   },
@@ -340,6 +352,7 @@ export const METRICS: Metric[] = [
     counted: "Each rider counts once, however many times they topped up.",
     goodTrend: "Rising, close to the number of active riders.",
     excludes: "Excludes staff and test accounts [to confirm]",
+    contextOf: "active-riders",
     unit: "count", aggregation: "unique", defaultChart: "bar", splitBy: ["region", "customerType", "country"], filters: ["region", "customerType", "country"],
     higherIsBetter: true,
   },
@@ -351,6 +364,7 @@ export const METRICS: Metric[] = [
     counted: "Each completed swap at a partner station counts once, added up over the period.",
     goodTrend: "Rising as partner stations get used more.",
     excludes: "Excludes test stations",
+    contextOf: "swaps",
     unit: "count", aggregation: "sum", defaultChart: "bar", splitBy: ["region", "station", "country"], filters: ["region", "station", "country"],
     higherIsBetter: true,
   },
@@ -369,6 +383,7 @@ export const METRICS: Metric[] = [
     counted: "Swaps at partner stations in the period divided by all swaps in it.",
     goodTrend: "Depends on the plan: rising if the network is meant to grow through partners.",
     excludes: "Excludes test stations",
+    contextLine: "of all swaps",
     unit: "%", aggregation: "ratio", defaultChart: "kpi", splitBy: ["region", "country"], filters: ["region", "country"],
     higherIsBetter: "neutral",
   },

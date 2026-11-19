@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * A popover fixed beside its button, so a scrolling column (Explore's
- * controls) never clips it. It opens below the button, or above when there's
+ * A popover fixed beside its button, so a scrolling column (the widget
+ * panel) never clips it. It opens below the button, or above when there's
  * no room, kept inside the window. Escape (wire `onKeyDown` to the panel), a
  * click outside or scrolling the page close it; Escape and choosing give
  * focus back to the button.

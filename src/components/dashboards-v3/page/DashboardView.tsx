@@ -11,7 +11,6 @@ import { autoTitle, normalise, sameWidget } from "@/lib/dashboards-v3/editor";
 import { MAX_WIDGETS, orderWidgets, widgetRank } from "@/lib/dashboards-v3/rules";
 import { basedOn, copyDraftOf, headerMeta, openMode } from "@/lib/dashboards-v3/templates";
 import { filtersFromLink, viewLink } from "@/lib/dashboards-v3/view-link";
-import { exploreLink } from "@/lib/dashboards-v3/explore";
 import type { Dashboard, DashboardFilters as Filters, Visibility, Widget } from "@/lib/dashboards-v3/types";
 import {
   addWidget, atLimit, duplicateWidget, makeWidget, moveBlocked, moveWidget, patchWidget, removeWidget, replaceWidget, restoreWidget, SPAN,
@@ -64,6 +63,8 @@ const SPOT: { rank: number; label: string; type: ChartType }[] = [
 const RANKS = [0, 1, 2];
 
 const HIGHLIGHT_MS = 2000;
+/** A changed widget has loaded at its new height by now (WidgetCard pretends to load for 450ms). */
+const LOADED_MS = 520;
 
 /** A new widget of a kind, with no metric yet: the panel asks for one before it can be added. */
 function newWidget(type: ChartType): Widget {
@@ -126,6 +127,8 @@ export function DashboardView({ id, copy = false }: { id: string; copy?: boolean
   const [deleting, setDeleting] = useState(false);
   const [newStart, setNewStart] = useState<NewDashboardStart | null>(null);
   const leaving = useRef(false);
+  /** The content has scrolled under the sticky filter bar: it gets its bottom border. */
+  const [stuck, setStuck] = useState(false);
   const undoSeq = useRef(0);
 
   if (dashboard && !linkRead) {
@@ -179,14 +182,16 @@ export function DashboardView({ id, copy = false }: { id: string; copy?: boolean
   const today = useMemo(() => startOfDay(now ? new Date(now) : new Date()), [now]);
   const dismissUndo = useCallback(() => setUndo(null), []);
 
-  // The placeholder or the widget being edited: brought into view when the panel opens, or when it moves to another group or size.
-  const panelTarget = panel ? `${panel.key}|${panel.widget.id}|${widgetRank(panel.widget.type)}|${panel.widget.size}` : null;
+  // The placeholder or the widget being edited stays in view: when the panel opens, and after every change
+  // (another chart, group or size), once now and again when it has loaded at its new height. Typing a title doesn't move it.
+  const panelTarget = panel ? JSON.stringify([panel.key, { ...panel.widget, title: "" }]) : null;
+  const panelWidgetId = panel?.widget.id;
   useEffect(() => {
-    if (!panelTarget) return;
-    const id = panelTarget.split("|")[1];
-    const t = setTimeout(() => document.getElementById(`widget-card-${id}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50);
-    return () => clearTimeout(t);
-  }, [panelTarget]);
+    if (!panelTarget || !panelWidgetId) return;
+    const show = () => document.getElementById(`widget-card-${panelWidgetId}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const t = [setTimeout(show, 50), setTimeout(show, LOADED_MS)];
+    return () => t.forEach(clearTimeout);
+  }, [panelTarget, panelWidgetId]);
 
   // A widget just added or saved: scroll to it, move focus to it, and mark it for a moment.
   useEffect(() => {
@@ -350,9 +355,6 @@ export function DashboardView({ id, copy = false }: { id: string; copy?: boolean
     else { setPendingEdit(w.id); enterEdit(); }
   }
 
-  /** Explore: its own page, starting from this widget and the filters on screen. */
-  const exploreWidget = (w: Widget) => router.push(exploreLink(dashboard!, w, current.filters));
-
   function addSuggestion(metric: Metric, type: ChartType) {
     changeWidgets((ws) => addWidget(ws, makeWidget(metric, type)));
   }
@@ -473,8 +475,9 @@ export function DashboardView({ id, copy = false }: { id: string; copy?: boolean
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-      <div className="flex-1 overflow-auto bg-zeno-bg p-5">
-        <div className="mb-4">
+      <div className="flex-1 overflow-auto bg-zeno-bg p-5" onScroll={(e) => setStuck(e.currentTarget.scrollTop > 0)}>
+        {/* The filter bar stays at the top of this scrolling area (under the portal's top bar; the side panel is beside it, never under it). */}
+        <div className={cn("sticky top-0 z-20 -mx-5 -mt-5 mb-4 border-b bg-zeno-bg px-5 pb-3 pt-5 transition-colors", stuck ? "border-slate-200" : "border-transparent")}>
           <FilterBar
             value={current.filters}
             saved={dashboard.filters}
@@ -541,7 +544,6 @@ export function DashboardView({ id, copy = false }: { id: string; copy?: boolean
                       onMove={(dir) => changeWidgets((ws) => moveWidget(ws, w.id, dir))}
                       onResize={(size) => changeWidgets((ws) => patchWidget(ws, w.id, { size }))}
                       onEdit={() => editWidget(w)}
-                      onExplore={editing ? undefined : () => exploreWidget(w)}
                       onDuplicate={() => duplicateOne(w)}
                       onRemove={() => remove(w)}
                     />

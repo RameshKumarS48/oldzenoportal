@@ -4,7 +4,8 @@ import { buildSeed, SEED_REVISION } from "@/lib/mock/dashboards-v3";
 import type { CategoryId } from "@/lib/dashboards-v3/catalogue";
 import { DEFAULT_RANGE } from "@/lib/dashboards-v3/dates";
 import { canEdit } from "@/lib/dashboards-v3/templates";
-import { addWidget, atLimit } from "@/lib/dashboards-v3/widgets";
+import { MAX_WIDGETS } from "@/lib/dashboards-v3/rules";
+import { addWidget } from "@/lib/dashboards-v3/widgets";
 import type { Dashboard, DashboardFilters, Visibility, Widget } from "@/lib/dashboards-v3/types";
 
 export type OverviewView = "favorites" | "mine" | "shared" | "templates" | "all";
@@ -61,8 +62,8 @@ interface DashboardsV3State {
   rename: (id: string, name: string) => void;
   update: (id: string, patch: Partial<Pick<Dashboard, "name" | "description" | "category" | "visibility" | "filters" | "widgets">>) => void;
   remove: (id: string) => void;
-  /** Explore's "Add to dashboard": a copy of the widget, at the end of its group. False for a template, someone else's dashboard, or a full one. */
-  addWidgetTo: (id: string, widget: Widget) => boolean;
+  /** The AI draft's "Add to dashboard": copies of its widgets, each at the end of its group. False, adding nothing, for a template, someone else's dashboard, or one without room for all of them. */
+  addWidgetsTo: (id: string, widgets: Widget[]) => boolean;
   reset: () => void;
 }
 
@@ -172,11 +173,11 @@ export const useDashboardsV3 = create<DashboardsV3State>()(
           };
         }),
 
-      addWidgetTo: (id, widget) => {
+      addWidgetsTo: (id, widgets) => {
         const target = get().dashboards.find((d) => d.id === id);
-        if (!target || !canEdit(target) || atLimit(target.widgets)) return false;
-        const [copy] = copyWidgets([widget]);
-        set((s) => ({ dashboards: s.dashboards.map((d) => (d.id === id ? { ...d, widgets: addWidget(d.widgets, copy), updatedAt: new Date().toISOString() } : d)) }));
+        if (!target || !canEdit(target) || widgets.length === 0 || target.widgets.length + widgets.length > MAX_WIDGETS) return false;
+        const copies = copyWidgets(widgets);
+        set((s) => ({ dashboards: s.dashboards.map((d) => (d.id === id ? { ...d, widgets: copies.reduce(addWidget, d.widgets), updatedAt: new Date().toISOString() } : d)) }));
         return true;
       },
 

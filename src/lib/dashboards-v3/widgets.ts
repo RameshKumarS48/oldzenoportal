@@ -6,7 +6,8 @@
 import { isMoney, metricById, PROPERTIES, type ChartType, type Metric, type PropertyId } from "./catalogue";
 import { autoGrouping, resolveRange, snapshotRange, type ResolvedRange } from "./dates";
 import { defaultSize, MAX_WIDGETS, orderWidgets, topFor, widgetRank } from "./rules";
-import { anyPlaceLeft, countriesLeft, type Query } from "./series";
+import { fmtValue } from "./format";
+import { anyPlaceLeft, countriesLeft, runQuery, type Query } from "./series";
 import type { DashboardFilters, Grouping, PropertyFilter, Widget, WidgetSize } from "./types";
 
 let seq = 0;
@@ -48,7 +49,8 @@ export function patchWidget(widgets: Widget[], id: string, patch: Partial<Widget
 export function duplicateWidget(widgets: Widget[], id: string): Widget[] {
   const i = widgets.findIndex((w) => w.id === id);
   if (i < 0 || atLimit(widgets)) return widgets;
-  const copy: Widget = { ...widgets[i], id: widgetId(), title: `${widgets[i].title} (copy)` };
+  // A deep copy: changing the copy's filters or tabs never reaches the original.
+  const copy: Widget = { ...structuredClone(widgets[i]), id: widgetId(), title: `${widgets[i].title} (copy)` };
   delete copy.mockError;
   return [...widgets.slice(0, i + 1), copy, ...widgets.slice(i + 1)];
 }
@@ -104,7 +106,7 @@ export const WIDGET_FILTERS_MAX = 3;
 
 /** Whether a widget shows a snapshot's current value: numbers, bars and tables do; lines and stacks show it over time. */
 export function showsCurrentValue(widget: Widget, metric: Metric | undefined): boolean {
-  return metric?.kind === "snapshot" && (widget.type === "kpi" || widget.type === "bar" || widget.type === "table");
+  return metric?.kind === "snapshot" && (widget.type === "kpi" || widget.type === "bar" || widget.type === "table" || widget.type === "toplist");
 }
 
 /** A widget's filters that filter something: on a property, with at least one value ticked. */
@@ -175,4 +177,23 @@ export function widgetQuery(widget: Widget, filters: DashboardFilters, today: Da
     grouping: current ? "day" : widget.type === "kpi" ? autoGrouping("kpi", range) : widget.grouping ?? autoGrouping(widget.type, range),
     top: topFor(widget.type),
   };
+}
+
+/**
+ * A number widget's context line, under its value: the metric's own line
+ * ("average per swap"), what it's out of ("of 8,310 active riders", for the
+ * same filters), or else its excludes note ("excludes test stations"), which
+ * then isn't repeated in the footer.
+ */
+export function contextLine(widget: Widget, filters: DashboardFilters, today: Date): { text: string; fromExcludes: boolean } | null {
+  const metric = metricById(widget.metricId);
+  if (!metric || widget.type !== "kpi") return null;
+  if (metric.contextLine) return { text: metric.contextLine, fromExcludes: false };
+  const other = metricById(metric.contextOf);
+  if (other) {
+    const q = widgetQuery({ ...widget, metricId: other.id }, filters, today);
+    const r = q && !q.byCountry ? runQuery(q) : null;
+    if (r && !r.empty) return { text: `of ${fmtValue(r.total, other, false)}`, fromExcludes: false };
+  }
+  return metric.excludes ? { text: metric.excludes.charAt(0).toLowerCase() + metric.excludes.slice(1), fromExcludes: true } : null;
 }

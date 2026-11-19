@@ -30,11 +30,15 @@ export interface Widget {
   filters?: PropertyFilter[];
   /** One property only. */
   splitBy?: PropertyId;
+  /** Breakdowns viewers can switch between with tabs (bar, top list, table), the current one first; switching isn't saved. */
+  switchable?: PropertyId[];
   compare: boolean;
   /** Unset picks day, or week for ranges over 90 days. */
   grouping?: Grouping;
   goal?: number;
   showValues: boolean;
+  /** Each part as a % of its total: stacked bars, and bars broken down, of figures that add up. */
+  percent?: boolean;
   sort: WidgetSort;
   size: WidgetSize;
   /** The text of a text/heading widget. */

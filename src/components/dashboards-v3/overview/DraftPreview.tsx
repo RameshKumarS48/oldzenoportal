@@ -8,8 +8,9 @@ import { readingLine } from "@/lib/dashboards-v3/ai-draft";
 import { CATEGORIES, metricById, PROPERTIES, REGION_COUNTRY, regionsIn, type CategoryId } from "@/lib/dashboards-v3/catalogue";
 import { RANGE_PRESETS, rangeWithDates } from "@/lib/dashboards-v3/dates";
 import { CHART_LABEL } from "@/lib/dashboards-v3/rules";
-import type { RangePreset, Visibility } from "@/lib/dashboards-v3/types";
+import type { Dashboard, RangePreset, Visibility } from "@/lib/dashboards-v3/types";
 import { cn } from "@/lib/utils";
+import { AddToDashboard } from "../AddToDashboard";
 
 const CHIP = "inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white py-0.5 pl-2.5 pr-1 text-xs text-slate-700";
 const CHIP_SELECT =
@@ -27,15 +28,19 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 /**
  * The drafted dashboard, every part editable as a chip before anything is
- * saved. Create dashboard opens it to view, Open in editor opens it to edit,
- * Discard drops it.
+ * saved. Create dashboard from this opens it to view, Open in editor opens
+ * it to edit, Add to dashboard puts its widgets on one of yours, Discard
+ * drops it.
  */
 export function DraftPreview({
-  draft, onChange, onCreate, onDiscard,
+  draft, onChange, onCreate, own, onAddTo, onDiscard,
 }: {
   draft: DashboardDraft;
   onChange: (d: DashboardDraft) => void;
   onCreate: (then: "view" | "edit") => void;
+  /** Your own dashboards, for Add to dashboard. */
+  own: Dashboard[];
+  onAddTo: (d: Dashboard) => void;
   onDiscard: () => void;
 }) {
   const [naming, setNaming] = useState<string | null>(null);
@@ -155,8 +160,9 @@ export function DraftPreview({
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Button variant="teal" size="sm" onClick={() => onCreate("view")} disabled={nameError}>
-          <Check className="h-4 w-4" /> Create dashboard
+          <Check className="h-4 w-4" /> Create dashboard from this
         </Button>
+        <AddToDashboard own={own} adding={draft.widgets.length} onAdd={onAddTo} disabled={draft.widgets.length === 0 ? "The draft has no widgets" : null} />
         <Button variant="outline" size="sm" onClick={() => onCreate("edit")} disabled={nameError}>
           <Pencil className="h-4 w-4" /> Open in editor
         </Button>

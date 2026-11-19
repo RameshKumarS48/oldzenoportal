@@ -24,7 +24,14 @@ export const LOWER_IS_BETTER = "Lower is better for this metric.";
  * tooltip says when lower is better. Both periods are complete days. The
  * sparkline's last point, if its week or month isn't over, is dashed.
  */
-export function KpiWidget({ metric, result, previous, range, compare }: { metric: Metric; result: QueryResult; previous: QueryResult | null; range: ResolvedRange; compare: boolean }) {
+export function KpiWidget({
+  metric, result, previous, range, compare, context,
+}: {
+  metric: Metric; result: QueryResult; previous: QueryResult | null; range: ResolvedRange; compare: boolean;
+  /** One short line under the value: "average per swap", "of 8,310 active riders", "excludes test stations". */
+  context?: string;
+}) {
+  const contextLine = context ? <p className="mt-0.5 text-[13px] text-slate-500">{context}</p> : null;
   if (result.series.length > 1) {
     return (
       <ul className="flex h-full flex-col justify-center gap-2">
@@ -32,6 +39,7 @@ export function KpiWidget({ metric, result, previous, range, compare }: { metric
           <li key={s.name}>
             <p className="text-xs font-medium text-slate-600">{s.name}</p>
             <Figure metric={metric} total={s.total} />
+            {s === result.series[0] && contextLine}
             {compare && previous && <ChangeLine metric={metric} current={s.total} previous={previousOf(previous.series, s.name)} range={range} />}
           </li>
         ))}
@@ -47,6 +55,8 @@ export function KpiWidget({ metric, result, previous, range, compare }: { metric
   return (
     <div className="flex h-full flex-col justify-center">
       <Figure metric={metric} total={total} />
+      {/* Under the value: what it is, then how it changed, then the sparkline. */}
+      {contextLine}
       {compare && previous && <ChangeLine metric={metric} current={total} previous={previous.total} range={range} />}
       {spark.length > 1 && (
         // The sparkline repeats the period for the eye; the figure above is what's read out.

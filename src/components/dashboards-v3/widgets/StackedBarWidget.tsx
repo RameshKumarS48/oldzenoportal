@@ -2,7 +2,7 @@
 
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Metric, PropertyId } from "@/lib/dashboards-v3/catalogue";
-import type { Marker } from "@/lib/dashboards-v3/explore";
+import type { Marker } from "@/lib/dashboards-v3/markers";
 import { AXIS_TEXT, GOAL, GRID, MARKER, seriesColors } from "@/lib/dashboards-v3/palette";
 import { fmtCompact } from "@/lib/dashboards-v3/format";
 import type { QueryResult } from "@/lib/dashboards-v3/series";
@@ -18,7 +18,7 @@ export function StackedBarWidget({
   metric, result, splitBy, goal, showValues, minHeight, fill, markers = [],
 }: {
   metric: Metric; result: QueryResult; splitBy?: PropertyId; goal?: number; showValues: boolean; minHeight: number; fill: boolean;
-  /** Events to mark with a dotted vertical line and a short label (Explore). */
+  /** Events to mark with a dotted vertical line and a short label. */
   markers?: Marker[];
 }) {
   const colors = seriesColors(splitBy, result.series.map((s) => s.name));

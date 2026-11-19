@@ -34,7 +34,7 @@ const POP_W = 480;
 const POP_H = 340;
 
 export function DateRangePicker({ value, onChange, fullWidth = false }: { value: DateRange; onChange: (r: DateRange) => void; fullWidth?: boolean }) {
-  /** Fixed beside the button, so a scrolling column (Explore's controls) never clips it. */
+  /** Fixed beside the button, so a scrolling column (the widget panel) never clips it. */
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const open = pos !== null;
   const setOpen = (o: boolean | ((was: boolean) => boolean)) => {

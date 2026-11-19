@@ -10,7 +10,7 @@ import { DEFAULT_RANGE } from "@/lib/dashboards-v3/dates";
 import { defaultSize } from "@/lib/dashboards-v3/rules";
 import type { Dashboard, DashboardFilters, TemplateInfo, Widget } from "@/lib/dashboards-v3/types";
 
-export const SEED_REVISION = 6;
+export const SEED_REVISION = 7;
 
 const HOUR = 3_600_000;
 
@@ -68,7 +68,8 @@ export function buildSeed(now: number): Dashboard[] {
         w("t-stations-2", "kpi", "station-uptime"),
         w("t-stations-3", "kpi", "failed-swaps"),
         w("t-stations-4", "line", "swaps", { title: "Swaps per day" }),
-        w("t-stations-5", "bar", "failed-swaps", { title: "Failed swaps by station", splitBy: "station" }),
+        // A top list of stations, with a Region tab for the same figures by region.
+        w("t-stations-5", "toplist", "failed-swaps", { title: "Failed swaps", splitBy: "station", switchable: ["station", "region"] }),
         w("t-stations-6", "table", "station-uptime", { title: "Uptime by station, lowest first", splitBy: "station", sort: "asc" }),
       ]),
     template("t-charging", "Charging network review", "charging",
@@ -88,7 +89,8 @@ export function buildSeed(now: number): Dashboard[] {
         w("t-batteries-2", "kpi", "battery-health"),
         w("t-batteries-3", "stacked", "battery-inventory", { splitBy: "batteryState", size: "full", grouping: "week" }),
         w("t-batteries-4", "line", "batteries-needing-service", { title: "Batteries needing service over time" }),
-        w("t-batteries-5", "bar", "batteries-needing-service", { title: "Batteries needing service by station", splitBy: "station" }),
+        // One widget where there'd be a "by station" and a "by region" pair: viewers switch with tabs.
+        w("t-batteries-5", "bar", "batteries-needing-service", { title: "Batteries needing service", splitBy: "station", switchable: ["station", "region"] }),
         w("t-batteries-6", "table", "battery-health", { title: "Battery health by region, lowest first", splitBy: "region", sort: "asc" }),
       ]),
     template("t-fleet", "Fleet availability", "fleet",

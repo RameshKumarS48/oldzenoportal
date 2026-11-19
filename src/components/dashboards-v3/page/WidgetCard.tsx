@@ -1,30 +1,32 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, ArrowDown, ArrowUp, BookOpen, Copy, Download, FilterX, Maximize2, Pencil, RotateCw, Telescope, Trash2 } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, BookOpen, Copy, Download, FilterX, Maximize2, Pencil, RotateCw, Trash2 } from "lucide-react";
 import { metricById, PROPERTIES } from "@/lib/dashboards-v3/catalogue";
 import { fmtAsOf, fmtSpan, GROUPING_LABEL, previousDates, previousPeriod, rangeWithDates } from "@/lib/dashboards-v3/dates";
 import { showsUnitTag, UNIT_LABEL } from "@/lib/dashboards-v3/format";
-import { allowedSizes, SIZE_LABEL } from "@/lib/dashboards-v3/rules";
-import { runQuery, type QueryResult } from "@/lib/dashboards-v3/series";
-import type { DashboardFilters, Widget, WidgetSize } from "@/lib/dashboards-v3/types";
-import { filterLine, SPAN, SPAN_COMPACT, widgetQuery } from "@/lib/dashboards-v3/widgets";
+import { allowedSizes, SIZE_LABEL, TOP_LIST_ALL } from "@/lib/dashboards-v3/rules";
+import { topListRows } from "@/lib/dashboards-v3/toplist";
+import { asShares, runQuery, sharesMetric, type QueryResult } from "@/lib/dashboards-v3/series";
+import type { DashboardFilters, PropertyFilter, Widget, WidgetSize } from "@/lib/dashboards-v3/types";
+import { contextLine, filterLine, SPAN, SPAN_COMPACT, widgetQuery } from "@/lib/dashboards-v3/widgets";
 import { cn } from "@/lib/utils";
 import { toCsv, widgetTable } from "@/lib/dashboards-v3/export";
 import { toast } from "@/store/toast";
 import { DefinitionDialog } from "./DefinitionDialog";
 import { DefinitionTip, FocusTip } from "../ui/FocusTip";
+import { BreakdownTabs } from "../ui/BreakdownTabs";
+import { Dialog } from "../ui/Dialog";
 import { RowMenu, type MenuItem } from "../ui/RowMenu";
 import { BarWidget } from "../widgets/BarWidget";
 import { KpiWidget } from "../widgets/KpiWidget";
 import { LineWidget } from "../widgets/LineWidget";
 import { StackedBarWidget } from "../widgets/StackedBarWidget";
 import { TableWidget } from "../widgets/TableWidget";
+import { TopListWidget } from "../widgets/TopListWidget";
 
 const GRID_CHART_PX = 220;
 const UNIT_TAG = "inline-flex rounded border border-slate-200 px-1.5 text-[11px] leading-4 text-slate-600";
-/** The panel's preview stays short so it can sit at the top while the options scroll. */
-const PREVIEW_CHART_PX = 140;
 /** How long the sandbox pretends a widget takes to load, so the loading state can be seen. */
 const LOAD_MS = 450;
 
@@ -32,9 +34,9 @@ export interface WidgetCardProps {
   widget: Widget;
   filters: DashboardFilters;
   today: Date;
-  /** Edit mode: rename on click; move, resize, duplicate and remove from ⋯. */
+  /** Edit mode (your own dashboards only): rename on click; ⋯ has Edit, Duplicate widget, Move up and down, Size and Remove. */
   editing: boolean;
-  /** Your own dashboard: ⋯ offers Edit. */
+  /** Your own dashboard: in view mode, ⋯ also offers Edit, which opens edit mode with this widget in the panel. */
   canChange: boolean;
   failed: boolean;
   moveUpBlocked: string | null;
@@ -45,12 +47,8 @@ export interface WidgetCardProps {
   onMove: (dir: -1 | 1) => void;
   onResize: (size: WidgetSize) => void;
   onEdit: () => void;
-  /** View mode, any dashboard: open it on the Explore page. */
-  onExplore?: () => void;
   onDuplicate: () => void;
   onRemove: () => void;
-  /** "preview" is the panel's live preview: no menu, no loading pause, its container's width. */
-  variant?: "grid" | "preview";
   /** placeholder: a new widget not added yet; editing: open in the panel; added: just added, briefly. */
   mark?: "placeholder" | "editing" | "added";
   /** Another widget is open in the panel: this one fades back and can't be used until the panel closes. */
@@ -67,27 +65,42 @@ export interface WidgetCardProps {
  * Loading, no data and error each have their own state.
  */
 export function WidgetCard(props: WidgetCardProps) {
-  const { widget, filters, today, editing, canChange, failed } = props;
-  const metric = metricById(widget.metricId);
-  const query = useMemo(() => widgetQuery(widget, filters, today), [widget, filters, today]);
+  const { filters, today, editing, canChange, failed } = props;
+  const saved = props.widget;
+  // The breakdown tab this viewer chose: for this visit only, never saved, not a filter change.
+  const [tab, setTab] = useState<Widget["splitBy"]>(undefined);
+  const tabs = saved.switchable && saved.switchable.length >= 2 && saved.splitBy ? saved.switchable : null;
+  const widget: Widget = useMemo(() => (tabs && tab && tabs.includes(tab) ? { ...saved, splitBy: tab } : saved), [saved, tabs, tab]);
+  // A top list shows its top 8, or up to 20 with Show all.
+  const [expanded, setExpanded] = useState(false);
+  const [rowsOf, setRowsOf] = useState<string | null>(null);
+  const baseMetric = metricById(widget.metricId);
+  // % of total: every figure, axis and tooltip as a share.
+  const metric = baseMetric && widget.percent ? sharesMetric(baseMetric) : baseMetric;
+  const query = useMemo(() => {
+    const q = widgetQuery(widget, filters, today);
+    return q && widget.type === "toplist" && expanded ? { ...q, top: TOP_LIST_ALL } : q;
+  }, [widget, filters, today, expanded]);
 
   // A new query "loads" briefly; the signature is everything that changes the numbers.
-  const signature = JSON.stringify([widget.metricId, widget.type, widget.range, widget.filters, widget.splitBy, widget.grouping, widget.compare, filters, failed]);
+  const signature = JSON.stringify([widget.metricId, widget.type, widget.range, widget.filters, widget.splitBy, widget.grouping, widget.compare, widget.percent, filters, failed, expanded]);
   const [loaded, setLoaded] = useState<string | null>(null);
   useEffect(() => {
     const id = setTimeout(() => setLoaded(signature), LOAD_MS);
     return () => clearTimeout(id);
   }, [signature]);
-  const loading = props.variant !== "preview" && loaded !== signature;
+  const loading = loaded !== signature;
 
-  const result = useMemo(() => (query ? runQuery(query) : null), [query]);
+  const result = useMemo(() => (query ? (widget.percent ? asShares(runQuery(query)) : runQuery(query)) : null), [query, widget.percent]);
   const previous = useMemo(() => {
-    if (!query || !widget.compare) return null;
+    // A top list always shows each item's change.
+    if (!query || (!widget.compare && widget.type !== "toplist")) return null;
     // Every value, not just the top ones: a value can be in this period's top 8 but not the last one's.
     return runQuery({ ...query, range: previousPeriod(query.range), top: Infinity });
-  }, [query, widget.compare]);
+  }, [query, widget.compare, widget.type]);
+  const context = useMemo(() => contextLine(widget, filters, today), [widget, filters, today]);
 
-  const CHART_PX = props.variant === "preview" ? PREVIEW_CHART_PX : GRID_CHART_PX;
+  const CHART_PX = GRID_CHART_PX;
   const titleId = `widget-${widget.id}-title`;
   const isText = widget.type === "text";
   const asOf = query?.range.asOf;
@@ -107,7 +120,8 @@ export function WidgetCard(props: WidgetCardProps) {
         query.byCountry && "Shown by country; currencies aren’t combined",
         query.splitSetAside && `Choose one country to see it by ${PROPERTIES[query.splitSetAside].name.toLowerCase()}`,
         result && result.ignored.length > 0 && `${result.ignored.map((p) => PROPERTIES[p].name).join(" and ")} filter doesn’t apply to this metric`,
-        metric.excludes,
+        // Said once: a number's context line already shows its excludes note when it has no other.
+        !context?.fromExcludes && metric.excludes,
       ].filter((x): x is string => !!x)
     : [];
   const filtered = filterLine(widget);
@@ -127,12 +141,19 @@ export function WidgetCard(props: WidgetCardProps) {
 
   const definition: MenuItem[] = metric ? [{ label: "View definition", icon: BookOpen, onSelect: () => setShowDefinition(true) }] : [];
   const exportItem: MenuItem[] = !isText ? [{ label: "Export CSV (mock)", icon: Download, onSelect: exportCsv }] : [];
-  const exploreItem: MenuItem[] = !isText && metric && props.onExplore ? [{ label: "Explore", icon: Telescope, onSelect: props.onExplore }] : [];
+  /** One item of the breakdown: the widget filtered to it, with no breakdown. */
+  const onlyItem = (name: string): Widget => {
+    const split = widget.splitBy!;
+    const keep: PropertyFilter[] = (widget.filters ?? []).filter((f) => f.property !== split);
+    return { ...widget, splitBy: undefined, switchable: undefined, percent: undefined, filters: [...keep, { property: split, values: [name] }].slice(-3) };
+  };
+  const bodyId = `widget-${widget.id}-body`;
   // View mode never changes the saved dashboard: Edit is the way into changing it, on your own dashboards only.
+  // Templates and dashboards shared with you get just View definition and Export CSV.
   const menu: MenuItem[] = editing
     ? [
         { label: "Edit", icon: Pencil, onSelect: props.onEdit },
-        { label: "Duplicate", icon: Copy, onSelect: props.onDuplicate },
+        { label: "Duplicate widget", icon: Copy, onSelect: props.onDuplicate },
         { label: "Move up", icon: ArrowUp, onSelect: () => props.onMove(-1), blocked: props.moveUpBlocked },
         { label: "Move down", icon: ArrowDown, onSelect: () => props.onMove(1), blocked: props.moveDownBlocked },
         {
@@ -140,11 +161,9 @@ export function WidgetCard(props: WidgetCardProps) {
           icon: Maximize2,
           choices: allowedSizes(widget.type).map((size) => ({ label: SIZE_LABEL[size], checked: widget.size === size, onSelect: () => props.onResize(size) })),
         },
-        ...definition,
-        ...exportItem,
         { label: "Remove", icon: Trash2, onSelect: props.onRemove, danger: true },
       ]
-    : [...definition, ...exploreItem, ...exportItem, ...(canChange ? [{ label: "Edit", icon: Pencil, onSelect: props.onEdit }] : [])];
+    : [...definition, ...exportItem, ...(canChange ? [{ label: "Edit", icon: Pencil, onSelect: props.onEdit }] : [])];
 
   return (
     <article
@@ -155,9 +174,10 @@ export function WidgetCard(props: WidgetCardProps) {
       inert={props.dimmed}
       className={cn(
         // The shared Card's look (ui/card.tsx): light border, subtle shadow, roomier padding.
-        "flex min-w-0 scroll-m-6 flex-col rounded-xl border bg-white shadow-sm transition-shadow focus:outline-none",
-        props.variant === "preview" ? "border-slate-200" : props.sizeClass ?? (props.compact ? SPAN_COMPACT : SPAN)[widget.size],
-        props.variant !== "preview" && (editing ? "border-dashed border-slate-300" : "border-slate-200"),
+        // Scrolled into view (to edit, or just added), it stops below the sticky filter bar.
+        "flex min-w-0 scroll-mb-6 scroll-mt-28 flex-col rounded-xl border bg-white shadow-sm transition-shadow focus:outline-none",
+        props.sizeClass ?? (props.compact ? SPAN_COMPACT : SPAN)[widget.size],
+        editing ? "border-dashed border-slate-300" : "border-slate-200",
         props.mark === "placeholder" && "border-2 border-dashed border-zeno-teal",
         props.mark === "editing" && "border-zeno-teal ring-2 ring-zeno-teal/30",
         props.dimmed && "pointer-events-none opacity-50",
@@ -169,17 +189,25 @@ export function WidgetCard(props: WidgetCardProps) {
       )}
       <header className="flex items-start gap-2 px-5 pb-3 pt-5">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1">
-          <WidgetTitle id={titleId} title={widget.title} editing={editing && !props.mark && props.variant !== "preview"} onRename={props.onRename} />
+          <WidgetTitle id={titleId} title={widget.title} editing={editing && !props.mark} onRename={props.onRename} />
           {metric && <FocusTip label={`What ${metric.name} means`} content={<DefinitionTip metric={metric} />} />}
           {/* A number already says its unit after the figure ("412.2K points", "97.2%"), so only charts and tables get the tag. */}
           {metric && !isText && widget.type !== "kpi" && showsUnitTag(metric) && <span className={UNIT_TAG}>{UNIT_LABEL[metric.unit]}</span>}
           {filtered && !isText && <p className="basis-full truncate text-xs text-slate-500" title={filtered}><span className="sr-only">Filtered to </span>{filtered}</p>}
+          {tabs && !isText && (
+            <BreakdownTabs idBase={`widget-${widget.id}`} options={tabs} value={widget.splitBy!} onChange={(p) => setTab(p)} panelId={bodyId} />
+          )}
         </div>
-        {menu.length > 0 && !props.mark && props.variant !== "preview" && <RowMenu label={`Actions for ${widget.title || "widget"}`} items={menu} className="-mr-1.5 -mt-1 shrink-0" />}
+        {menu.length > 0 && !props.mark && <RowMenu label={`Actions for ${widget.title || "widget"}`} items={menu} className="-mr-1.5 -mt-1 shrink-0" />}
       </header>
 
       {/* A flex column, so line and stacked charts can grow into a card stretched by a taller neighbour. */}
-      <div className={cn("flex min-w-0 flex-1 flex-col px-5", isText || !footer ? "pb-5" : "pb-3")}>
+      <div
+        id={bodyId}
+        role={tabs ? "tabpanel" : undefined}
+        aria-labelledby={tabs ? `widget-${widget.id}-tab-${widget.splitBy}` : undefined}
+        className={cn("flex min-w-0 flex-1 flex-col px-5", isText || !footer ? "pb-5" : "pb-3")}
+      >
         {isText ? (
           <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{widget.text || <span className="italic text-slate-500">No text yet</span>}</p>
         ) : failed ? (
@@ -193,12 +221,12 @@ export function WidgetCard(props: WidgetCardProps) {
             icon={FilterX}
             title="No data: widget and dashboard filters don’t overlap"
             detail={`The dashboard shows ${[filters.country, ...filters.regions].filter(Boolean).join(", ")}; this widget shows ${filtered}.`}
-            action={(canChange || editing) && props.variant !== "preview" ? { label: "Edit widget", icon: Pencil, onClick: props.onEdit } : undefined}
+            action={canChange || editing ? { label: "Edit widget", icon: Pencil, onClick: props.onEdit } : undefined}
           />
         ) : result.empty ? (
           <State icon={FilterX} title="No data for this filter" detail="Nothing matches the dashboard’s filters for this metric." action={{ label: "Reset filters", icon: RotateCw, onClick: props.onResetFilters }} />
         ) : widget.type === "kpi" ? (
-          <KpiWidget metric={metric} result={result} previous={previous} range={query.range} compare={widget.compare} />
+          <KpiWidget metric={metric} result={result} previous={previous} range={query.range} compare={widget.compare} context={context?.text} />
         ) : widget.type === "line" ? (
           <LineWidget
             metric={metric}
@@ -208,14 +236,20 @@ export function WidgetCard(props: WidgetCardProps) {
             goal={widget.goal}
             showValues={widget.showValues}
             minHeight={CHART_PX}
-            fill={props.variant !== "preview"}
+            fill
           />
         ) : widget.type === "bar" ? (
-          <div className={cn(props.variant === "preview" && "max-h-[200px] overflow-y-auto")}>
-            <BarWidget metric={metric} series={result.series} sort={widget.sort} goal={widget.goal} splitBy={query.splitBy} />
-          </div>
+          <BarWidget metric={metric} series={result.series} sort={widget.sort} goal={widget.goal} splitBy={query.splitBy} />
         ) : widget.type === "stacked" ? (
-          <StackedBarWidget metric={metric} result={result} splitBy={query.splitBy} goal={widget.goal} showValues={widget.showValues} minHeight={CHART_PX + 24} fill={props.variant !== "preview"} />
+          <StackedBarWidget metric={metric} result={result} splitBy={query.splitBy} goal={widget.goal} showValues={widget.showValues} minHeight={CHART_PX + 24} fill />
+        ) : widget.type === "toplist" ? (
+          <TopListWidget
+            metric={metric}
+            rows={topListRows(result, previous && query.splitBy ? previousByValue(result, previous, metric.unit !== "%" && metric.aggregation === "sum") : null, metric)}
+            property={query.splitBy ? PROPERTIES[query.splitBy].name : "Item"}
+            onViewRows={setRowsOf}
+            showAll={expanded || result.series.some((x) => x.other) ? { expanded, onToggle: () => setExpanded((e) => !e) } : null}
+          />
         ) : (
           <TableWidget
             metric={metric}
@@ -238,8 +272,21 @@ export function WidgetCard(props: WidgetCardProps) {
           ))}
         </footer>
       )}
-      {metric && <DefinitionDialog metric={metric} open={showDefinition} onClose={() => setShowDefinition(false)} />}
+      {baseMetric && <DefinitionDialog metric={baseMetric} open={showDefinition} onClose={() => setShowDefinition(false)} />}
+      {metric && rowsOf && <RowsDialog widget={onlyItem(rowsOf)} name={rowsOf} filters={filters} today={today} onClose={() => setRowsOf(null)} />}
     </article>
+  );
+}
+
+/** A top list item's figures period by period, oldest first. */
+function RowsDialog({ widget, name, filters, today, onClose }: { widget: Widget; name: string; filters: DashboardFilters; today: Date; onClose: () => void }) {
+  const metric = metricById(widget.metricId)!;
+  const query = widgetQuery({ ...widget, type: "table" }, filters, today);
+  const result = query ? runQuery(query) : null;
+  return (
+    <Dialog open onClose={onClose} title={name} subtitle={`${metric.name}, period by period`} footer={<button type="button" onClick={onClose} className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40">Close</button>}>
+      {result && !result.empty ? <TableWidget metric={metric} result={result} sort="name" previous={null} maxHeight={360} /> : <p className="text-sm text-slate-600">No data for {name}.</p>}
+    </Dialog>
   );
 }
 
