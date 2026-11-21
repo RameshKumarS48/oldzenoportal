@@ -138,7 +138,7 @@ export function DashboardView({ id, copy = false }: { id: string; copy?: boolean
   }
   // Entering edit mode starts a draft from the saved dashboard; leaving it drops the draft.
   if (editing && dashboard && draft === null) setDraft(draftOf(dashboard));
-  if (!editing && draft !== null) { setDraft(null); setPanel(null); }
+  if (!editing && draft !== null) { setDraft(null); setPanel(null); setUndo(null); }
   // Edit from a widget's menu in view mode opens the panel once the draft exists.
   if (draft && pendingEdit) {
     const w = draft.widgets.find((x) => x.id === pendingEdit);
@@ -258,6 +258,8 @@ export function DashboardView({ id, copy = false }: { id: string; copy?: boolean
 
   function save() {
     if (!draft) return;
+    // An undo can't reach the draft once it's saved.
+    setUndo(null);
     const name = draft.name.trim() || dashboard!.name;
     if (copy) {
       // The copy is only created now, once, remembering its template.

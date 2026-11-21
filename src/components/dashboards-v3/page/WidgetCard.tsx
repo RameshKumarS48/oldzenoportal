@@ -11,7 +11,7 @@ import { asShares, runQuery, sharesMetric, type QueryResult } from "@/lib/dashbo
 import type { DashboardFilters, PropertyFilter, Widget, WidgetSize } from "@/lib/dashboards-v3/types";
 import { contextLine, filterLine, SPAN, SPAN_COMPACT, widgetQuery } from "@/lib/dashboards-v3/widgets";
 import { cn } from "@/lib/utils";
-import { toCsv, widgetTable } from "@/lib/dashboards-v3/export";
+import { safeFileName, toCsv, widgetTable } from "@/lib/dashboards-v3/export";
 import { toast } from "@/store/toast";
 import { DefinitionDialog } from "./DefinitionDialog";
 import { DefinitionTip, FocusTip } from "../ui/FocusTip";
@@ -132,10 +132,12 @@ export function WidgetCard(props: WidgetCardProps) {
     if (!result || !metric) return;
     // The same columns as this widget's sheet in the dashboard's Excel export.
     const csv = toCsv(widgetTable(result, metric, query?.splitBy));
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    const a = Object.assign(document.createElement("a"), { href: url, download: `${widget.title || "widget"}.csv` });
+    // A BOM so Excel reads the file as UTF-8 (en dashes, accents).
+    const url = URL.createObjectURL(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" }));
+    const a = Object.assign(document.createElement("a"), { href: url, download: `${safeFileName(widget.title || "widget") || "widget"}.csv` });
     a.click();
-    URL.revokeObjectURL(url);
+    // Revoked after the click has started the download; Safari can fail if it's revoked at once.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     toast.success("Exported CSV", "Sandbox file with mock data.");
   }
 

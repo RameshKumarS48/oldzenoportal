@@ -4,7 +4,7 @@
  * without a browser.
  */
 import { metricById, type Metric, type PropertyId } from "./catalogue";
-import { runQuery, type QueryResult } from "./series";
+import { asShares, runQuery, sharesMetric, type QueryResult } from "./series";
 import type { DashboardFilters, Widget } from "./types";
 import { widgetQuery } from "./widgets";
 
@@ -33,7 +33,10 @@ export function widgetTableFor(widget: Widget, filters: DashboardFilters, today:
   const metric = metricById(widget.metricId);
   const query = widgetQuery(widget, filters, today);
   if (!metric || !query) return null;
-  return widgetTable(runQuery(query), metric, query.splitBy);
+  // "% of total" exports the shares the widget shows, as its CSV does.
+  return widget.percent
+    ? widgetTable(asShares(runQuery(query)), sharesMetric(metric), query.splitBy)
+    : widgetTable(runQuery(query), metric, query.splitBy);
 }
 
 /** The table as CSV: every cell quoted, figures with two decimals. */

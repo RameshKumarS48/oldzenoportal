@@ -19,7 +19,7 @@ export async function buildDashboardWorkbook(dashboard: Dashboard, filters: Dash
   const ExcelJS = (await import("exceljs")).default;
   const book = new ExcelJS.Workbook();
   const dataWidgets = widgets.filter((w) => w.type !== "text");
-  const names = sheetNames(dataWidgets.map((w) => w.title || metricById(w.metricId)?.name || "Widget"), [SUMMARY]);
+  const names = sheetNames(dataWidgets.map((w) => w.title || metricById(w.metricId)?.name || "Widget"), [SUMMARY, "History"]); // Excel reserves "History"
   const sheetOf = new Map(dataWidgets.map((w, i) => [w.id, names[i]]));
 
   const summary = book.addWorksheet(SUMMARY);
@@ -63,6 +63,6 @@ export async function exportDashboardXlsx(dashboard: Dashboard, filters: Dashboa
   const url = URL.createObjectURL(new Blob([buffer], { type: XLSX_TYPE }));
   const a = Object.assign(document.createElement("a"), { href: url, download: fileName });
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
   return fileName;
 }
