@@ -22,6 +22,7 @@ export const ACCESS_MODULES = [
   "swap_info",
   "wallet_info",
   "pricing",
+  "charging",
   "user_management",
 ] as const;
 
@@ -48,6 +49,7 @@ export const ROLES: RoleDefinition[] = [
       "swap_info_ro", "swap_info_rw",
       "wallet_info_ro", "wallet_info_rw",
       "pricing_ro", "pricing_rw",
+      "charging_ro", "charging_rw",
       "user_management_ro", "user_management_rw",
     ],
   },
@@ -60,12 +62,13 @@ export const ROLES: RoleDefinition[] = [
       "swap_info_ro", "swap_info_rw",
       "wallet_info_ro", "wallet_info_rw",
       "pricing_ro", "pricing_rw",
+      "charging_ro", "charging_rw",
     ],
   },
   {
     id: 3,
     name: "Internal Viewer",
-    permissions: ["vehicle_ro", "scanner_ro", "swap_info_ro", "wallet_info_ro", "pricing_ro"],
+    permissions: ["vehicle_ro", "scanner_ro", "swap_info_ro", "wallet_info_ro", "pricing_ro", "charging_ro"],
   },
   {
     id: 4,
@@ -99,6 +102,7 @@ export const MODULE_LABELS: Record<AccessModule, string> = {
   swap_info:       "Swap Info",
   wallet_info:     "Wallet Info",
   pricing:         "Swap Station Pricing",
+  charging:        "Zeno Charging",
   user_management: "User Management",
 };
 
@@ -169,6 +173,7 @@ export const ROUTE_MODULES: { prefix: string; module: AccessModule }[] = [
   { prefix: "/swap-audit",           module: "swap_info" },
   { prefix: "/wallet-transactions",  module: "wallet_info" },
   { prefix: "/swap-station-pricing", module: "pricing" },
+  { prefix: "/zeno-charging",        module: "charging" },
   { prefix: "/users",                module: "user_management" },
 ];
 

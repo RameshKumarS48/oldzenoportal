@@ -1,6 +1,6 @@
 "use client";
 
-import { Car, ScanLine, ArrowLeftRight, Wallet, Tags, Users } from "lucide-react";
+import { Car, ScanLine, ArrowLeftRight, Wallet, Tags, Users, PlugZap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { levelFor, MODULE_LABELS, ACCESS_LEVEL_LABELS } from "@/lib/access";
@@ -14,6 +14,7 @@ const MODULE_ICONS: Record<AccessModule, LucideIcon> = {
   swap_info:       ArrowLeftRight,
   wallet_info:     Wallet,
   pricing:         Tags,
+  charging:        PlugZap,
   user_management: Users,
 };
 
@@ -24,7 +25,7 @@ const LEVEL_CHIP: Record<AccessLevel, string> = {
   none:       "border-slate-200 bg-transparent text-slate-400",
 };
 
-const CORE_MODULES: AccessModule[] = ["vehicle", "scanner", "swap_info", "wallet_info", "pricing"];
+const CORE_MODULES: AccessModule[] = ["vehicle", "scanner", "swap_info", "wallet_info", "pricing", "charging"];
 
 /**
  * What a role can reach, rendered read-only. Access follows the role and isn't
