@@ -94,12 +94,6 @@ function ChargingList({ assets, me }: { assets: ChargingAsset[]; me: Me }) {
 
   return (
     <main className="flex flex-1 flex-col overflow-hidden">
-      {me.can.write && (
-        <div className="flex items-center justify-end border-b border-slate-200 bg-white px-6 py-3.5 shrink-0">
-          <Link href="/zeno-charging/new" className={PRIMARY}><Plus className="h-3.5 w-3.5" /> Add charging asset</Link>
-        </div>
-      )}
-
       <div className="flex flex-1 flex-col gap-4 overflow-hidden p-5">
         {me.can.write && <DraftsPanel />}
         <ChargingFilterBar
@@ -114,6 +108,7 @@ function ChargingList({ assets, me }: { assets: ChargingAsset[]; me: Me }) {
           total={total}
           onExport={handleExport}
           onExportGoogle={handleGoogleExport}
+          action={me.can.write ? <Link href="/zeno-charging/new" className={PRIMARY}><Plus className="h-3.5 w-3.5" /> Add charging asset</Link> : undefined}
         />
 
         <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">

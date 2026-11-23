@@ -31,7 +31,7 @@ type Panel = { kind: "filters"; focusId: FilterId | null } | { kind: "columns" }
  * apply on Apply; Cancel, Esc or a click outside discards.
  */
 export function ChargingFilterBar({
-  search, onSearch, filters, onFilters, towns, columns, onColumns, shown, total, onExport, onExportGoogle,
+  search, onSearch, filters, onFilters, towns, columns, onColumns, shown, total, onExport, onExportGoogle, action,
 }: {
   search: string;
   onSearch: (v: string) => void;
@@ -44,6 +44,8 @@ export function ChargingFilterBar({
   total: number;
   onExport: () => void;
   onExportGoogle: () => void;
+  /** The page's main action (Add charging asset), shown just left of Export. */
+  action?: React.ReactNode;
 }) {
   const [panel, setPanel] = useState<Panel>(null);
   const filterBtn = useRef<HTMLButtonElement>(null);
@@ -96,6 +98,7 @@ export function ChargingFilterBar({
         <span aria-live="polite" className="ml-auto text-xs tabular-nums text-slate-500">
           {narrowed ? `${shown.toLocaleString()} of ${total.toLocaleString()} assets` : `${total.toLocaleString()} assets`}
         </span>
+        {action}
         <ExportMenu onExcel={onExport} onGoogle={onExportGoogle} />
       </div>
 
