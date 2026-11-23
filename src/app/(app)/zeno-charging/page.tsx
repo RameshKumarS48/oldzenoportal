@@ -3,11 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Plus } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, List, Map as MapIcon, Plus } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { ChargingGate } from "@/components/zeno-charging/ChargingGate";
 import { ChargingFilterBar } from "@/components/zeno-charging/ChargingFilterBar";
 import { DraftsPanel } from "@/components/zeno-charging/DraftsPanel";
+import { ChargingMapView } from "@/components/zeno-charging/ChargingMapView";
+import { SegmentedControl } from "@/components/ui/FilterControls";
 import { StatusBadge } from "@/components/zeno-charging/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
 import { CopyButton } from "@/components/ui/CopyButton";
@@ -74,6 +76,8 @@ function ChargingList({ assets, me }: { assets: ChargingAsset[]; me: Me }) {
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(50);
+  // List View by default, as Vehicle Tracking; both views show the same searched and filtered assets.
+  const [view, setView] = useState<"list" | "map">("list");
 
   const rows = sortRows(assets.filter((a) => matchesSearch(a, search) && matches(a, filters)), sort);
   const total = assets.filter((a) => !a.archivedAt).length;
@@ -94,6 +98,16 @@ function ChargingList({ assets, me }: { assets: ChargingAsset[]; me: Me }) {
 
   return (
     <main className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex items-center border-b border-slate-200 bg-white px-6 py-3.5 shrink-0">
+        <SegmentedControl
+          value={view}
+          onChange={setView}
+          options={[
+            { value: "list", label: "List View", icon: <List className="h-4 w-4" /> },
+            { value: "map", label: "Map View", icon: <MapIcon className="h-4 w-4" /> },
+          ]}
+        />
+      </div>
       <div className="flex flex-1 flex-col gap-4 overflow-hidden p-5">
         {me.can.write && <DraftsPanel />}
         <ChargingFilterBar
@@ -108,9 +122,13 @@ function ChargingList({ assets, me }: { assets: ChargingAsset[]; me: Me }) {
           total={total}
           onExport={handleExport}
           onExportGoogle={handleGoogleExport}
+          showColumns={view === "list"}
           action={me.can.write ? <Link href="/zeno-charging/new" className={PRIMARY}><Plus className="h-3.5 w-3.5" /> Add charging asset</Link> : undefined}
         />
 
+        {view === "map" ? (
+          <ChargingMapView assets={rows} onOpen={(id) => router.push(`/zeno-charging/${id}`)} className="flex-1" />
+        ) : (
         <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
           <div className="flex-1 overflow-auto">
             <table className="w-full table-fixed border-collapse text-sm" style={{ minWidth }}>
@@ -158,6 +176,7 @@ function ChargingList({ assets, me }: { assets: ChargingAsset[]; me: Me }) {
           </div>
           <Pagination total={rows.length} page={shownPage} perPage={perPage} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} perPageOptions={[20, 50, 100]} />
         </div>
+        )}
       </div>
     </main>
   );

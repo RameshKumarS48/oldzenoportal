@@ -31,7 +31,7 @@ type Panel = { kind: "filters"; focusId: FilterId | null } | { kind: "columns" }
  * apply on Apply; Cancel, Esc or a click outside discards.
  */
 export function ChargingFilterBar({
-  search, onSearch, filters, onFilters, towns, columns, onColumns, shown, total, onExport, onExportGoogle, action,
+  search, onSearch, filters, onFilters, towns, columns, onColumns, shown, total, onExport, onExportGoogle, action, showColumns = true,
 }: {
   search: string;
   onSearch: (v: string) => void;
@@ -46,6 +46,8 @@ export function ChargingFilterBar({
   onExportGoogle: () => void;
   /** The page's main action (Add charging asset), shown just left of Export. */
   action?: React.ReactNode;
+  /** Columns only applies to List View; Map View hides it, as Vehicle Tracking does. */
+  showColumns?: boolean;
 }) {
   const [panel, setPanel] = useState<Panel>(null);
   const filterBtn = useRef<HTMLButtonElement>(null);
@@ -75,7 +77,7 @@ export function ChargingFilterBar({
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
           <input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Search ID, name, site, landmark, partner…" aria-label="Search charging assets" className={SEARCH} />
         </div>
-        <button
+        {showColumns && <button
           ref={columnsBtn}
           onClick={(e) => (panel?.kind === "columns" ? closePanel("close") : open({ kind: "columns" }, e.currentTarget))}
           aria-haspopup="dialog"
@@ -84,7 +86,7 @@ export function ChargingFilterBar({
         >
           <Columns3 className="h-3.5 w-3.5" /> Columns
           {customColumns && <span className={cn(BADGE, "-my-0.5")}>{columns.length}</span>}
-        </button>
+        </button>}
         <button
           ref={filterBtn}
           onClick={(e) => (panel?.kind === "filters" ? closePanel("close") : open({ kind: "filters", focusId: null }, e.currentTarget))}

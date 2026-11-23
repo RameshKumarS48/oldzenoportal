@@ -2,6 +2,8 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ChargingMapView } from "@/components/zeno-charging/ChargingMapView";
 import { AlertTriangle, ArchiveRestore, ArrowLeft, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { ChargingGate } from "@/components/zeno-charging/ChargingGate";
@@ -34,6 +36,7 @@ const BTN = "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs fon
 function AssetDetail({ asset, assets, me }: { asset: ChargingAsset; assets: ChargingAsset[]; me: Me }) {
   const [archiving, setArchiving] = useState(false);
   const [reason, setReason] = useState("");
+  const router = useRouter();
   const history = useHistory(asset.id);
   const siblings = assets.filter((a) => a.siteId === asset.siteId && a.id !== asset.id);
 
@@ -89,8 +92,8 @@ function AssetDetail({ asset, assets, me }: { asset: ChargingAsset; assets: Char
           <Callout variant="warning" title="Needs attention">{asset.needsAttention}{me.can.write && !asset.archivedAt ? <> · <Link href={`/zeno-charging/${asset.id}/edit`} className="underline">Fix it</Link></> : null}</Callout>
         )}
 
-        <div className="grid gap-4 xl:grid-cols-3">
-          <div className="space-y-4 xl:col-span-2">
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="space-y-4 lg:col-span-2">
             {SECTIONS.map((s) => (
               <section key={s.id} className="rounded-xl border border-slate-200 bg-white">
                 <h2 className="border-b border-slate-100 px-5 py-2.5 text-sm font-semibold text-slate-800">{s.title}</h2>
@@ -110,6 +113,23 @@ function AssetDetail({ asset, assets, me }: { asset: ChargingAsset; assets: Char
           </div>
 
           <aside className="space-y-4">
+            {/* Where it is: this asset as the active pin, the rest of the network around it (as Vehicle Tracking's detail map). */}
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-2.5">
+                <h2 className="text-sm font-semibold text-slate-800">Location</h2>
+                {mapsUrl(asset.lat, asset.lng) && (
+                  <a href={mapsUrl(asset.lat, asset.lng)!} target="_blank" rel="noopener" className="inline-flex items-center gap-1 text-xs font-medium text-zeno-teal hover:underline">Open in Google Maps <ExternalLink className="h-3 w-3" /></a>
+                )}
+              </div>
+              {asset.lat != null && asset.lng != null ? (
+                <ChargingMapView assets={assets} activeId={asset.id} onOpen={(id) => router.push(`/zeno-charging/${id}`)} className="h-80 rounded-none border-0" compact />
+              ) : (
+                <p className="px-5 py-6 text-xs text-slate-500">No coordinates yet, so this asset isn’t on the map. Add latitude and longitude to place it.</p>
+              )}
+              {asset.lat != null && asset.lng != null && (
+                <p className="border-t border-slate-100 px-5 py-2 font-mono text-[11px] text-slate-500">{asset.lat.toFixed(6)}, {asset.lng.toFixed(6)} · {asset.landmark}, {asset.town}</p>
+              )}
+            </section>
             <section className="rounded-xl border border-slate-200 bg-white">
               <div className="flex items-center justify-between border-b border-slate-100 px-5 py-2.5">
                 <h2 className="text-sm font-semibold text-slate-800">Also at {asset.siteId}</h2>
