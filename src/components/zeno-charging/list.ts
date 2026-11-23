@@ -10,9 +10,41 @@ export interface ChargingFilters {
   zone: string;
   attention: boolean;
   inApp: "" | "yes" | "no";
+  phase: string;
+  electricity: string;
 }
 
-export const NO_FILTERS: ChargingFilters = { type: "", status: "", access: "", town: "", country: "", zone: "", attention: false, inApp: "" };
+export const NO_FILTERS: ChargingFilters = { type: "", status: "", access: "", town: "", country: "", zone: "", attention: false, inApp: "", phase: "", electricity: "" };
+
+export type FilterId = keyof ChargingFilters;
+
+/** Every filter, in the order the chips and the Filters popover show them. */
+export const CHARGING_FILTERS: { id: FilterId; label: string }[] = [
+  { id: "type", label: "Type" },
+  { id: "status", label: "Status" },
+  { id: "access", label: "Access" },
+  { id: "inApp", label: "In app" },
+  { id: "country", label: "Country" },
+  { id: "town", label: "Town" },
+  { id: "zone", label: "Zone" },
+  { id: "phase", label: "Phase" },
+  { id: "electricity", label: "Electricity" },
+  { id: "attention", label: "Needs attention" },
+];
+
+export const STATUS_LABELS: Record<ChargingFilters["status"], string> = { "": "Active (not archived)", Commissioned: "Commissioned", Decommissioned: "Decommissioned", archived: "Archived" };
+export const IN_APP_LABELS: Record<ChargingFilters["inApp"], string> = { "": "All", yes: "In the app & website", no: "Not in the app" };
+
+export const isFilterActive = (f: ChargingFilters, id: FilterId) => (id === "attention" ? f.attention : f[id] !== "");
+
+/** What a chip shows for a filter. */
+export function filterValueLabel(f: ChargingFilters, id: FilterId): string {
+  if (id === "status") return STATUS_LABELS[f.status];
+  if (id === "inApp") return IN_APP_LABELS[f.inApp];
+  if (id === "attention") return "Yes";
+  if (id === "zone") return `Zone ${f.zone}`;
+  return String(f[id]);
+}
 
 export type SortKey = "assetId" | "assetName" | "site" | "town" | "goLive" | "updated";
 export type Sort = { column: SortKey; direction: "asc" | "desc" };
@@ -35,6 +67,8 @@ export function matches(a: ChargingAsset, f: ChargingFilters): boolean {
   if (f.zone && a.zone !== f.zone) return false;
   if (f.attention && !a.needsAttention) return false;
   if (f.inApp && (f.inApp === "yes") !== isPublic(a)) return false;
+  if (f.phase && a.phaseType !== f.phase) return false;
+  if (f.electricity && a.electricityServiceType !== f.electricity) return false;
   return true;
 }
 

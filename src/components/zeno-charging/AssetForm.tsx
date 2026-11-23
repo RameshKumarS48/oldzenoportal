@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowLeft, ArrowRight, Check, ExternalLink, MapPin, Pencil } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, Check, ExternalLink, FileClock, MapPin, Pencil } from "lucide-react";
 import {
   FIELDS, SECTIONS, SITE_LEVEL_KEYS, mapsUrl, nextSiteId, norm,
   type ChargingAsset, type ChargingAssetInput, type FieldDef, type FieldKey, type SectionId,
@@ -13,7 +13,7 @@ import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Callout } from "@/components/ui/callout";
 import { toast } from "@/store/toast";
 import { cn } from "@/lib/utils";
-import { createAsset, updateAsset, type Me } from "./api";
+import { createAsset, deleteDraft, saveDraft, updateAsset, type ChargingDraft, type Me } from "./api";
 
 type Values = Record<FieldKey, string>;
 type StepId = SectionId | "review";
@@ -48,6 +48,8 @@ interface Props {
   me: Me;
   asset?: ChargingAsset;
   initial: ChargingAssetInput;
+  /** A saved draft to continue (new assets only). */
+  draft?: ChargingDraft;
 }
 
 /**
@@ -56,13 +58,16 @@ interface Props {
  * the step you're on; the steps above can be clicked to move freely. The
  * rules are the same ones the save applies.
  */
-export function AssetForm({ mode, assets, me, asset, initial }: Props) {
+export function AssetForm({ mode, assets, me, asset, initial, draft }: Props) {
   const router = useRouter();
-  const [step, setStep] = useState(0);
-  const [values, setValues] = useState<Values>(() => toValues(initial));
+  // What the form starts from: the draft as saved, or the asset / an empty form.
+  const [start] = useState<Values>(() => (draft ? { ...toValues(initial), ...draft.values } as Values : toValues(initial)));
+  const [draftId, setDraftId] = useState<string | undefined>(draft?.id);
+  const [step, setStep] = useState(draft ? Math.min(draft.step, STEPS.length - 1) : 0);
+  const [values, setValues] = useState<Values>(start);
   const [touched, setTouched] = useState<Set<FieldKey>>(new Set());
-  const [visited, setVisited] = useState<Set<number>>(new Set([0]));
-  const [siteMode, setSiteMode] = useState<"existing" | "new">(mode === "edit" || assets.some((a) => a.siteId === initial.siteId) ? "existing" : "new");
+  const [visited, setVisited] = useState<Set<number>>(() => new Set(Array.from({ length: (draft?.step ?? 0) + 1 }, (_, i) => i)));
+  const [siteMode, setSiteMode] = useState<"existing" | "new">(draft?.siteMode ?? (mode === "edit" || assets.some((a) => a.siteId === initial.siteId) ? "existing" : "new"));
   const [nameEdited, setNameEdited] = useState(mode === "edit");
   const [allowIdFormat, setAllowIdFormat] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -87,7 +92,7 @@ export function AssetForm({ mode, assets, me, asset, initial }: Props) {
   );
   const errors: FieldErrors = { ...liveErrors, ...serverErrors };
   const shown = (k: FieldKey) => (touched.has(k) ? errors[k] : undefined);
-  const dirty = JSON.stringify(values) !== JSON.stringify(toValues(initial));
+  const dirty = JSON.stringify(values) !== JSON.stringify(start);
   const idLocked = mode === "edit" && !!asset?.assetId && !me.can.overrideId;
   const idFormatProblem = values.assetId && values.assetType ? assetIdFormatError(values.assetType, input.assetId ?? "") : null;
   const current = STEPS[step];
@@ -165,6 +170,7 @@ export function AssetForm({ mode, assets, me, asset, initial }: Props) {
     const res = mode === "create" ? createAsset(input, { confirmWarnings, allowIdFormat }) : updateAsset(asset!.id, input, asset!.version, { confirmWarnings, allowIdFormat });
     if (res.ok) {
       saved.current = true;
+      if (draftId) deleteDraft(draftId); // finished: the draft has done its job
       toast.success(mode === "create" ? "Charging asset added" : "Changes saved", res.asset.assetName);
       router.push(`/zeno-charging/${res.asset.id}`);
       return;
@@ -172,6 +178,15 @@ export function AssetForm({ mode, assets, me, asset, initial }: Props) {
     if (res.validation?.warnings.length && !Object.keys(res.validation.errors).length) { setPendingWarnings(res.validation.warnings); return; }
     setServerErrors(res.validation?.errors ?? {});
     setServerError(res.error);
+  }
+
+  /** Keeps everything typed so far, unchecked, and the step you're on; finish it later from the list. */
+  function saveAsDraft() {
+    const id = saveDraft({ id: draftId, values, step, siteMode });
+    setDraftId(id);
+    saved.current = true;
+    toast.success("Draft saved", "Continue it any time from Drafts on Zeno Charging Network.");
+    router.push("/zeno-charging");
   }
 
   const stepOf = (k: FieldKey) => STEPS.findIndex((s) => s.id !== "review" && stepKeys(s.id as SectionId).includes(k));
@@ -284,17 +299,22 @@ export function AssetForm({ mode, assets, me, asset, initial }: Props) {
           <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
             <button type="button" onClick={() => (dirty ? setLeaving(true) : router.back())} className="text-sm font-medium text-slate-500 hover:text-slate-700">Cancel</button>
             <div className="flex gap-2">
+              {mode === "create" && (
+                <button type="button" onClick={saveAsDraft} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                  <FileClock className="h-4 w-4" /> Save as draft
+                </button>
+              )}
               {step > 0 && (
                 <button type="button" onClick={() => goTo(step - 1)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
                   <ArrowLeft className="h-4 w-4" /> Back
                 </button>
               )}
               {current.id === "review" ? (
-                <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-[#003B49] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00505f]">
+                <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-zeno-red px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-zeno-red-hover">
                   <Check className="h-4 w-4" /> {mode === "create" ? "Add charging asset" : "Save changes"}
                 </button>
               ) : (
-                <button type="submit" className="inline-flex items-center gap-1.5 rounded-lg bg-[#003B49] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00505f]">
+                <button type="submit" className="inline-flex items-center gap-1.5 rounded-lg bg-zeno-red px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-zeno-red-hover">
                   Next: {STEPS[step + 1].title} <ArrowRight className="h-4 w-4" />
                 </button>
               )}
@@ -308,7 +328,7 @@ export function AssetForm({ mode, assets, me, asset, initial }: Props) {
         <p className="mt-2">Save only if this really is a different asset.</p>
       </ConfirmModal>
       <ConfirmModal open={leaving} title="Discard your changes?" confirmLabel="Discard" onClose={() => setLeaving(false)} onConfirm={() => { saved.current = true; router.back(); }}>
-        What you’ve entered on this form won’t be saved.
+        {draftId ? "Changes since you last saved this draft won’t be kept. The draft stays as it was." : "What you’ve entered on this form won’t be saved. Use Save as draft to finish it later."}
       </ConfirmModal>
     </div>
   );

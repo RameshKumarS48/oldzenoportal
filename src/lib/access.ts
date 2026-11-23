@@ -102,7 +102,7 @@ export const MODULE_LABELS: Record<AccessModule, string> = {
   swap_info:       "Swap Info",
   wallet_info:     "Wallet Info",
   pricing:         "Swap Station Pricing",
-  charging:        "Zeno Charging",
+  charging:        "Zeno Charging Network",
   user_management: "User Management",
 };
 

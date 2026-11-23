@@ -10,10 +10,10 @@ import { useSyncExternalStore } from "react";
 import { useAccess } from "@/lib/access";
 import { useAuthStore } from "@/store/auth";
 import { chargingCan } from "@/lib/charging/permissions";
-import { useChargingStore, type AuditEntry, type SaveOptions, type SaveResult } from "@/store/charging";
+import { useChargingStore, type AuditEntry, type ChargingDraft, type SaveOptions, type SaveResult } from "@/store/charging";
 import type { ChargingAsset, ChargingAssetInput } from "@/lib/charging/fields";
 
-export type { AuditEntry, SaveResult };
+export type { AuditEntry, ChargingDraft, SaveResult };
 
 export interface Me {
   name: string;
@@ -55,3 +55,8 @@ export const updateAsset = (id: string, asset: ChargingAssetInput, version: numb
 export const archiveAsset = (id: string, reason: string) => useChargingStore.getState().setArchived(id, true, actor(), reason || undefined);
 export const restoreAsset = (id: string) => useChargingStore.getState().setArchived(id, false, actor());
 export const resetCharging = () => useChargingStore.getState().reset();
+
+export const useDrafts = () => useChargingStore((s) => s.drafts);
+export const saveDraft = (d: Omit<ChargingDraft, "id" | "createdAt" | "updatedAt" | "createdBy"> & { id?: string }) => useChargingStore.getState().saveDraft(d, actor());
+export const deleteDraft = (id: string) => useChargingStore.getState().deleteDraft(id);
+export const getDraft = (id: string) => useChargingStore.getState().drafts.find((d) => d.id === id);

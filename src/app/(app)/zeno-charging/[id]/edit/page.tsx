@@ -14,7 +14,7 @@ export default function EditChargingAssetPage({ params }: { params: Promise<{ id
       <ChargingGate>
         {({ assets, me }) => {
           const asset = assets.find((a) => a.id === id);
-          if (!asset) return <Message>This asset doesn’t exist. <Link href="/zeno-charging" className="underline">Back to Zeno Charging</Link></Message>;
+          if (!asset) return <Message>This asset doesn’t exist. <Link href="/zeno-charging" className="underline">Back to Zeno Charging Network</Link></Message>;
           if (!me.can.write) return <Message>You can view charging assets but not edit them.</Message>;
           if (asset.archivedAt) return <Message>This asset is archived. {me.can.restore ? "Restore it to edit it." : "A Super Admin can restore it."} <Link href={`/zeno-charging/${id}`} className="underline">Open it</Link></Message>;
           return <AssetForm key={`${asset.id}:${asset.version}`} mode="edit" assets={assets} me={me} asset={asset} initial={asset} />;

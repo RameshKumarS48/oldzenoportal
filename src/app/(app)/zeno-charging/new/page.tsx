@@ -6,9 +6,9 @@ import { Topbar } from "@/components/layout/Topbar";
 import { ChargingGate } from "@/components/zeno-charging/ChargingGate";
 import { AssetForm } from "@/components/zeno-charging/AssetForm";
 import { emptyInput, nextSiteId, SITE_LEVEL_KEYS, type ChargingAsset } from "@/lib/charging/fields";
-import type { Me } from "@/components/zeno-charging/api";
+import { getDraft, type Me } from "@/components/zeno-charging/api";
 
-/** Add a swap station or fast charger. `?site=Site-0042` starts at that site. */
+/** Add a swap station or fast charger. `?site=Site-0042` starts at that site; `?draft=<id>` continues a saved draft. */
 export default function NewChargingAssetPage() {
   return (
     <>
@@ -25,7 +25,10 @@ export default function NewChargingAssetPage() {
 }
 
 function NewAsset({ assets, me }: { assets: ChargingAsset[]; me: Me }) {
-  const site = useSearchParams().get("site");
+  const params = useSearchParams();
+  const site = params.get("site");
+  const draftParam = params.get("draft");
+  const draft = draftParam ? getDraft(draftParam) : undefined;
   if (!me.can.write) {
     return <main className="flex flex-1 items-center justify-center bg-zeno-bg text-sm text-slate-500">You can view charging assets but not add them.</main>;
   }
@@ -38,6 +41,14 @@ function NewAsset({ assets, me }: { assets: ChargingAsset[]; me: Me }) {
     initial.lng = from.lng;
   } else {
     initial.siteId = nextSiteId(assets.map((a) => a.siteId));
+  }
+  if (draft) {
+    // The new site ID may have been taken since the draft was saved: give it the next free one.
+    const values = draft.siteMode === "new" ? { ...draft.values, siteId: nextSiteId(assets.map((a) => a.siteId)) } : draft.values;
+    return <AssetForm key={draft.id} mode="create" assets={assets} me={me} initial={initial} draft={{ ...draft, values }} />;
+  }
+  if (draftParam) {
+    return <main className="flex flex-1 items-center justify-center bg-zeno-bg text-sm text-slate-500">This draft no longer exists. It may have been finished or deleted.</main>;
   }
   return <AssetForm mode="create" assets={assets} me={me} initial={initial} />;
 }

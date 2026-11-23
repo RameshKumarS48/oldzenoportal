@@ -25,7 +25,7 @@ const NAV: { href: string; label: string; icon: LucideIcon; module?: AccessModul
   { href: "/swap-audit",           label: "Swap Audit",                icon: ScanSearch,     module: "swap_info" },
   { href: "/wallet-transactions",  label: "Wallet Transactions",       icon: Wallet,         module: "wallet_info" },
   { href: "/swap-station-pricing", label: "Swap Station Pricing",      icon: Tags,           module: "pricing" },
-  { href: "/zeno-charging",        label: "Zeno Charging",             icon: PlugZap,        module: "charging" },
+  { href: "/zeno-charging",        label: "Zeno Charging Network",     icon: PlugZap,        module: "charging" },
   { href: "/users",                label: "User Management",           icon: Users,          module: "user_management" },
   // Sandbox, open to every role.
   { href: "/dashboards-v3",        label: "Dashboards (v3)",           icon: LayoutDashboard },

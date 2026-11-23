@@ -49,7 +49,7 @@ function Preview({ assets }: { assets: ChargingAsset[] }) {
     <main className="flex flex-1 flex-col overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-6 py-3.5 shrink-0">
         <div>
-          <Link href="/zeno-charging" className="mb-1 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"><ArrowLeft className="h-3 w-3" /> Zeno Charging</Link>
+          <Link href="/zeno-charging" className="mb-1 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"><ArrowLeft className="h-3 w-3" /> Zeno Charging Network</Link>
           <p className="text-sm text-slate-700">
             <span className="font-semibold">{locations.length}</span> locations published ({swaps} swap stations, {locations.length - swaps} fast chargers).{" "}
             <span className="text-slate-500">{hidden} not published: decommissioned, restricted or internal, archived, or without coordinates.</span>

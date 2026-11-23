@@ -16,7 +16,7 @@ export default function ChargingAssetPage({ params }: { params: Promise<{ id: st
   const { id } = use(params);
   return (
     <>
-      <Topbar title="Zeno Charging" />
+      <Topbar title="Zeno Charging Network" />
       <ChargingGate>
         {({ assets, me }) => {
           const asset = assets.find((a) => a.id === id);
@@ -62,7 +62,7 @@ function AssetDetail({ asset, assets, me }: { asset: ChargingAsset; assets: Char
     <main className="flex flex-1 flex-col overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-6 py-3.5 shrink-0">
         <div className="min-w-0">
-          <Link href="/zeno-charging" className="mb-1 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"><ArrowLeft className="h-3 w-3" /> Zeno Charging</Link>
+          <Link href="/zeno-charging" className="mb-1 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"><ArrowLeft className="h-3 w-3" /> Zeno Charging Network</Link>
           <h1 className="truncate text-base font-semibold text-slate-800">{asset.assetName}</h1>
           <p className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
             <span className="font-mono">{asset.assetId ?? "No Asset ID"}</span> · {asset.assetType} · <span className="font-mono">{asset.siteId}</span>
@@ -73,7 +73,7 @@ function AssetDetail({ asset, assets, me }: { asset: ChargingAsset; assets: Char
         <div className="flex gap-2">
           {me.can.write && !asset.archivedAt && (
             <>
-              <Link href={`/zeno-charging/${asset.id}/edit`} className={`${BTN} bg-[#003B49] text-white hover:bg-[#00505f]`}><Pencil className="h-3.5 w-3.5" /> Edit</Link>
+              <Link href={`/zeno-charging/${asset.id}/edit`} className={`${BTN} bg-zeno-red text-white shadow-sm hover:bg-zeno-red-hover`}><Pencil className="h-3.5 w-3.5" /> Edit</Link>
               <button type="button" onClick={() => setArchiving(true)} className={`${BTN} border border-red-200 bg-white text-red-700 hover:bg-red-50`}><Trash2 className="h-3.5 w-3.5" /> Archive</button>
             </>
           )}

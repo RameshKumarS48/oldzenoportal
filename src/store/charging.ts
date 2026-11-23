@@ -31,6 +31,19 @@ export type SaveResult =
   | { ok: true; asset: ChargingAsset }
   | { ok: false; error: string; validation?: ValidationResult; stale?: boolean };
 
+/** A new asset someone started and saved to finish later: the form as it was, unvalidated. */
+export interface ChargingDraft {
+  id: string;
+  /** Every form field as typed (strings, like the form holds them). */
+  values: Record<string, string>;
+  /** The step to reopen at (0-based). */
+  step: number;
+  siteMode: "existing" | "new";
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SaveOptions {
   actor: string;
   /** The person saw the possible-duplicate warnings and chose to save. */
@@ -42,6 +55,10 @@ export interface SaveOptions {
 interface ChargingState {
   assets: ChargingAsset[];
   audit: AuditEntry[];
+  drafts: ChargingDraft[];
+  /** Saves a draft (new or existing id); returns its id. */
+  saveDraft: (d: Omit<ChargingDraft, "id" | "createdAt" | "updatedAt" | "createdBy"> & { id?: string }, actor: string) => string;
+  deleteDraft: (id: string) => void;
   createAsset: (input: ChargingAssetInput, o: SaveOptions) => SaveResult;
   updateAsset: (id: string, input: ChargingAssetInput, version: number, o: SaveOptions & { canChangeAssetId: boolean }) => SaveResult;
   setArchived: (id: string, archived: boolean, actor: string, reason?: string) => SaveResult;
@@ -73,6 +90,19 @@ export const useChargingStore = create<ChargingState>()(
     (set, get) => ({
       assets: SEED,
       audit: seedAudit(),
+      drafts: [],
+
+      saveDraft: (d, actor) => {
+        const now = new Date().toISOString();
+        const existing = d.id ? get().drafts.find((x) => x.id === d.id) : undefined;
+        const draft: ChargingDraft = existing
+          ? { ...existing, values: d.values, step: d.step, siteMode: d.siteMode, updatedAt: now }
+          : { id: newId(), values: d.values, step: d.step, siteMode: d.siteMode, createdBy: actor, createdAt: now, updatedAt: now };
+        set((s) => ({ drafts: existing ? s.drafts.map((x) => (x.id === draft.id ? draft : x)) : [...s.drafts, draft] }));
+        return draft.id;
+      },
+
+      deleteDraft: (id) => set((s) => ({ drafts: s.drafts.filter((x) => x.id !== id) })),
 
       createAsset: (input, o) => {
         const problem = check(input, get().assets, undefined, o);
@@ -118,13 +148,13 @@ export const useChargingStore = create<ChargingState>()(
         return { ok: true, asset };
       },
 
-      reset: () => set({ assets: SEED, audit: seedAudit() }),
+      reset: () => set({ assets: SEED, audit: seedAudit(), drafts: [] }),
     }),
     {
       name: "zeno-charging",
       version: CHARGING_SEED_REVISION,
-      partialize: (s) => ({ assets: s.assets, audit: s.audit }),
-      migrate: () => ({ assets: SEED, audit: seedAudit() }),
+      partialize: (s) => ({ assets: s.assets, audit: s.audit, drafts: s.drafts }),
+      migrate: () => ({ assets: SEED, audit: seedAudit(), drafts: [] }),
     },
   ),
 );
