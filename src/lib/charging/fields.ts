@@ -177,6 +177,19 @@ export function emptyInput(): ChargingAssetInput {
   };
 }
 
+/**
+ * A typed site ID in the standard form: "site-42", "42", "SITE 0042" and
+ * "Site-00042" all become Site-0042. Anything else is returned trimmed, for
+ * validation to flag.
+ */
+export function normaliseSiteId(v: string | null | undefined): string {
+  const s = (v ?? "").trim();
+  const m = /^(?:site)?[\s\-_#]*(\d+)$/i.exec(s);
+  if (!m) return s;
+  const n = Number(m[1]);
+  return n > 0 ? `Site-${String(n).padStart(4, "0")}` : s;
+}
+
 /** The next free site ID, e.g. Site-0205. */
 export function nextSiteId(existing: string[]): string {
   const max = existing.reduce((m, id) => Math.max(m, Number(/^Site-(\d+)$/.exec(id)?.[1] ?? 0)), 0);

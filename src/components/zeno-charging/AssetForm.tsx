@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, ArrowLeft, ArrowRight, Check, ExternalLink, FileClock, MapPin, Pencil } from "lucide-react";
 import {
-  FIELDS, SECTIONS, SITE_LEVEL_KEYS, mapsUrl, nextSiteId, norm,
+  FIELDS, SECTIONS, SITE_LEVEL_KEYS, mapsUrl, nextSiteId, norm, normaliseSiteId,
   type ChargingAsset, type ChargingAssetInput, type FieldDef, type FieldKey, type SectionId,
 } from "@/lib/charging/fields";
 import { assetIdFormatError, cleanInput, coordsFromText, validateAsset, type FieldErrors, type Warning } from "@/lib/charging/validate";
@@ -84,11 +84,14 @@ export function AssetForm({ mode, assets, me, asset, initial, draft }: Props) {
     return [...m.values()].sort((a, b) => a.siteId.localeCompare(b.siteId));
   }, [assets]);
   const newSiteId = useMemo(() => nextSiteId(assets.map((a) => a.siteId)), [assets]);
+  /** The ID typed for a new site, kept while "At an existing site" is tried. */
+  const [typedNewId, setTypedNewId] = useState(() => (siteMode === "new" ? start.siteId || newSiteId : newSiteId));
+  const newSite = mode === "create" && siteMode === "new";
 
   const input = useMemo(() => cleanInput(values), [values]);
   const { errors: liveErrors, warnings } = useMemo(
-    () => validateAsset(input, { others: assets, selfId: asset?.id, allowIdFormat }),
-    [input, assets, asset?.id, allowIdFormat],
+    () => validateAsset(input, { others: assets, selfId: asset?.id, allowIdFormat, newSite }),
+    [input, assets, asset?.id, allowIdFormat, newSite],
   );
   const errors: FieldErrors = { ...liveErrors, ...serverErrors };
   const shown = (k: FieldKey) => (touched.has(k) ? errors[k] : undefined);
@@ -148,8 +151,23 @@ export function AssetForm({ mode, assets, me, asset, initial, draft }: Props) {
   }
 
   function chooseSiteMode(m: "existing" | "new") {
+    if (m === siteMode) return;
+    if (m === "existing") setTypedNewId(values.siteId);
     setSiteMode(m);
-    setValues((v) => ({ ...v, siteId: m === "new" ? newSiteId : "" }));
+    setValues((v) => ({ ...v, siteId: m === "new" ? typedNewId : "" }));
+  }
+
+  /** Typing a new site's ID. */
+  function typeNewSiteId(v: string) {
+    change("siteId", v);
+    setTypedNewId(v);
+  }
+
+  /** "Yes, I'm sure": the asset joins the site that already has this ID. */
+  function joinExistingSite(siteId: string) {
+    setTypedNewId(newSiteId);
+    setSiteMode("existing");
+    pickSite(siteId);
   }
 
   function applyMapsPaste(text: string) {
@@ -167,7 +185,7 @@ export function AssetForm({ mode, assets, me, asset, initial, draft }: Props) {
     if (Object.keys(liveErrors).length) return; // the Review step lists them, with links to their step
     if (warnings.length && !confirmWarnings) { setPendingWarnings(warnings); return; }
     setPendingWarnings(null);
-    const res = mode === "create" ? createAsset(input, { confirmWarnings, allowIdFormat }) : updateAsset(asset!.id, input, asset!.version, { confirmWarnings, allowIdFormat });
+    const res = mode === "create" ? createAsset(input, { confirmWarnings, allowIdFormat, newSite }) : updateAsset(asset!.id, input, asset!.version, { confirmWarnings, allowIdFormat });
     if (res.ok) {
       saved.current = true;
       if (draftId) deleteDraft(draftId); // finished: the draft has done its job
@@ -251,7 +269,11 @@ export function AssetForm({ mode, assets, me, asset, initial, draft }: Props) {
               ) : (
                 <div className="grid gap-4 p-5 sm:grid-cols-2">
                   {current.id === "site" && (
-                    <SitePicker mode={mode} siteMode={siteMode} onSiteMode={chooseSiteMode} siteId={values.siteId} sites={sites} newSiteId={newSiteId} onPick={pickSite} error={shown("siteId")} />
+                    <SitePicker
+                      mode={mode} siteMode={siteMode} onSiteMode={chooseSiteMode} siteId={values.siteId} sites={sites} assets={assets} newSiteId={newSiteId}
+                      onPick={pickSite} onType={typeNewSiteId} onBlurId={() => { change("siteId", normaliseSiteId(values.siteId)); setTypedNewId(normaliseSiteId(values.siteId)); touch("siteId"); }}
+                      onJoin={joinExistingSite} error={shown("siteId")}
+                    />
                   )}
                   {sectionFields(current.id as SectionId).map((f) => (
                     <Field
@@ -386,16 +408,25 @@ function Review({ values, errors, warnings, onEdit, stepOf }: {
   );
 }
 
-function SitePicker({ mode, siteMode, onSiteMode, siteId, sites, newSiteId, onPick, error }: {
+function SitePicker({ mode, siteMode, onSiteMode, siteId, sites, assets, newSiteId, onPick, onType, onBlurId, onJoin, error }: {
   mode: "create" | "edit";
   siteMode: "existing" | "new";
   onSiteMode: (m: "existing" | "new") => void;
   siteId: string;
   sites: ChargingAsset[];
+  assets: ChargingAsset[];
   newSiteId: string;
   onPick: (siteId: string) => void;
+  onType: (v: string) => void;
+  onBlurId: () => void;
+  onJoin: (siteId: string) => void;
   error?: string;
 }) {
+  // A new site's ID that another site already has: shown as soon as it's typed in full.
+  const typed = normaliseSiteId(siteId);
+  const taken = siteMode === "new" && typed ? sites.find((s) => norm(s.siteId) === norm(typed)) : undefined;
+  const takenAssets = taken ? assets.filter((a) => a.siteId === taken.siteId) : [];
+  const takenArchived = takenAssets.length > 0 && takenAssets.every((a) => a.archivedAt);
   if (mode === "edit") {
     return (
       <div className="sm:col-span-2">
@@ -426,7 +457,51 @@ function SitePicker({ mode, siteMode, onSiteMode, siteId, sites, newSiteId, onPi
           {error && <p className="mt-1 text-[11px] text-red-600">{error}</p>}
         </div>
       ) : (
-        <p className="text-xs text-slate-500">New site <span className="font-mono font-semibold text-slate-700">{newSiteId}</span>. The ID is assigned for you.</p>
+        <div>
+          <label htmlFor="field-siteId" className={labelCls}>Site ID *</label>
+          <div className="flex items-center gap-2">
+            <input
+              id="field-siteId"
+              value={siteId}
+              onChange={(e) => onType(e.target.value)}
+              onBlur={onBlurId}
+              placeholder={newSiteId}
+              autoComplete="off"
+              spellCheck={false}
+              aria-invalid={!!error || !!taken}
+              aria-describedby="field-siteId-help"
+              className={cn(inputCls, "max-w-48 font-mono", (error || taken) && "border-red-300")}
+            />
+            {typed !== newSiteId && (
+              <button type="button" onClick={() => onType(newSiteId)} className="shrink-0 text-xs font-medium text-zeno-teal hover:underline">
+                Use {newSiteId}
+              </button>
+            )}
+          </div>
+          {taken ? (
+            <div role="alert" className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+              <p className="flex items-start gap-1.5 font-semibold"><AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />{taken.siteId} already exists. Are you sure?</p>
+              <p className="mt-1">
+                It&apos;s “{taken.siteName}”{taken.town ? `, ${taken.town}` : ""}, with {takenAssets.length} asset{takenAssets.length === 1 ? "" : "s"}{takenArchived ? " (all archived)" : ""}.
+                A new site can&apos;t reuse its ID. If this asset is at that site, add it there: its location, partner and rent fill in from the site.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button type="button" onClick={() => onJoin(taken.siteId)} className="rounded-md bg-zeno-red px-3 py-1.5 font-medium text-white hover:bg-zeno-red-hover">
+                  Yes, add it to {taken.siteId}
+                </button>
+                <button type="button" onClick={() => onType(newSiteId)} className="rounded-md border border-amber-300 bg-white px-3 py-1.5 font-medium text-amber-900 hover:bg-amber-100">
+                  No, use {newSiteId}
+                </button>
+              </div>
+            </div>
+          ) : error ? (
+            <p id="field-siteId-help" className="mt-1 flex items-start gap-1 text-[11px] text-red-600"><AlertCircle className="mt-px h-3 w-3 shrink-0" />{error}</p>
+          ) : (
+            <p id="field-siteId-help" className="mt-1 text-[11px] text-slate-400">
+              Suggested: {newSiteId}, the next free ID. You can change it; it must look like Site-0042 and not belong to another site.
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

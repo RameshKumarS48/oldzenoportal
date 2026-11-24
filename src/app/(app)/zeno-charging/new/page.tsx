@@ -43,8 +43,8 @@ function NewAsset({ assets, me }: { assets: ChargingAsset[]; me: Me }) {
     initial.siteId = nextSiteId(assets.map((a) => a.siteId));
   }
   if (draft) {
-    // The new site ID may have been taken since the draft was saved: give it the next free one.
-    const values = draft.siteMode === "new" ? { ...draft.values, siteId: nextSiteId(assets.map((a) => a.siteId)) } : draft.values;
+    // A new site keeps the ID typed in the draft (the form flags it if it's been taken since); none typed gets the next free one.
+    const values = draft.siteMode === "new" && !draft.values.siteId?.trim() ? { ...draft.values, siteId: nextSiteId(assets.map((a) => a.siteId)) } : draft.values;
     return <AssetForm key={draft.id} mode="create" assets={assets} me={me} initial={initial} draft={{ ...draft, values }} />;
   }
   if (draftParam) {

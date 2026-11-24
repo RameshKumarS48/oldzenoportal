@@ -50,6 +50,8 @@ export interface SaveOptions {
   confirmWarnings?: boolean;
   /** Super Admin keeps an Asset ID that isn't in the usual format. */
   allowIdFormat?: boolean;
+  /** The asset starts a new site, so its Site ID must not be in use. */
+  newSite?: boolean;
 }
 
 interface ChargingState {
@@ -79,7 +81,7 @@ function diff(before: ChargingAssetInput, after: ChargingAssetInput): Record<str
 }
 
 function check(input: ChargingAssetInput, others: ChargingAsset[], selfId: string | undefined, o: SaveOptions): SaveResult | null {
-  const validation = validateAsset(input, { others, selfId, allowIdFormat: o.allowIdFormat });
+  const validation = validateAsset(input, { others, selfId, allowIdFormat: o.allowIdFormat, newSite: o.newSite });
   if (Object.keys(validation.errors).length) return { ok: false, error: "Some fields need fixing.", validation };
   if (validation.warnings.length && !o.confirmWarnings) return { ok: false, error: "Please confirm the possible duplicates.", validation };
   return null;

@@ -3,7 +3,7 @@
  * the server (the authority) run exactly the same rules.
  */
 import {
-  FIELDS, FIELD_BY_KEY, norm,
+  FIELDS, FIELD_BY_KEY, norm, normaliseSiteId,
   type ChargingAsset, type ChargingAssetInput, type FieldKey,
 } from "./fields";
 
@@ -13,7 +13,7 @@ export interface ValidationResult { errors: FieldErrors; warnings: Warning[] }
 
 export const SWAP_ID = /^BS\d{4}$/;
 export const CHARGER_UID = /^[0-9A-F]{24}$/;
-export const SITE_ID = /^Site-\d{4,}$/;
+export const SITE_ID = /^Site-(?!0+$)\d{4,}$/;
 /** Assets of the same type closer than this, at different sites, may be the same asset entered twice. */
 export const NEAR_METRES = 25;
 
@@ -74,6 +74,7 @@ export function cleanInput(raw: Partial<Record<FieldKey, unknown>>): ChargingAss
   // No ID is null, never "": several assets may await an ID, but no two may share one.
   input.assetId = input.assetId ? input.assetId.replace(/\s/g, "").toUpperCase() : null;
   input.partnerContact = normalisePhone(input.partnerContact);
+  input.siteId = normaliseSiteId(input.siteId);
   return input;
 }
 
@@ -120,6 +121,11 @@ export interface ValidateOptions {
   selfId?: string;
   /** Super Admin chose to keep an ID that doesn't match the usual format. */
   allowIdFormat?: boolean;
+  /**
+   * The asset starts a new site. Its Site ID must then be unused (archived
+   * sites included); adding to an existing site shares that site's ID.
+   */
+  newSite?: boolean;
   today?: Date;
 }
 
@@ -140,6 +146,10 @@ export function validateAsset(input: ChargingAssetInput, opts: ValidateOptions):
 
   // Identity.
   if (input.siteId && !SITE_ID.test(input.siteId)) set("siteId", "A site ID looks like Site-0042.");
+  if (input.siteId && opts.newSite && !errors.siteId) {
+    const taken = others.find((o) => norm(o.siteId) === norm(input.siteId));
+    if (taken) set("siteId", `${taken.siteId} is already used by “${taken.siteName}”${others.every((o) => norm(o.siteId) !== norm(input.siteId) || o.archivedAt) ? " (archived)" : ""}. A new site needs its own ID.`);
+  }
   if (input.assetId) {
     const fmt = assetIdFormatError(input.assetType, input.assetId);
     if (fmt && !opts.allowIdFormat) set("assetId", fmt);

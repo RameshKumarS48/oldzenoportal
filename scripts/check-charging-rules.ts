@@ -2,7 +2,7 @@
  * Checks Zeno Charging's validation rules, one case per rule.
  * Run: npx tsx scripts/check-charging-rules.ts  (exits 1 on any failure)
  */
-import { emptyInput, nextSiteId, type ChargingAsset, type ChargingAssetInput } from "../src/lib/charging/fields";
+import { emptyInput, nextSiteId, normaliseSiteId, type ChargingAsset, type ChargingAssetInput } from "../src/lib/charging/fields";
 import { cleanInput, coordsFromText, validateAsset } from "../src/lib/charging/validate";
 import { chargingCan } from "../src/lib/charging/permissions";
 import { publicLocations } from "../src/lib/charging/public";
@@ -48,6 +48,15 @@ check("new site with an existing site's name blocked", !!errs(good, [stored({ si
 check("same site name at the same site is fine", !errs(good, [stored({ siteId: "Site-0300", siteName: good.siteName })]).errors.siteName);
 check("bad site ID format blocked", !!errs({ ...good, siteId: "S1" }).errors.siteId);
 check("next site ID", nextSiteId(["Site-0001", "Site-0203"]) === "Site-0204");
+// Site ID typed for a new site.
+check("site ID normalised from short forms", ["site-42", "42", "SITE 0042", "Site-00042", " Site-0042 "].every((v) => normaliseSiteId(v) === "Site-0042"));
+check("cleanInput normalises site ID", cleanInput({ ...good, siteId: "site-300" }).siteId === "Site-0300");
+check("Site-0000 is not a site ID", !!errs({ ...good, siteId: "Site-0000" }).errors.siteId);
+check("junk site ID blocked", !!errs({ ...good, siteId: "Nairobi" }).errors.siteId);
+check("new site can't reuse an existing site ID", !!errs(good, [stored({ siteId: "Site-0300" })], { newSite: true }).errors.siteId);
+check("new site can't reuse an archived site's ID", !!errs(good, [stored({ siteId: "Site-0300", archivedAt: "2026-01-01" })], { newSite: true }).errors.siteId);
+check("existing site shares its ID", !errs(good, [stored({ siteId: "Site-0300", siteName: good.siteName })]).errors.siteId);
+check("new site with a free ID is fine", !errs(good, [stored({})], { newSite: true }).errors.siteId);
 // Location.
 check("swapped lat/lng detected", /swapped/.test(errs({ ...good, lat: 36.78, lng: -1.3 }).errors.lat ?? ""));
 check("point outside the country blocked", !!errs({ ...good, lat: 0.3, lng: 32.5 }).errors.lat);
