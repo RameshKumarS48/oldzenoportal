@@ -1,6 +1,6 @@
 "use client";
 
-import { Car, ScanLine, ArrowLeftRight, Wallet, Tags, Users, PlugZap } from "lucide-react";
+import { Car, ScanLine, ArrowLeftRight, Wallet, Tags, Users, PlugZap, LayoutDashboard } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { levelFor, MODULE_LABELS, ACCESS_LEVEL_LABELS } from "@/lib/access";
@@ -15,6 +15,7 @@ const MODULE_ICONS: Record<AccessModule, LucideIcon> = {
   wallet_info:     Wallet,
   pricing:         Tags,
   charging:        PlugZap,
+  dashboards:      LayoutDashboard,
   user_management: Users,
 };
 

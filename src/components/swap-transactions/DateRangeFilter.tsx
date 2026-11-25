@@ -60,8 +60,10 @@ const FIELD =
  * or a click outside closes it unchanged, and focus returns to the dropdown.
  */
 export function DateRangeFilter({
-  value, range, onChange, className,
+  value, range, onChange, className, presets = PRESETS,
 }: {
+  /** The dropdown's fixed choices, when a view needs more than the usual four. */
+  presets?: [string, string][];
   /** "", "today", "7d", "30d", or "custom" when `range` applies. */
   value: string;
   range: DayRange | null;
@@ -146,7 +148,7 @@ export function DateRangeFilter({
         }}
         className={className}
       >
-        {PRESETS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        {presets.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         {/* The applied range has its own option so "Custom range…" can be chosen again. */}
         {range && <option value="custom">{rangeLabel(range)}</option>}
         <option value="__pick">Custom range…</option>

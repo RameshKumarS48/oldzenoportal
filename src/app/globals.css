@@ -130,3 +130,18 @@ body {
 .maplibregl-ctrl-attrib.maplibregl-compact {
   border-radius: 8px;
 }
+
+/* Dome Dashboards: chart colours by role. Categorical slots are used in this
+   fixed order; the ramp is for magnitude (heatmaps); dark mode has its own steps. */
+.dash-viz {
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+  --s-other: #a3a8b0; --s-down: #e34948;
+  --ramp-1: #cde2fb; --ramp-2: #9ec5f4; --ramp-3: #6da7ec; --ramp-4: #3987e5; --ramp-5: #256abf; --ramp-6: #104281;
+  --viz-grid: #eef1f5; --viz-axis: #94a3b8; --viz-surface: #ffffff; --viz-ink: #1e293b; --viz-muted: #64748b;
+}
+.dark .dash-viz {
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --s7: #9085e9; --s8: #e66767;
+  --s-other: #6b7280; --s-down: #e66767;
+  --ramp-1: #104281; --ramp-2: #184f95; --ramp-3: #256abf; --ramp-4: #3987e5; --ramp-5: #6da7ec; --ramp-6: #9ec5f4;
+  --viz-grid: #26343b; --viz-axis: #7c8a93; --viz-surface: #1b2a30; --viz-ink: #e8eef0; --viz-muted: #9fb0b8;
+}

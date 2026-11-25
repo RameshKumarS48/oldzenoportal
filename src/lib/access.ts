@@ -3,7 +3,7 @@
 /**
  * Dome's access model, the single source of truth for who can see and do what.
  *
- * Five roles, six modules. A role holds a flat list of permission grants where
+ * Five roles, eight modules. A role holds a flat list of permission grants where
  * `_ro` (read) and `_rw` (write) are *separate* grants: a read-write role holds
  * both. Grants are fixed per role and are not editable per user.
  *
@@ -11,6 +11,10 @@
  * `user_management` the last one, so nav gating, route guards and the invite
  * dialog's permission summary all read from this one table. A module may gate more than one tab: Swap Audit
  * and Swap Transactions are two views of the same data and share `swap_info`.
+ *
+ * `dashboards` gates the Dashboards tab: read opens shared dashboards, write
+ * also makes your own. What a card shows is still decided by the module that
+ * owns its data, so a shared dashboard never widens anyone's access.
  */
 
 import { useAuthStore } from "@/store/auth";
@@ -23,6 +27,7 @@ export const ACCESS_MODULES = [
   "wallet_info",
   "pricing",
   "charging",
+  "dashboards",
   "user_management",
 ] as const;
 
@@ -50,6 +55,7 @@ export const ROLES: RoleDefinition[] = [
       "wallet_info_ro", "wallet_info_rw",
       "pricing_ro", "pricing_rw",
       "charging_ro", "charging_rw",
+      "dashboards_ro", "dashboards_rw",
       "user_management_ro", "user_management_rw",
     ],
   },
@@ -63,12 +69,13 @@ export const ROLES: RoleDefinition[] = [
       "wallet_info_ro", "wallet_info_rw",
       "pricing_ro", "pricing_rw",
       "charging_ro", "charging_rw",
+      "dashboards_ro", "dashboards_rw",
     ],
   },
   {
     id: 3,
     name: "Internal Viewer",
-    permissions: ["vehicle_ro", "scanner_ro", "swap_info_ro", "wallet_info_ro", "pricing_ro", "charging_ro"],
+    permissions: ["vehicle_ro", "scanner_ro", "swap_info_ro", "wallet_info_ro", "pricing_ro", "charging_ro", "dashboards_ro"],
   },
   {
     id: 4,
@@ -103,6 +110,7 @@ export const MODULE_LABELS: Record<AccessModule, string> = {
   wallet_info:     "Wallet Info",
   pricing:         "Swap Station Pricing",
   charging:        "Zeno Charging Network",
+  dashboards:      "Dashboards",
   user_management: "User Management",
 };
 
@@ -174,6 +182,7 @@ export const ROUTE_MODULES: { prefix: string; module: AccessModule }[] = [
   { prefix: "/wallet-transactions",  module: "wallet_info" },
   { prefix: "/swap-station-pricing", module: "pricing" },
   { prefix: "/zeno-charging",        module: "charging" },
+  { prefix: "/dashboards",           module: "dashboards" },
   { prefix: "/users",                module: "user_management" },
 ];
 

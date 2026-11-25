@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  ChevronLeft, ChevronRight, Grid3X3, BatteryCharging, ScanLine, ArrowLeftRight, ScanSearch, Wallet, Tags, Users, LogOut, PlugZap,
+  ChevronLeft, ChevronRight, Grid3X3, BatteryCharging, ScanLine, ArrowLeftRight, ScanSearch, Wallet, Tags, Users, LogOut, PlugZap, LayoutDashboard,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,7 @@ const NAV: { href: string; label: string; icon: LucideIcon; module?: AccessModul
   { href: "/wallet-transactions",  label: "Wallet Transactions",       icon: Wallet,         module: "wallet_info" },
   { href: "/swap-station-pricing", label: "Swap Station Pricing",      icon: Tags,           module: "pricing" },
   { href: "/zeno-charging",        label: "Zeno Charging Network",     icon: PlugZap,        module: "charging" },
+  { href: "/dashboards",           label: "Dashboards",                icon: LayoutDashboard, module: "dashboards" },
   { href: "/users",                label: "User Management",           icon: Users,          module: "user_management" },
 ];
 
