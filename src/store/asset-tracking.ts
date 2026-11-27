@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { agreementSummaryFor } from "@/lib/mock/vehicle-agreements";
 
 export type AssetVehicle = {
   id: string;
@@ -43,6 +44,8 @@ export type FilterState = {
   evcc: string;
   status: string;
   tenant: string;
+  /** Overall agreement status (Complete, Pending, Missing, No customer). */
+  agreements: string;
   search: string;
 };
 
@@ -58,6 +61,7 @@ const DEFAULT_FILTERS: FilterState = {
   evcc: "All",
   status: "All",
   tenant: "All",
+  agreements: "All",
   search: "",
 };
 
@@ -658,6 +662,9 @@ export const useAssetTrackingStore = create<AssetTrackingStore>((set, get) => ({
       } else {
         result = result.filter((v) => v.tenant === filters.tenant);
       }
+    }
+    if (filters.agreements !== "All") {
+      result = result.filter((v) => agreementSummaryFor(v).status === filters.agreements);
     }
 
     if (sort) {

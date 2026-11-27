@@ -11,7 +11,9 @@ import {
   ImmobilizationBadge,
   VehicleStatusPill,
 } from "@/components/ui/StatusIndicator";
+import { agreementSummaryFor } from "@/lib/mock/vehicle-agreements";
 import { COLUMNS, type ColumnId } from "./vehicle-columns";
+import { AgreementsCellContent } from "./AgreementStatus";
 
 function SortIcon({ col }: { col: keyof AssetVehicle }) {
   const sort = useAssetTrackingStore((s) => s.sort);
@@ -78,6 +80,8 @@ function Cell({ id, v }: { id: ColumnId; v: AssetVehicle }) {
       return <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{v.customerPhone ? <CopyButton value={v.customerPhone} label="customer phone" /> : <Dash />}</td>;
     case "tenant":
       return <td title={v.tenant || undefined} className="px-3 py-2.5 text-slate-600 whitespace-nowrap truncate">{v.tenant || <Dash />}</td>;
+    case "agreements":
+      return <td className="px-3 py-2.5 whitespace-nowrap"><AgreementsCellContent summary={agreementSummaryFor(v)} /></td>;
     case "status":
       return <td className="px-3 py-2.5 whitespace-nowrap"><VehicleStatusPill value={v.status} /></td>;
     case "connectivity":

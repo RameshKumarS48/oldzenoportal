@@ -1,0 +1,64 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Length 1994 >>
+stream
+BT
+/F2 18 Tf 1 0 0 1 56 772 Tm (Zeno Energy Agreement) Tj
+/F1 9 Tf 1 0 0 1 56 753 Tm (SAMPLE DOCUMENT FOR THE PORTAL PROTOTYPE) Tj
+/F1 10 Tf 1 0 0 1 56 739 Tm (Sample text for the portal prototype. This is not the legal agreement. It stands in for the) Tj
+/F1 10 Tf 1 0 0 1 56 725 Tm (document a Battery as a Service \(BaaS\) customer signs in the Zeno app.) Tj
+/F2 11 Tf 1 0 0 1 56 696 Tm (1. The service) Tj
+/F1 10 Tf 1 0 0 1 56 682 Tm (Zeno provides charged batteries through its swap station network. The batteries remain Zeno's) Tj
+/F1 10 Tf 1 0 0 1 56 668 Tm (property at all times; you pay for the energy you use.) Tj
+/F2 11 Tf 1 0 0 1 56 639 Tm (2. Charges) Tj
+/F1 10 Tf 1 0 0 1 56 625 Tm (Energy is charged per swap at the rate shown in the Zeno app at the time of the swap. Charges) Tj
+/F1 10 Tf 1 0 0 1 56 611 Tm (are taken from your Zeno wallet, which must hold enough credit before a swap.) Tj
+/F2 11 Tf 1 0 0 1 56 582 Tm (3. Care of batteries) Tj
+/F1 10 Tf 1 0 0 1 56 568 Tm (Use batteries only in the vehicle they were issued for, do not open, puncture or charge them) Tj
+/F1 10 Tf 1 0 0 1 56 554 Tm (outside a Zeno station, and report damage or loss within 24 hours.) Tj
+/F2 11 Tf 1 0 0 1 56 525 Tm (4. Suspension) Tj
+/F1 10 Tf 1 0 0 1 56 511 Tm (Zeno may suspend swaps if the wallet has insufficient credit, a battery is damaged by misuse,) Tj
+/F1 10 Tf 1 0 0 1 56 497 Tm (or the vehicle is reported stolen. Swaps resume once the issue is resolved.) Tj
+/F2 11 Tf 1 0 0 1 56 468 Tm (5. Ending the agreement) Tj
+/F1 10 Tf 1 0 0 1 56 454 Tm (Either party may end this agreement with 30 days' notice. All batteries must be returned to a) Tj
+/F1 10 Tf 1 0 0 1 56 440 Tm (Zeno hub, and any remaining wallet credit is refunded.) Tj
+/F2 11 Tf 1 0 0 1 56 403 Tm (Signed by the customer) Tj
+/F1 10 Tf 1 0 0 1 56 389 Tm (Signed electronically in the Zeno app. The signer's details and signature) Tj
+/F1 10 Tf 1 0 0 1 56 375 Tm (record are held by Zeno and shown in the Zeno portal.) Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Title (Zeno Energy Agreement - sample) /Producer (Zeno portal prototype) >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000257 00000 n 
+0000000354 00000 n 
+0000000456 00000 n 
+0000002502 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R /Info 7 0 R >>
+startxref
+2597
+%%EOF

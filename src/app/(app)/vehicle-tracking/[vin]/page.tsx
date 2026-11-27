@@ -10,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/store/toast";
 import { ConnectivityBadge, ImmobilizationBadge } from "@/components/ui/StatusIndicator";
 import { useAccess } from "@/lib/access";
+import { agreementsFor } from "@/lib/mock/vehicle-agreements";
+import { useCanSeeAgreements } from "@/components/asset-tracking/agreement-access";
+import { AgreementsCard, CustomerCard, PANEL_CARD, WRAP } from "@/components/asset-tracking/VehicleAgreementCards";
 
 /**
  * "01 Sep 2026 13:06" stacked as on Battery Tracking's detail page: the date,
@@ -32,7 +35,7 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
   return (
     <div className="flex justify-between items-start py-2.5 border-b border-slate-100 last:border-0">
       <span className="text-xs text-slate-400 shrink-0 w-36">{label}</span>
-      <span className="text-sm text-slate-700 text-right">{children}</span>
+      <span className={`min-w-0 text-sm text-slate-700 text-right ${WRAP}`}>{children}</span>
     </div>
   );
 }
@@ -45,6 +48,7 @@ export default function VehicleDetailPage() {
   const vehicles = useAssetTrackingStore((s) => s.vehicles);
   const toggleImmobilization = useAssetTrackingStore((s) => s.toggleImmobilization);
   const canWrite = useAccess().canWrite("vehicle");
+  const canSeeAgreements = useCanSeeAgreements();
 
   const vehicle = vehicles.find((v) => v.vin === decodeURIComponent(vin ?? ""));
 
@@ -61,6 +65,7 @@ export default function VehicleDetailPage() {
   }
 
   const isImmobilized = vehicle.immobilization !== "Off";
+  const record = agreementsFor(vehicle);
 
   function handleImmobilize() {
     const wasImmobilized = vehicle!.immobilization !== "Off";
@@ -116,49 +121,53 @@ export default function VehicleDetailPage() {
 
       {/* Body */}
       <div className="flex flex-1 overflow-hidden p-5 gap-5">
-        {/* Left panel */}
-        <div className="w-80 shrink-0 bg-white border border-slate-200 rounded-xl overflow-y-auto">
-          <div className="px-5 pt-5 pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2 mb-1">
-              <Bike className="w-5 h-5 text-zeno-red" />
-              <span className="text-sm font-semibold text-slate-800">Bike</span>
-              <span className="text-xs text-slate-500 ml-1">#{vehicle.vin}</span>
+        {/* Left panel: customer, the vehicle's own details, then agreements, scrolling together. */}
+        <div className="w-80 shrink-0 overflow-y-auto flex flex-col gap-4">
+          <CustomerCard vehicle={vehicle} record={record} />
+          <div className={PANEL_CARD}>
+            <div className="px-5 pt-5 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2 mb-1">
+                <Bike className="w-5 h-5 text-slate-400" aria-hidden />
+                <span className="text-sm font-semibold text-slate-800">Bike</span>
+                <span className="text-xs text-slate-500 ml-1">#{vehicle.vin}</span>
+              </div>
+            </div>
+            <div className="px-5 py-2">
+              <InfoRow label="Date of Sale">{vehicle.dateOfSale}</InfoRow>
+              <InfoRow label="Odometer">{vehicle.odometer.toLocaleString()}</InfoRow>
+              <InfoRow label="SOC">{vehicle.soc}</InfoRow>
+              <InfoRow label="Immobilization"><ImmobilizationBadge value={vehicle.immobilization} /></InfoRow>
+              <InfoRow label="Tenant">{vehicle.tenant || <span className="text-slate-300">–</span>}</InfoRow>
+              <InfoRow label="Status">{vehicle.status}</InfoRow>
+              <InfoRow label="Store Code">{vehicle.storeCode}</InfoRow>
+              <InfoRow label="Plate">{vehicle.plate}</InfoRow>
+              <InfoRow label="IMEI">{vehicle.imei}</InfoRow>
+              <InfoRow label="Connectivity"><ConnectivityBadge value={vehicle.connectivity} /></InfoRow>
+              <InfoRow label="Last Connected"><DateTime text={vehicle.lastConnected} /></InfoRow>
+              <InfoRow label="Last Location Time"><DateTime text={vehicle.lastLocationTime} /></InfoRow>
+              <InfoRow label="Latitude">{vehicle.lat}</InfoRow>
+              <InfoRow label="Longitude">{vehicle.long}</InfoRow>
+              <InfoRow label="VCU">{vehicle.vcuFirmware}</InfoRow>
+              <InfoRow label="ZeConnect">{vehicle.zeConnectFirmware}</InfoRow>
+              <InfoRow label="EVCC">{vehicle.evccFirmware}</InfoRow>
+            </div>
+            {/* Battery Tracking detail's card action: a full-width small outline button in the card's footer. */}
+            <div className="flex flex-col gap-2 px-5 py-4 border-t border-slate-100">
+              <a
+                href={`https://maps.google.com/?q=${vehicle.lat},${vehicle.long}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Open in Google Maps (new tab)"
+                className="flex w-full items-center justify-between gap-2 rounded-lg font-medium transition-colors whitespace-nowrap border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-1.5 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40 focus-visible:ring-offset-2"
+              >
+                <span className="truncate">Open in Google Maps</span>
+                <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden />
+              </a>
             </div>
           </div>
-          <div className="px-5 py-2">
-            <InfoRow label="Customer Name">{vehicle.customerName || <span className="text-slate-300">–</span>}</InfoRow>
-            <InfoRow label="Customer Phone">{vehicle.customerPhone}</InfoRow>
-            <InfoRow label="Date of Sale">{vehicle.dateOfSale}</InfoRow>
-            <InfoRow label="Odometer">{vehicle.odometer.toLocaleString()}</InfoRow>
-            <InfoRow label="SOC">{vehicle.soc}</InfoRow>
-            <InfoRow label="Immobilization"><ImmobilizationBadge value={vehicle.immobilization} /></InfoRow>
-            <InfoRow label="Tenant">{vehicle.tenant || <span className="text-slate-300">–</span>}</InfoRow>
-            <InfoRow label="Status">{vehicle.status}</InfoRow>
-            <InfoRow label="Store Code">{vehicle.storeCode}</InfoRow>
-            <InfoRow label="Plate">{vehicle.plate}</InfoRow>
-            <InfoRow label="IMEI">{vehicle.imei}</InfoRow>
-            <InfoRow label="Connectivity"><ConnectivityBadge value={vehicle.connectivity} /></InfoRow>
-            <InfoRow label="Last Connected"><DateTime text={vehicle.lastConnected} /></InfoRow>
-            <InfoRow label="Last Location Time"><DateTime text={vehicle.lastLocationTime} /></InfoRow>
-            <InfoRow label="Latitude">{vehicle.lat}</InfoRow>
-            <InfoRow label="Longitude">{vehicle.long}</InfoRow>
-            <InfoRow label="VCU">{vehicle.vcuFirmware}</InfoRow>
-            <InfoRow label="ZeConnect">{vehicle.zeConnectFirmware}</InfoRow>
-            <InfoRow label="EVCC">{vehicle.evccFirmware}</InfoRow>
-          </div>
-          {/* Battery Tracking detail's card action: a full-width small outline button in the card's footer. */}
-          <div className="flex flex-col gap-2 px-5 py-4 border-t border-slate-100">
-            <a
-              href={`https://maps.google.com/?q=${vehicle.lat},${vehicle.long}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Open in Google Maps (new tab)"
-              className="flex w-full items-center justify-between gap-2 rounded-lg font-medium transition-colors whitespace-nowrap border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-1.5 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-zeno-teal/40 focus-visible:ring-offset-2"
-            >
-              <span className="truncate">Open in Google Maps</span>
-              <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden />
-            </a>
-          </div>
+          {canSeeAgreements && (
+            <AgreementsCard record={record} vin={vehicle.vin} />
+          )}
         </div>
 
         {/* Right map */}

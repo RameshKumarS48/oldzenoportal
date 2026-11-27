@@ -5,7 +5,8 @@ import type { AssetVehicle } from "@/store/asset-tracking";
 
 export type ColumnId =
   | "vin" | "plate" | "customerName" | "customerPhone" | "tenant" | "status" | "connectivity"
-  | "immobilization" | "dateOfSale" | "imei" | "storeCode" | "odometer" | "vcu" | "zeConnect" | "evcc";
+  | "immobilization" | "dateOfSale" | "imei" | "storeCode" | "odometer" | "vcu" | "zeConnect" | "evcc"
+  | "agreements";
 
 /**
  * The list's columns, in display order. `sortKey` marks the sortable ones and
@@ -28,6 +29,8 @@ export const COLUMNS: { id: ColumnId; label: string; width: number; sortKey?: ke
   { id: "connectivity", label: "Connectivity", width: 124, sortKey: "connectivity", byDefault: true },
   { id: "immobilization", label: "Immobilization", width: 120, byDefault: true },
   { id: "dateOfSale", label: "Date of Sale", width: 112, sortKey: "dateOfSale", byDefault: true },
+  // Overall status only (Complete, Pending, Missing, No customer). Not sortable.
+  { id: "agreements", label: "Agreements", width: 128, byDefault: true },
   { id: "imei", label: "IMEI", width: 136, byDefault: true },
   { id: "storeCode", label: "Store Code", width: 136, byDefault: false },
   { id: "odometer", label: "Odo", width: 80, sortKey: "odometer", byDefault: false },
@@ -37,6 +40,13 @@ export const COLUMNS: { id: ColumnId; label: string; width: number; sortKey?: ke
 ];
 
 export const DEFAULT_COLUMNS: ColumnId[] = COLUMNS.filter((c) => c.byDefault).map((c) => c.id);
+
+/** Columns only internal roles see (agreement-access.ts). */
+const AGREEMENT_COLUMNS: ColumnId[] = ["agreements"];
+
+/** A column list without the agreement columns when the role can't see them. */
+export const withoutHidden = (cols: ColumnId[], canSeeAgreements: boolean): ColumnId[] =>
+  canSeeAgreements ? cols : cols.filter((c) => !AGREEMENT_COLUMNS.includes(c));
 
 /** A saved selection, cleaned: known ids only, in column order, VIN always in. Anything unreadable is the default. */
 function parse(raw: string | null): ColumnId[] {
