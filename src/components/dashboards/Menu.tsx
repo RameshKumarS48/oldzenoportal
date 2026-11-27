@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export interface MenuItem { label: string; onSelect: () => void; danger?: boolean; disabled?: boolean }
+export interface MenuItem { label: string; onSelect: () => void; danger?: boolean; disabled?: boolean; /** One line on what it is, under the label. */ hint?: string }
 
 /** A ⋯ button with a short list of actions. Esc or a click outside closes it. */
-export function Menu({ label, items, align = "right", children }: { label: string; items: MenuItem[]; align?: "left" | "right"; children?: React.ReactNode }) {
+export function Menu({ label, items, align = "right", heading, children }: { label: string; items: MenuItem[]; align?: "left" | "right"; /** Names the list, at its top. */ heading?: string; children?: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -27,11 +27,13 @@ export function Menu({ label, items, align = "right", children }: { label: strin
       </button>
       {open && (
         <div role="menu" className={cn("absolute top-full z-30 mt-1 min-w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg", align === "right" ? "right-0" : "left-0")}>
+          {heading && <p className="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{heading}</p>}
           {items.map((item) => (
             <button key={item.label} type="button" role="menuitem" disabled={item.disabled}
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); item.onSelect(); }}
               className={cn("block w-full whitespace-nowrap px-3 py-1.5 text-left text-xs hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40", item.danger ? "text-red-600" : "text-slate-700")}>
-              {item.label}
+              <span className={cn("block", item.hint && "font-medium")}>{item.label}</span>
+              {item.hint && <span className="block text-[11px] text-slate-500">{item.hint}</span>}
             </button>
           ))}
         </div>

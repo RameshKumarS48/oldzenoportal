@@ -20,7 +20,13 @@ import { useDashboardActions } from "./DashboardDialogs";
 import { CardEditor, type EditorStart } from "./editor/CardEditor";
 import { Menu } from "./Menu";
 
-const OTHER_KINDS: [CardKind, string][] = [["funnel", "Funnel"], ["flow", "Flow"], ["retention", "Retention"], ["records", "Latest records"], ["note", "Note"]];
+const OTHER_KINDS: [CardKind, string, string][] = [
+  ["funnel", "Funnel", "How many get from one step to the next"],
+  ["flow", "Flow", "Where records go, from one field to another"],
+  ["retention", "Retention", "Who comes back, week after week"],
+  ["records", "Latest records", "The most recent rows, as a table"],
+  ["note", "Note", "A heading or a few lines of text"],
+];
 const SELECT = "rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-zeno-teal/20";
 
 export function DashboardView({ dashboard: d, me }: { dashboard: Dashboard; me: Me }) {
@@ -90,7 +96,7 @@ export function DashboardView({ dashboard: d, me }: { dashboard: Dashboard; me: 
           {editable && (
             <div className="flex">
               <Button variant="primary" size="sm" className="rounded-r-none" onClick={() => add("chart")}><Plus className="h-3.5 w-3.5" /> Add card</Button>
-              <Menu label="Other kinds of card" align="right" items={OTHER_KINDS.map(([kind, label]) => ({ label, onSelect: () => add(kind) }))}>
+              <Menu label="Other card types" heading="Other card types" align="right" items={OTHER_KINDS.map(([kind, label, hint]) => ({ label, hint, onSelect: () => add(kind) }))}>
                 <ChevronDown className="h-3.5 w-3.5" />
               </Menu>
             </div>
