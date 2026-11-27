@@ -8,7 +8,8 @@ import { FILTERS, isActive, valueLabel, type FilterId } from "./filter-defs";
 import { FiltersPopover } from "./FiltersPopover";
 import { ColumnPicker } from "./ColumnPicker";
 import type { DismissReason } from "./ToolbarPopover";
-import { DEFAULT_COLUMNS, type ColumnId } from "./vehicle-columns";
+import { DEFAULT_COLUMNS, withoutHidden, type ColumnId } from "./vehicle-columns";
+import { useCanSeeAgreements } from "./agreement-access";
 import { ClearFiltersButton } from "@/components/ui/ClearFiltersButton";
 
 /** The tinted selected style used elsewhere (selected rows, tags), with its dark-mode pair. */
@@ -65,13 +66,15 @@ export function FilterBar({
   const rowRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
 
-  const active = FILTERS.filter((f) => isActive(filters, f.id));
+  const canSeeAgreements = useCanSeeAgreements();
+  const active = FILTERS.filter((f) => (canSeeAgreements || f.id !== "agreements") && isActive(filters, f.id));
+  const defaultColumns = withoutHidden(DEFAULT_COLUMNS, canSeeAgreements);
   const shown = active.slice(0, Math.min(visibleCount, active.length));
   const hiddenCount = active.length - shown.length;
   const hasRow = active.length > 0;
   const customColumns =
     !!columns &&
-    !(columns.visible.length === DEFAULT_COLUMNS.length && DEFAULT_COLUMNS.every((c) => columns.visible.includes(c)));
+    !(columns.visible.length === defaultColumns.length && defaultColumns.every((c) => columns.visible.includes(c)));
 
   // Fit row 2 into MAX_LINES. An invisible copy of every chip gives their
   // widths; packing them as flex-wrap would says how many fit alongside the

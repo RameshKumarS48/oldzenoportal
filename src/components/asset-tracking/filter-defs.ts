@@ -1,4 +1,5 @@
 import type { AssetVehicle, FilterState } from "@/store/asset-tracking";
+import { OVERALL_STATUSES } from "@/lib/mock/vehicle-agreements";
 
 /**
  * The Immobilization dropdown keeps its original wording, but vehicles store
@@ -12,6 +13,7 @@ export const IMMOBILIZATION_OPTIONS = [
 ];
 export const CONNECTIVITY_OPTIONS = ["All", "Online", "Offline", "GpsOffline", "CloudOffline"];
 export const STATUS_OPTIONS = ["All", "active", "new", "test", "used"];
+export const AGREEMENTS_OPTIONS = ["All", ...OVERALL_STATUSES];
 export const TENANT_OPTIONS = [
   "All", "None",
   "fleet/greenwheels", "fleet/mkopa",
@@ -36,7 +38,7 @@ export const immobilizationLabel = (value: string) =>
   Object.keys(IMMOBILIZATION_VALUE).find((k) => IMMOBILIZATION_VALUE[k] === value) ?? value;
 
 export type SelectKey =
-  | "status" | "connectivity" | "immobilization" | "tenant" | "storeCode" | "vcu" | "zeConnect" | "evcc";
+  | "status" | "connectivity" | "immobilization" | "tenant" | "storeCode" | "agreements" | "vcu" | "zeConnect" | "evcc";
 
 /** One filter as the toolbar shows it. Odo Range is one filter over two store fields. */
 export type FilterId = SelectKey | "dateOfSale" | "odo";
@@ -52,6 +54,7 @@ export const FILTERS: { id: FilterId; label: string }[] = [
   { id: "immobilization", label: "Immobilization" },
   { id: "tenant", label: "Tenant" },
   { id: "storeCode", label: "Store Code" },
+  { id: "agreements", label: "Agreements" },
   { id: "dateOfSale", label: "Date of Sale" },
   { id: "odo", label: "Odo Range" },
   { id: "vcu", label: "VCU" },
@@ -79,6 +82,7 @@ export function optionsFor(id: SelectKey, vehicles: AssetVehicle[]): string[] {
     case "immobilization": return IMMOBILIZATION_OPTIONS;
     case "tenant": return TENANT_OPTIONS;
     case "storeCode": return STORE_CODE_OPTIONS;
+    case "agreements": return AGREEMENTS_OPTIONS;
     case "vcu": return getUnique(vehicles, "vcuFirmware");
     case "zeConnect": return getUnique(vehicles, "zeConnectFirmware");
     case "evcc": return getUnique(vehicles, "evccFirmware");

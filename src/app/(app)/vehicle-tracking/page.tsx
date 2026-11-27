@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { List, Map } from "lucide-react";
 import { useAssetTrackingStore } from "@/store/asset-tracking";
 import { useAuthStore } from "@/store/auth";
@@ -11,11 +11,37 @@ import { SegmentedControl } from "@/components/ui/FilterControls";
 import { FilterBar } from "@/components/asset-tracking/FilterBar";
 import { VehicleTable } from "@/components/asset-tracking/VehicleTable";
 import { VehicleMap } from "@/components/asset-tracking/VehicleMap";
-import { useVisibleColumns } from "@/components/asset-tracking/vehicle-columns";
+import { useVisibleColumns, withoutHidden, type ColumnId } from "@/components/asset-tracking/vehicle-columns";
+import { useCanSeeAgreements } from "@/components/asset-tracking/agreement-access";
+import { agreementsFor, formatUtc, summarize, type AgreementType } from "@/lib/mock/vehicle-agreements";
+
+/** The export's agreement columns: the overall status, then each agreement's status and signed time (UTC). */
+const AGREEMENT_HEADERS = [
+  "Agreements",
+  "Warranty agreement", "Warranty signed (UTC)",
+  "Energy agreement", "Energy signed (UTC)",
+];
+
+function agreementCells(v: { vin: string; customerName: string; customerPhone: string }): string[] {
+  const record = agreementsFor(v);
+  const summary = summarize(record);
+  const overall =
+    summary.status === "Pending" && summary.required > 1
+      ? `Pending (${summary.signed} of ${summary.required} signed)`
+      : summary.status;
+  const one = (type: AgreementType) => {
+    const a = record.agreements.find((x) => x.type === type);
+    return a ? [a.status, a.signedAt ? formatUtc(a.signedAt) : ""] : ["", ""];
+  };
+  return [overall, ...one("warranty"), ...one("energy")];
+}
 
 type View = "list" | "map";
 
-async function exportToXLSX(vehicles: ReturnType<typeof useAssetTrackingStore.getState>["vehicles"]) {
+async function exportToXLSX(
+  vehicles: ReturnType<typeof useAssetTrackingStore.getState>["vehicles"],
+  includeAgreements: boolean,
+) {
   const ExcelJS = (await import("exceljs")).default;
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Vehicle Tracking");
@@ -24,6 +50,7 @@ async function exportToXLSX(vehicles: ReturnType<typeof useAssetTrackingStore.ge
     "VIN", "Customer Name", "Customer Phone", "Status", "Tenant", "Store Code",
     "Date of Sale", "Odometer", "Plate", "IMEI", "Connectivity", "Last Connected",
     "Immobilization", "SOC", "Lat", "Long", "VCU", "ZeConnect", "EVCC",
+    ...(includeAgreements ? AGREEMENT_HEADERS : []),
   ];
 
   const headerRow = sheet.addRow(headers);
@@ -36,6 +63,7 @@ async function exportToXLSX(vehicles: ReturnType<typeof useAssetTrackingStore.ge
       v.vin, v.customerName, v.customerPhone, v.status, v.tenant, v.storeCode,
       v.dateOfSale, v.odometer, v.plate, v.imei, v.connectivity, v.lastConnected,
       v.immobilization, v.soc, v.lat, v.long, v.vcuFirmware, v.zeConnectFirmware, v.evccFirmware,
+      ...(includeAgreements ? agreementCells(v) : []),
     ]);
   });
 
@@ -61,7 +89,22 @@ export default function AssetTrackingPage() {
   // does that on its own.
   useAssetTrackingStore((s) => s.filters);
   const userId = useAuthStore((s) => s.user?.id);
-  const [visibleColumns, setVisibleColumns] = useVisibleColumns(userId);
+  const [savedColumns, saveColumns] = useVisibleColumns(userId);
+  const canSeeAgreements = useCanSeeAgreements();
+  const agreementsFilter = useAssetTrackingStore((s) => s.filters.agreements);
+  const setFilter = useAssetTrackingStore((s) => s.setFilter);
+
+  // Partner roles never see the agreement columns. Their own column changes keep
+  // whether Agreements was on, so it's still there when an internal role looks.
+  const visibleColumns = withoutHidden(savedColumns, canSeeAgreements);
+  function setVisibleColumns(cols: ColumnId[]) {
+    saveColumns(canSeeAgreements || !savedColumns.includes("agreements") ? cols : [...cols, "agreements"]);
+  }
+
+  // Nor does the Agreements filter apply to them: one set before switching role is cleared.
+  useEffect(() => {
+    if (!canSeeAgreements && agreementsFilter !== "All") setFilter("agreements", "All");
+  }, [canSeeAgreements, agreementsFilter, setFilter]);
 
   function handleExport() {
     const rows = filteredVehicles();
@@ -69,7 +112,7 @@ export default function AssetTrackingPage() {
       toast.error("Nothing to export", "No vehicle matches the current filters. Clear a filter and try again.");
       return;
     }
-    exportToXLSX(rows);
+    exportToXLSX(rows, canSeeAgreements);
     toast.success("Export downloaded", `${rows.length.toLocaleString()} vehicles written to XLSX.`);
   }
 

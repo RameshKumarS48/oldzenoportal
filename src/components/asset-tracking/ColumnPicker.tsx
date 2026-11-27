@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { COLUMNS, DEFAULT_COLUMNS, type ColumnId } from "./vehicle-columns";
+import { COLUMNS, DEFAULT_COLUMNS, withoutHidden, type ColumnId } from "./vehicle-columns";
+import { useCanSeeAgreements } from "./agreement-access";
 import { ToolbarPopover, type DismissReason } from "./ToolbarPopover";
 
 const same = (a: ColumnId[], b: ColumnId[]) => a.length === b.length && a.every((c) => b.includes(c));
@@ -26,12 +27,17 @@ export function ColumnPicker({
   onChange: (cols: ColumnId[]) => void;
   onDismiss: (reason: DismissReason) => void;
 }) {
+  // Partner roles don't get the agreement columns as options at all.
+  const canSee = useCanSeeAgreements();
+  const options = COLUMNS.filter((c) => withoutHidden([c.id], canSee).length > 0);
+  const defaults = withoutHidden(DEFAULT_COLUMNS, canSee);
+
   // Mounted only while open, so the draft starts from the columns showing now.
   const [draft, setDraft] = useState<ColumnId[]>(visible);
 
   function toggle(id: ColumnId, on: boolean) {
     // Kept in column order whatever order they're ticked in.
-    setDraft((d) => COLUMNS.filter((c) => (c.id === id ? on : d.includes(c.id))).map((c) => c.id));
+    setDraft((d) => options.filter((c) => (c.id === id ? on : d.includes(c.id))).map((c) => c.id));
   }
 
   return (
@@ -45,9 +51,9 @@ export function ColumnPicker({
       footerAction={{
         label: "Reset to default",
         onClick: () => {
-          onChange(DEFAULT_COLUMNS);
+          onChange(defaults);
           // The boxes follow, so the popover shows the default set and Apply has nothing to do.
-          setDraft(DEFAULT_COLUMNS);
+          setDraft(defaults);
         },
       }}
       applyLabel="Apply"
@@ -58,7 +64,7 @@ export function ColumnPicker({
       }}
     >
       <div className="space-y-2">
-        {COLUMNS.map(({ id, label }) => (
+        {options.map(({ id, label }) => (
           <Checkbox
             key={id}
             label={label}

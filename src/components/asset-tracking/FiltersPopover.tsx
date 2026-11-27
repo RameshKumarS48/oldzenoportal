@@ -10,8 +10,9 @@ import {
   type FilterId, type SelectKey,
 } from "./filter-defs";
 import { CAPTION, ToolbarPopover, type DismissReason } from "./ToolbarPopover";
+import { useCanSeeAgreements } from "./agreement-access";
 
-const SELECT_KEYS: SelectKey[] = ["status", "connectivity", "immobilization", "tenant", "storeCode", "vcu", "zeConnect", "evcc"];
+const SELECT_KEYS: SelectKey[] = ["status", "connectivity", "immobilization", "tenant", "storeCode", "agreements", "vcu", "zeConnect", "evcc"];
 
 /** The popover's own copy of the filters. The date is ISO for the date field; Odo ends are field text. */
 type Draft = Record<SelectKey, string> & { date: string; odoFrom: string; odoTo: string };
@@ -24,7 +25,7 @@ const CONTROL =
 function draftFrom(f: FilterState): Draft {
   return {
     status: f.status, connectivity: f.connectivity, immobilization: immobilizationLabel(f.immobilization), tenant: f.tenant,
-    storeCode: f.storeCode, vcu: f.vcu, zeConnect: f.zeConnect, evcc: f.evcc,
+    storeCode: f.storeCode, agreements: f.agreements, vcu: f.vcu, zeConnect: f.zeConnect, evcc: f.evcc,
     date: f.dateOfSale === "All" ? "" : labelToIso(f.dateOfSale),
     odoFrom: f.odoFrom !== null ? String(f.odoFrom) : "",
     odoTo: f.odoTo !== null ? String(f.odoTo) : "",
@@ -34,7 +35,7 @@ function draftFrom(f: FilterState): Draft {
 /** Every filter at "All": what the fields show after Clear filters. */
 const CLEARED = draftFrom({
   immobilization: "All", dateOfSale: "All", connectivity: "All", odoFrom: null, odoTo: null,
-  storeCode: "All", vcu: "All", zeConnect: "All", evcc: "All", status: "All", tenant: "All", search: "",
+  storeCode: "All", vcu: "All", zeConnect: "All", evcc: "All", status: "All", tenant: "All", agreements: "All", search: "",
 });
 
 /** What Apply would write to the store. */
@@ -75,6 +76,7 @@ export function FiltersPopover({
   const filters = useAssetTrackingStore((s) => s.filters);
   const setFilter = useAssetTrackingStore((s) => s.setFilter);
   const vehicles = useAssetTrackingStore((s) => s.vehicles);
+  const canSeeAgreements = useCanSeeAgreements();
 
   // Mounted only while open, so the draft starts from the filters as they are now.
   const [draft, setDraft] = useState<Draft>(() => draftFrom(filters));
@@ -133,6 +135,15 @@ export function FiltersPopover({
             {select("storeCode", "Store Code", "col-span-3")}
           </div>
         </section>
+
+        {canSeeAgreements && (
+          <section className="space-y-2">
+            <h3 className={CAPTION}>Customer</h3>
+            <div className="grid grid-cols-6 gap-3">
+              {select("agreements", "Agreements", "col-span-3")}
+            </div>
+          </section>
+        )}
 
         <section className="space-y-2">
           <h3 className={CAPTION}>Usage</h3>
