@@ -18,6 +18,7 @@ import { useAuthStore } from "@/store/auth";
  * rather than introducing a sixth module.
  */
 const NAV: { href: string; label: string; icon: LucideIcon; module?: AccessModule }[] = [
+  { href: "/dashboards",           label: "Dashboards",                icon: LayoutDashboard, module: "dashboards" },
   { href: "/vehicle-tracking",       label: "Vehicle Tracking",            icon: Grid3X3,        module: "vehicle" },
   { href: "/battery-tracking",     label: "Battery Tracking",          icon: BatteryCharging, module: "vehicle" },
   { href: "/scanner-provisioning", label: "Scanner Provisioning Flow", icon: ScanLine,       module: "scanner" },
@@ -26,7 +27,6 @@ const NAV: { href: string; label: string; icon: LucideIcon; module?: AccessModul
   { href: "/wallet-transactions",  label: "Wallet Transactions",       icon: Wallet,         module: "wallet_info" },
   { href: "/swap-station-pricing", label: "Swap Station Pricing",      icon: Tags,           module: "pricing" },
   { href: "/zeno-charging",        label: "Zeno Charging Network",     icon: PlugZap,        module: "charging" },
-  { href: "/dashboards",           label: "Dashboards",                icon: LayoutDashboard, module: "dashboards" },
   { href: "/users",                label: "User Management",           icon: Users,          module: "user_management" },
 ];
 
