@@ -14,7 +14,7 @@ import { autoTitle, cardSplitOptions, fieldOptions, getRecord, measureLabel, mea
 import { cardErrors, cardKey, LIMITS, tidyCard } from "@/lib/dashboards/rules";
 import type { SearchItem } from "@/lib/dashboards/search";
 import { effectiveView, maxSplits, shapeOf, startsOverTime, VIEW_LABELS, viewsFor } from "@/lib/dashboards/shape";
-import { allowedGrains, GRAIN_LABELS, RANGE_PRESETS, resolveRange } from "@/lib/dashboards/time";
+import { allowedGrains, GRAIN_LABELS, RANGE_PRESETS, rangeText, resolveRange } from "@/lib/dashboards/time";
 import type { QueryContext } from "@/lib/dashboards/query";
 import type { Card, CardKind, Dashboard, FieldRef, Grain, Measure, PresetId, ViewId } from "@/lib/dashboards/types";
 import { toast } from "@/store/toast";
@@ -154,6 +154,14 @@ export function CardEditor({ dashboard, me, ctx, start, onClose }: { dashboard: 
     </details>
   );
 
+  // Always in view, so nobody has to open More options to learn which period the card covers.
+  const timeNote = kind !== "note" && (
+    <p className="text-[11px] text-slate-500">
+      Time range: <span className="font-medium text-slate-700">{rangeText(draft.time.range ?? dashboard.range, ctx.today)}</span>
+      {draft.time.range ? ", set for this card." : ", the dashboard’s."} Change it under More options.
+    </p>
+  );
+
   let form: React.ReactNode;
   if (kind === "note") {
     form = (
@@ -205,6 +213,7 @@ export function CardEditor({ dashboard, me, ctx, start, onClose }: { dashboard: 
             <RegistrySearch key={steps.length} me={me} only="record" placeholder="Search records" onPick={(item) => { setComparing(false); setSteps([...steps, { record: item.measure.record }]); }} />
           </Row>
         ) : <button type="button" className={ADD} onClick={() => setComparing(true)}><Plus className="h-3.5 w-3.5" /> Add step</button>)}
+        {timeNote}
         {timeRows}
       </>
     );
@@ -296,6 +305,7 @@ export function CardEditor({ dashboard, me, ctx, start, onClose }: { dashboard: 
             <input type="number" inputMode="decimal" min={0} aria-label="Target" value={draft.target ?? ""} onChange={(e) => setDraft({ ...draft, target: e.target.value === "" ? undefined : Number(e.target.value) })} className={cn(SMALL, "tabular-nums")} />
           </Row>
         )}
+        {record && timeNote}
         {record && timeRows}
       </>
     );

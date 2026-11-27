@@ -94,12 +94,12 @@ export function DashboardView({ dashboard: d, me }: { dashboard: Dashboard; me: 
             <button type="button" onClick={() => setFiltering(true)} className={cn(SELECT, "inline-flex items-center gap-1.5")}><Filter className="h-3.5 w-3.5" /> Filter</button>
           )}
           {editable && (
-            <div className="flex">
-              <Button variant="primary" size="sm" className="rounded-r-none" onClick={() => add("chart")}><Plus className="h-3.5 w-3.5" /> Add card</Button>
-              <Menu label="Other card types" heading="Other card types" align="right" items={OTHER_KINDS.map(([kind, label, hint]) => ({ label, hint, onSelect: () => add(kind) }))}>
-                <ChevronDown className="h-3.5 w-3.5" />
+            <>
+              <Button variant="primary" size="sm" onClick={() => add("chart")}><Plus className="h-3.5 w-3.5" /> Add card</Button>
+              <Menu label="Other card types" align="right" items={OTHER_KINDS.map(([kind, label, hint]) => ({ label, hint, onSelect: () => add(kind) }))}>
+                <span className="text-xs font-medium text-slate-700">Other card types</span> <ChevronDown className="h-3.5 w-3.5" />
               </Menu>
-            </div>
+            </>
           )}
           <Menu label="Dashboard actions" items={items(d)} />
         </div>
